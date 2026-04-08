@@ -46,8 +46,10 @@ export async function GET() {
     })
   } catch (error) {
     console.error('Debug runs error:', error)
+    const details =
+      error instanceof Error ? error.message : typeof error === 'string' ? error : null
     return NextResponse.json(
-      { error: 'Failed to fetch debug data', details: error.message },
+      { error: 'Failed to fetch debug data', details },
       { status: 500 }
     )
   }
