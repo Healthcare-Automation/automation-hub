@@ -6,8 +6,15 @@ Status page for Proxi automation pipelines. Built with Next.js + Supabase.
 
 ```bash
 npm install
+# One-time setup: create your local env file (do not re-run or you'll overwrite your DB URL)
 cp .env.local.example .env.local
-# Edit .env.local with your DATABASE_URL
+# Edit .env.local and set DATABASE_URL to your real Supabase connection string
+npm run dev
+```
+
+## Daily dev
+
+```bash
 npm run dev
 ```
 
@@ -20,6 +27,9 @@ npm run dev
 
 ## Environment Variables
 
-| Variable | Description |
-|---|---|
+
+| Variable       | Description                                                   |
+| -------------- | ------------------------------------------------------------- |
 | `DATABASE_URL` | Supabase PostgreSQL connection string (pooler URL + password) |
+
+

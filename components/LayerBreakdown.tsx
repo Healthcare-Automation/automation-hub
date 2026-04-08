@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import type { RunDetail, SFErrorDetail } from '@/lib/types'
 import { cn, formatRelativeTime, formatDuration } from '@/lib/utils'
+import ValidationPopup from './ValidationPopup'
 
 function StatusBadge({
   status,
@@ -148,6 +149,8 @@ interface Props {
 const COLS = 'grid-cols-[3rem_4.5rem_3.5rem_1fr_1fr_1fr] gap-x-2'
 
 export default function LayerBreakdown({ runs }: Props) {
+  const [selectedRunId, setSelectedRunId] = useState<number | null>(null)
+
   if (runs.length === 0) {
     return (
       <div className="py-10 text-center text-zinc-600 text-sm">
@@ -158,6 +161,14 @@ export default function LayerBreakdown({ runs }: Props) {
 
   return (
     <div className="space-y-0.5">
+      {/* Instruction text */}
+      <div className="px-3 py-1 text-xs text-zinc-500 flex items-center gap-1.5">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M9 18l6-6-6-6"/>
+        </svg>
+        Click any row to view detailed validation results
+      </div>
+
       {/* Header */}
       <div
           className={cn(
@@ -191,14 +202,16 @@ export default function LayerBreakdown({ runs }: Props) {
       {runs.map((run) => (
         <div
           key={run.id}
+          onClick={() => setSelectedRunId(run.id)}
           className={cn(
-            'grid px-3 py-2.5 rounded-lg text-sm items-center',
-            'hover:bg-zinc-700/30 transition-colors group',
+            'grid px-3 py-2.5 rounded-lg text-sm items-center cursor-pointer',
+            'hover:bg-zinc-700/30 hover:border-zinc-600 transition-all duration-200 group',
+            'border border-transparent relative',
             COLS,
           )}
         >
           {/* Run IDs: show gmail + batch */}
-          <span className="font-mono text-zinc-400 text-[11px] group-hover:text-zinc-300 leading-tight">
+          <span className="font-mono text-zinc-400 text-[11px] group-hover:text-zinc-200 leading-tight transition-colors">
             <span>#{run.id}</span>
             {run.batchId && (
               <span className="block text-zinc-600">#{run.batchId}</span>
@@ -208,7 +221,7 @@ export default function LayerBreakdown({ runs }: Props) {
           <StatusBadge status={run.status} sfErrorCount={run.sfErrorCount} />
 
           {/* Started + duration */}
-          <span className="text-zinc-400 text-xs leading-tight">
+          <span className="text-zinc-400 text-xs leading-tight group-hover:text-zinc-300 transition-colors">
             <span className="block">{formatRelativeTime(run.startedAt)}</span>
             {run.durationSeconds != null && (
               <span className="block text-zinc-600 text-[10px]">
@@ -223,8 +236,24 @@ export default function LayerBreakdown({ runs }: Props) {
           <LayerCell count={run.emailCount} />
           <LayerCell count={run.jobCount} />
           <LayerCell count={run.sfPatchCount} sfErrors={run.sfErrorDetails} />
+
+          {/* Click indicator */}
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <span className="text-xs text-zinc-400 bg-zinc-800 px-2 py-1 rounded border border-zinc-600 flex items-center gap-1">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 18l6-6-6-6"/>
+              </svg>
+              View Details
+            </span>
+          </div>
         </div>
       ))}
+
+      <ValidationPopup
+        runId={selectedRunId || 0}
+        isOpen={selectedRunId !== null}
+        onClose={() => setSelectedRunId(null)}
+      />
     </div>
   )
 }

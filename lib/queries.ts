@@ -207,6 +207,220 @@ export async function getRecentRuns(limit = 20): Promise<RunDetail[]> {
   })
 }
 
+export async function getValidationData(runId: number) {
+  // Get detailed job validation data for a specific run
+  console.log('=== getValidationData Debug ===')
+  console.log('Querying for runId:', runId)
+
+  // The runId passed in is actually a gmail run ID from the UI
+  // We need to find the corresponding link_batch run ID that has job_content
+  const rows = await sql`
+    SELECT
+      jc.id,
+      jc.job_id,
+      jc.job_post_id,
+      es.view_job_link as kimedics_link,
+      jc.sf_job_id,
+      jc.title_line,
+      jc.location_line,
+      jc.job_title,
+      jc.practice_value,
+      jc.city,
+      jc.state,
+      jc.posting_org,
+      jc.priority,
+      jc.status,
+      jc.point_of_contact,
+      jc.provider_start_date,
+      jc.provider_end_date,
+      jc.description_full_text,
+      jc.raw_columns_json,
+      jc.created_at,
+      COALESCE(
+        json_agg(
+          json_build_object(
+            'eventType', jel.event_type,
+            'payload', jel.payload,
+            'createdAt', jel.created_at
+          ) ORDER BY jel.created_at
+        ) FILTER (WHERE jel.id IS NOT NULL),
+        '[]'::json
+      ) as events
+    FROM job_content jc
+    LEFT JOIN email_scrapes es ON es.id = jc.email_scrape_id
+    LEFT JOIN job_event_log jel ON jel.job_id = jc.job_id
+    WHERE jc.run_id = ${runId}
+       OR (es.run_id = ${runId} AND jc.email_scrape_id = es.id)
+    GROUP BY jc.id, jc.job_id, jc.job_post_id, es.view_job_link, jc.sf_job_id,
+             jc.title_line, jc.location_line, jc.job_title, jc.practice_value,
+             jc.city, jc.state, jc.posting_org, jc.priority, jc.status,
+             jc.point_of_contact, jc.provider_start_date, jc.provider_end_date,
+             jc.description_full_text, jc.raw_columns_json, jc.created_at
+    ORDER BY jc.created_at
+  `
+
+  console.log('Raw SQL result:', rows.length, 'rows found')
+  if (rows.length > 0) {
+    console.log('First row sample:', {
+      id: rows[0].id,
+      job_id: rows[0].job_id,
+      sf_job_id: rows[0].sf_job_id,
+      kimedics_link: rows[0].kimedics_link
+    })
+  }
+
+  return rows.map(row => {
+    let events: Array<{eventType: string, payload?: any, createdAt: string}> = []
+    try {
+      events = Array.isArray(row.events) ? row.events : JSON.parse(row.events || '[]')
+    } catch {
+      events = []
+    }
+
+    let rawData: Record<string, any> = {}
+    try {
+      rawData = typeof row.raw_columns_json === 'string' ? JSON.parse(row.raw_columns_json) : row.raw_columns_json || {}
+    } catch {
+      rawData = {}
+    }
+
+    // Family A: Salesforce ID resolution ("mapping") events
+    const mappingEvents = events.filter(e =>
+      ['mapping_cache_hit', 'sf_mapping_skipped', 'sf_mapping_pull_failed',
+       'mapping_ambiguous', 'mapping_ai_match', 'mapping_no_match'].includes(e.eventType)
+    )
+
+    // Family B: Supabase mapping field update audit (prev/next)
+    const mappingUpdateEvents = events.filter(e => e.eventType === 'sf_ids_update')
+
+    // Family C: Salesforce PATCH of "scrape-sync" fields (client-visible field diffs)
+    const salesforceFieldEvents = events.filter(e =>
+      ['sf_sync_skipped_no_mapping', 'sf_scrape_fields_skip',
+       'sf_scrape_fields_error', 'sf_scrape_fields_patched'].includes(e.eventType)
+    )
+
+    // Extract mapping resolution details
+    const mappingResolution = mappingUpdateEvents.map(e => ({
+      source: e.payload?.source || 'unknown',
+      detail: e.payload?.mapping_detail || '',
+      status: e.payload?.mapping_status || '',
+      fieldsChanged: e.payload?.fields_changed || [],
+      prev: e.payload?.prev || {},
+      next: e.payload?.next || {},
+      updatedRows: e.payload?.updated_rows || {}
+    }))[0] // Take the first one since there's usually only one per job
+
+    // Extract Salesforce field changes with before/after
+    const salesforceFieldPatches = salesforceFieldEvents
+      .filter(e => e.eventType === 'sf_scrape_fields_patched')
+      .map(e => ({
+        sfJobId: e.payload?.sf_job_id,
+        fieldsChanged: e.payload?.fields_changed || [],
+        prev: e.payload?.prev || {},
+        next: e.payload?.next || {},
+        ...e.payload
+      }))
+
+    // Extract skip/error reasons by family
+    const mappingIssues = mappingEvents
+      .filter(e => ['sf_mapping_skipped', 'sf_mapping_pull_failed', 'mapping_no_match', 'mapping_ambiguous'].includes(e.eventType))
+      .map(e => ({
+        type: e.eventType,
+        message: e.payload?.error || e.payload?.reason || e.eventType,
+        details: e.payload
+      }))
+
+    const salesforceIssues = salesforceFieldEvents
+      .filter(e => ['sf_sync_skipped_no_mapping', 'sf_scrape_fields_skip', 'sf_scrape_fields_error'].includes(e.eventType))
+      .reduce((acc, e) => {
+        const key = `${e.eventType}_${e.payload?.reason || 'unknown'}`
+        const existing = acc.find(item => item.key === key)
+        if (existing) {
+          existing.count += 1
+          existing.details.fields = existing.details.fields || []
+          if (e.payload?.field && !existing.details.fields.includes(e.payload.field)) {
+            existing.details.fields.push(e.payload.field)
+          }
+        } else {
+          acc.push({
+            key,
+            type: e.eventType,
+            message: e.payload?.error || e.payload?.reason || e.eventType,
+            count: 1,
+            details: {
+              ...e.payload,
+              fields: e.payload?.field ? [e.payload.field] : []
+            }
+          })
+        }
+        return acc
+      }, [] as Array<{key: string, type: string, message: string, count: number, details: any}>)
+
+    // Legacy error extraction for backward compatibility
+    const errors = [...mappingIssues, ...salesforceIssues].map(issue => issue.message).filter(Boolean)
+
+    // Determine status based on sf_job_id and errors
+    let status: 'success' | 'failed' | 'partial'
+    if (!row.sf_job_id) {
+      status = 'failed'
+    } else if (errors.length > 0) {
+      status = 'partial'
+    } else {
+      status = 'success'
+    }
+
+    // Build Kimedics data from job_content fields
+    const kimedicsData: Record<string, any> = {
+      title: row.title_line || row.job_title,
+      location: row.location_line || `${row.city || ''}, ${row.state || ''}`.trim().replace(/^,|,$/, ''),
+      practice: row.practice_value,
+      posting_org: row.posting_org,
+      priority: row.priority,
+      status: row.status,
+      point_of_contact: row.point_of_contact,
+      provider_start_date: row.provider_start_date,
+      provider_end_date: row.provider_end_date,
+      description: row.description_full_text,
+      ...rawData // Include any additional scraped fields
+    }
+
+    // Extract fields that have actual values (for comparison)
+    const fieldsUpdated = Object.keys(kimedicsData).filter(key =>
+      kimedicsData[key] &&
+      kimedicsData[key] !== '' &&
+      !['id', 'created_at', 'updated_at'].includes(key)
+    )
+
+    // Build comprehensive automation audit data
+    return {
+      id: String(row.id),
+      kimedicsLink: row.kimedics_link || '',
+      sfJobId: row.sf_job_id,
+      status,
+      fieldsUpdated,
+      kimedicsData,
+      salesforceData: kimedicsData, // Will be enhanced with actual SF data in UI
+
+      // Family A + B: Salesforce Mapping
+      mappingResolution,
+      mappingIssues,
+
+      // Family C: Salesforce Field Updates
+      salesforceFieldPatches,
+      salesforceIssues,
+
+      // Raw events for debugging
+      mappingEvents,
+      salesforceFieldEvents,
+
+      // Legacy for backward compatibility
+      errors,
+      createdAt: toISOString(row.created_at),
+    }
+  })
+}
+
+/** Rolling 7-day window (`NOW() - 7 days`) — must match WeeklySummaryCards copy. */
 export async function getWeeklySummary(): Promise<WeeklySummary> {
   const [emailRes, jobRes, sfRes, runRes] = await Promise.all([
     sql`SELECT count(*) AS c FROM email_scrapes WHERE created_at > NOW() - INTERVAL '7 days'`,
