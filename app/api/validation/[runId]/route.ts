@@ -8,9 +8,11 @@ export async function GET(
   try {
     const { runId: runIdStr } = await params
     const runId = parseInt(runIdStr)
+    const jobId = request.nextUrl.searchParams.get('jobId') || undefined
 
     console.log('=== Validation API Debug ===')
     console.log('Requested runId:', runIdStr, 'parsed as:', runId)
+    if (jobId) console.log('Filtering by jobId:', jobId)
 
     if (isNaN(runId)) {
       return NextResponse.json(
@@ -19,7 +21,7 @@ export async function GET(
       )
     }
 
-    const data = await getValidationData(runId)
+    const data = await getValidationData(runId, jobId)
     console.log('Found', data.length, 'jobs for run', runId)
 
     return NextResponse.json({ jobs: data })

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { RunDetail, SFErrorDetail } from '@/lib/types'
 import { cn, formatRelativeTime, formatDuration } from '@/lib/utils'
 import ValidationPopup from './ValidationPopup'
@@ -150,23 +150,92 @@ const COLS = 'grid-cols-[3rem_4.5rem_3.5rem_1fr_1fr_1fr] gap-x-2'
 
 export default function LayerBreakdown({ runs }: Props) {
   const [selectedRunId, setSelectedRunId] = useState<number | null>(null)
+  const [jobIdFilter, setJobIdFilter] = useState('')
+  const [activeJobId, setActiveJobId] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [filteredRuns, setFilteredRuns] = useState<RunDetail[] | null>(null)
 
-  if (runs.length === 0) {
+  const displayedRuns = filteredRuns ?? runs
+
+  const canSearch = useMemo(() => jobIdFilter.trim().length > 0, [jobIdFilter])
+
+  useEffect(() => {
+    // If the user clears the input, revert to default recent runs.
+    if (jobIdFilter.trim() === '') {
+      setFilteredRuns(null)
+      setActiveJobId(null)
+      setError(null)
+    }
+  }, [jobIdFilter])
+
+  const applyFilter = async () => {
+    const jobId = jobIdFilter.trim()
+    if (!jobId) return
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/runs?jobId=${encodeURIComponent(jobId)}`)
+      if (!res.ok) throw new Error('Failed to fetch runs')
+      const data = await res.json()
+      setFilteredRuns(data.runs || [])
+      setActiveJobId(jobId)
+    } catch {
+      setError('Failed to load runs for job_id')
+      setFilteredRuns([])
+      setActiveJobId(jobId)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (displayedRuns.length === 0) {
     return (
       <div className="py-10 text-center text-zinc-600 text-sm">
-        No runs found in the database.
+        {activeJobId ? `No runs found for job_id=${activeJobId}.` : 'No runs found in the database.'}
       </div>
     )
   }
 
   return (
     <div className="space-y-0.5">
+      {/* Filter */}
+      <div className="px-3 pt-2 pb-1 flex items-center gap-2">
+        <input
+          value={jobIdFilter}
+          onChange={(e) => setJobIdFilter(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') applyFilter()
+          }}
+          placeholder="19596"
+          className="w-full bg-zinc-900/40 border border-zinc-700/50 rounded-lg px-3 py-2 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-zinc-600/50"
+        />
+        <button
+          onClick={applyFilter}
+          disabled={!canSearch || loading}
+          className={cn(
+            'px-3 py-2 rounded-lg text-xs font-medium border transition-colors whitespace-nowrap',
+            canSearch && !loading
+              ? 'border-zinc-600/60 text-zinc-200 hover:bg-zinc-700/30'
+              : 'border-zinc-800 text-zinc-600 cursor-not-allowed'
+          )}
+        >
+          {loading ? 'Loading…' : 'Search'}
+        </button>
+      </div>
+
+      {error && (
+        <div className="px-3 pb-1 text-[11px] text-red-400">
+          {error}
+        </div>
+      )}
+
       {/* Instruction text */}
       <div className="px-3 py-1 text-xs text-zinc-500 flex items-center gap-1.5">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M9 18l6-6-6-6"/>
         </svg>
-        Click any row to view detailed validation results
+        Click any row to view details{activeJobId ? ` (filtered to job_id=${activeJobId})` : ''}
       </div>
 
       {/* Header */}
@@ -199,7 +268,7 @@ export default function LayerBreakdown({ runs }: Props) {
         </span>
       </div>
 
-      {runs.map((run) => (
+      {displayedRuns.map((run) => (
         <div
           key={run.id}
           onClick={() => setSelectedRunId(run.id)}
@@ -253,6 +322,7 @@ export default function LayerBreakdown({ runs }: Props) {
         runId={selectedRunId || 0}
         isOpen={selectedRunId !== null}
         onClose={() => setSelectedRunId(null)}
+        jobId={activeJobId ?? undefined}
       />
     </div>
   )

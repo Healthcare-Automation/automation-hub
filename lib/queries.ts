@@ -207,19 +207,156 @@ export async function getRecentRuns(limit = 20): Promise<RunDetail[]> {
   })
 }
 
-export async function getValidationData(runId: number) {
+export async function getRunsForJobId(jobId: string): Promise<RunDetail[]> {
+  const rows = await sql<Array<{
+    gmail_id:           number | string
+    batch_id:           number | string | null
+    started_at:         Date | string
+    gmail_finished:     Date | string | null
+    batch_finished:     Date | string | null
+    gmail_secs:         string | number | null
+    batch_secs:         string | number | null
+    total_secs:         string | number | null
+    email_count:        string | number
+    job_count:          string | number
+    sf_patch_count:     string | number
+    sf_error_count:     string | number
+    sf_error_details:   unknown
+  }>>`
+    WITH ${sql.unsafe(PAIRED_CTE)}
+    SELECT
+      p.gmail_id,
+      p.batch_id,
+      p.started_at,
+      p.gmail_finished,
+      p.batch_finished,
+      EXTRACT(EPOCH FROM (p.gmail_finished  - p.started_at))    AS gmail_secs,
+      EXTRACT(EPOCH FROM (p.batch_finished  - p.batch_started)) AS batch_secs,
+      EXTRACT(EPOCH FROM (
+        COALESCE(p.batch_finished, p.gmail_finished) - p.started_at
+      )) AS total_secs,
+      count(DISTINCT es.id)  AS email_count,
+      count(DISTINCT jc.id)  AS job_count,
+      count(DISTINCT jel.id) FILTER (WHERE jel.event_type = 'sf_scrape_fields_patched') AS sf_patch_count,
+      count(DISTINCT jel.id) FILTER (WHERE jel.event_type IN ('sf_scrape_fields_error', 'sf_mapping_pull_failed')) AS sf_error_count,
+      (
+        SELECT COALESCE(
+          json_agg(json_build_object(
+            'jobId',     err.job_id,
+            'eventType', err.event_type,
+            'error',     COALESCE(
+                           err.payload->>'error',
+                           err.payload->>'detail',
+                           err.payload->>'message',
+                           'Salesforce sync failed'
+                         )
+          ) ORDER BY err.created_at),
+          '[]'::json
+        )
+        FROM job_event_log err
+        WHERE err.run_id = p.batch_id
+          AND err.job_id = ${jobId}
+          AND err.event_type IN ('sf_scrape_fields_error', 'sf_mapping_pull_failed')
+        LIMIT 10
+      ) AS sf_error_details
+    FROM paired p
+    LEFT JOIN email_scrapes es  ON es.run_id  = p.gmail_id
+    LEFT JOIN job_content   jc  ON jc.run_id  = p.batch_id AND jc.job_id = ${jobId}
+    LEFT JOIN job_event_log jel ON jel.run_id = p.batch_id AND jel.job_id = ${jobId}
+    WHERE jc.id IS NOT NULL
+    GROUP BY p.gmail_id, p.batch_id, p.started_at, p.gmail_finished,
+             p.batch_started, p.batch_finished
+    ORDER BY p.started_at DESC
+  `
+
+  // Reuse mapping logic from getRecentRuns
+  return rows.map(row => {
+    const startedAt  = toISOString(row.started_at)
+    const gmailFinished = row.gmail_finished ? toISOString(row.gmail_finished) : null
+    const batchFinished = row.batch_finished ? toISOString(row.batch_finished) : null
+    const finishedAt = batchFinished ?? gmailFinished
+
+    const gmailDurationSeconds = row.gmail_secs != null ? Math.round(Number(row.gmail_secs)) : null
+    const batchDurationSeconds = row.batch_secs != null ? Math.round(Number(row.batch_secs)) : null
+    const durationSeconds      = row.total_secs != null ? Math.round(Number(row.total_secs)) : null
+
+    let status: RunDetail['status'] = 'running'
+    if (gmailFinished && (row.batch_id === null || batchFinished)) {
+      status = 'completed'
+    } else {
+      const ageMs = Date.now() - new Date(startedAt).getTime()
+      if (ageMs > 60 * 60 * 1000) status = 'error'
+    }
+
+    let sfErrorDetails: import('./types').SFErrorDetail[] = []
+    try {
+      const raw = row.sf_error_details
+      sfErrorDetails = Array.isArray(raw) ? raw : (typeof raw === 'string' ? JSON.parse(raw) : [])
+    } catch { sfErrorDetails = [] }
+
+    return {
+      id:                   Number(row.gmail_id),
+      batchId:              row.batch_id != null ? Number(row.batch_id) : null,
+      startedAt,
+      finishedAt,
+      gmailDurationSeconds,
+      batchDurationSeconds,
+      durationSeconds,
+      emailCount:           Number(row.email_count),
+      jobCount:             Number(row.job_count),
+      sfPatchCount:         Number(row.sf_patch_count),
+      sfErrorCount:         Number(row.sf_error_count),
+      status,
+      sfErrorDetails,
+    }
+  })
+}
+
+export async function getValidationData(runId: number, jobId?: string) {
   // Get detailed job validation data for a specific run
   console.log('=== getValidationData Debug ===')
   console.log('Querying for runId:', runId)
 
-  // The runId passed in is actually a gmail run ID from the UI
-  // We need to find the corresponding link_batch run ID that has job_content
-  const rows = await sql`
+  // Note: UI passes a pipeline "run id" (gmail anchor). Depending on how the
+  // automation writes data, job_content may be keyed by either gmail run or
+  // the paired link_batch run. This query tolerates both.
+  const rows = await sql<Array<{
+    id: number | string
+    job_id: string
+    job_post_id: string | null
+    kimedics_link: string | null
+    sf_job_id: string | null
+    title_line: string | null
+    location_line: string | null
+    job_title: string | null
+    practice_value: string | null
+    city: string | null
+    state: string | null
+    posting_org: string | null
+    priority: string | null
+    status: string | null
+    point_of_contact: string | null
+    provider_start_date: string | null
+    provider_end_date: string | null
+    description_full_text: string | null
+    raw_columns_json: unknown
+    created_at: Date | string
+    run_id: number | string | null
+    email_scrape_id: number | string | null
+    email_subject: string | null
+    email_action_or_change: string | null
+    email_created_at: Date | string | null
+    events_this_run: unknown
+    events_history: unknown
+  }>>`
     SELECT
       jc.id,
       jc.job_id,
       jc.job_post_id,
       es.view_job_link as kimedics_link,
+      es.subject as email_subject,
+      es.action_or_change as email_action_or_change,
+      es.created_at as email_created_at,
       jc.sf_job_id,
       jc.title_line,
       jc.location_line,
@@ -236,27 +373,64 @@ export async function getValidationData(runId: number) {
       jc.description_full_text,
       jc.raw_columns_json,
       jc.created_at,
-      COALESCE(
-        json_agg(
-          json_build_object(
-            'eventType', jel.event_type,
-            'payload', jel.payload,
-            'createdAt', jel.created_at
-          ) ORDER BY jel.created_at
-        ) FILTER (WHERE jel.id IS NOT NULL),
-        '[]'::json
-      ) as events
+      jc.run_id,
+      jc.email_scrape_id,
+      COALESCE(ev_this.events, '[]'::json)    AS events_this_run,
+      COALESCE(ev_hist.events, '[]'::json)    AS events_history
     FROM job_content jc
     LEFT JOIN email_scrapes es ON es.id = jc.email_scrape_id
-    LEFT JOIN job_event_log jel ON jel.job_id = jc.job_id
-    WHERE jc.run_id = ${runId}
-       OR (es.run_id = ${runId} AND jc.email_scrape_id = es.id)
-    GROUP BY jc.id, jc.job_id, jc.job_post_id, es.view_job_link, jc.sf_job_id,
-             jc.title_line, jc.location_line, jc.job_title, jc.practice_value,
-             jc.city, jc.state, jc.posting_org, jc.priority, jc.status,
-             jc.point_of_contact, jc.provider_start_date, jc.provider_end_date,
-             jc.description_full_text, jc.raw_columns_json, jc.created_at
-    ORDER BY jc.created_at
+    LEFT JOIN LATERAL (
+      SELECT COALESCE(
+        json_agg(
+          json_build_object(
+            'id',        jel.id,
+            'runId',     jel.run_id,
+            'eventType', jel.event_type,
+            'payload',   jel.payload,
+            'createdAt', jel.created_at
+          ) ORDER BY jel.created_at
+        ),
+        '[]'::json
+      ) AS events
+      FROM job_event_log jel
+      WHERE jel.job_id = jc.job_id
+        AND jc.run_id IS NOT NULL
+        AND jel.run_id = jc.run_id
+    ) ev_this ON true
+    LEFT JOIN LATERAL (
+      SELECT COALESCE(
+        json_agg(
+          json_build_object(
+            'id',        jel.id,
+            'runId',     jel.run_id,
+            'eventType', jel.event_type,
+            'payload',   jel.payload,
+            'createdAt', jel.created_at
+          ) ORDER BY jel.created_at DESC
+        ),
+        '[]'::json
+      ) AS events
+      FROM (
+        SELECT *
+        FROM job_event_log jel
+        WHERE jel.job_id = jc.job_id
+          AND jel.event_type IN (
+            'mapping_cache_hit','sf_mapping_skipped','sf_mapping_pull_failed',
+            'mapping_ambiguous','mapping_ai_match','mapping_no_match',
+            'sf_ids_update',
+            'sf_sync_skipped_no_mapping','sf_scrape_fields_skip',
+            'sf_scrape_fields_error','sf_scrape_fields_patched'
+          )
+        ORDER BY jel.created_at DESC
+        LIMIT 50
+      ) jel
+    ) ev_hist ON true
+    WHERE (
+      jc.run_id = ${runId}
+      OR (es.run_id = ${runId} AND jc.email_scrape_id = es.id)
+    )
+    ${jobId ? sql`AND jc.job_id = ${jobId}` : sql``}
+    ORDER BY COALESCE(es.created_at, jc.created_at) DESC
   `
 
   console.log('Raw SQL result:', rows.length, 'rows found')
@@ -270,12 +444,18 @@ export async function getValidationData(runId: number) {
   }
 
   return rows.map(row => {
-    let events: Array<{eventType: string, payload?: any, createdAt: string}> = []
-    try {
-      events = Array.isArray(row.events) ? row.events : JSON.parse(row.events || '[]')
-    } catch {
-      events = []
+    type RawEvent = { id?: number; runId?: number; eventType: string; payload?: any; createdAt: string }
+    const parseEvents = (raw: unknown): RawEvent[] => {
+      try {
+        const v = Array.isArray(raw) ? raw : (typeof raw === 'string' ? JSON.parse(raw) : [])
+        return Array.isArray(v) ? (v as RawEvent[]) : []
+      } catch {
+        return []
+      }
     }
+
+    const eventsThisRun = parseEvents(row.events_this_run)
+    const eventsHistory = parseEvents(row.events_history)
 
     let rawData: Record<string, any> = {}
     try {
@@ -285,22 +465,36 @@ export async function getValidationData(runId: number) {
     }
 
     // Family A: Salesforce ID resolution ("mapping") events
-    const mappingEvents = events.filter(e =>
+    const mappingEvents = eventsThisRun.filter(e =>
       ['mapping_cache_hit', 'sf_mapping_skipped', 'sf_mapping_pull_failed',
        'mapping_ambiguous', 'mapping_ai_match', 'mapping_no_match'].includes(e.eventType)
     )
 
     // Family B: Supabase mapping field update audit (prev/next)
-    const mappingUpdateEvents = events.filter(e => e.eventType === 'sf_ids_update')
+    const mappingUpdateEvents = eventsThisRun.filter(e => e.eventType === 'sf_ids_update')
 
     // Family C: Salesforce PATCH of "scrape-sync" fields (client-visible field diffs)
-    const salesforceFieldEvents = events.filter(e =>
-      ['sf_sync_skipped_no_mapping', 'sf_scrape_fields_skip',
-       'sf_scrape_fields_error', 'sf_scrape_fields_patched'].includes(e.eventType)
+    const salesforceFieldEvents = eventsThisRun.filter(e =>
+      [
+        'sf_sync_skipped_no_mapping',
+        'sf_scrape_fields_skip',
+        'sf_scrape_fields_error',
+        'sf_scrape_fields_patched',
+        // Delayed queue lifecycle
+        'sf_patch_enqueued',
+        'sf_patch_queue_refreshed',
+        'sf_patch_deferred_no_mapping',
+        'sf_patch_skipped_short_lived',
+        'sf_patch_processed',
+        'sf_patch_error',
+      ].includes(e.eventType)
     )
 
     // Extract mapping resolution details
     const mappingResolution = mappingUpdateEvents.map(e => ({
+      eventId: e.id,
+      runId: e.runId,
+      createdAt: e.createdAt,
       source: e.payload?.source || 'unknown',
       detail: e.payload?.mapping_detail || '',
       status: e.payload?.mapping_status || '',
@@ -314,6 +508,9 @@ export async function getValidationData(runId: number) {
     const salesforceFieldPatches = salesforceFieldEvents
       .filter(e => e.eventType === 'sf_scrape_fields_patched')
       .map(e => ({
+        eventId: e.id,
+        runId: e.runId,
+        createdAt: e.createdAt,
         sfJobId: e.payload?.sf_job_id,
         fieldsChanged: e.payload?.fields_changed || [],
         prev: e.payload?.prev || {},
@@ -394,12 +591,22 @@ export async function getValidationData(runId: number) {
     // Build comprehensive automation audit data
     return {
       id: String(row.id),
+      jobId: String(row.job_id),
+      jobPostId: row.job_post_id ? String(row.job_post_id) : null,
+      runId: row.run_id != null ? Number(row.run_id) : null,
+      emailScrapeId: row.email_scrape_id != null ? Number(row.email_scrape_id) : null,
+      emailSubject: row.email_subject ?? null,
+      emailActionOrChange: row.email_action_or_change ?? null,
+      emailCreatedAt: row.email_created_at ? toISOString(row.email_created_at) : null,
       kimedicsLink: row.kimedics_link || '',
       sfJobId: row.sf_job_id,
       status,
       fieldsUpdated,
       kimedicsData,
       salesforceData: kimedicsData, // Will be enhanced with actual SF data in UI
+
+      // Primary timeline source: only events attributable to this run_id
+      eventsThisRun,
 
       // Family A + B: Salesforce Mapping
       mappingResolution,
@@ -412,6 +619,7 @@ export async function getValidationData(runId: number) {
       // Raw events for debugging
       mappingEvents,
       salesforceFieldEvents,
+      eventsHistory,
 
       // Legacy for backward compatibility
       errors,
