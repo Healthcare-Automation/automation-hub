@@ -185,8 +185,7 @@ function buildTimeline(job: ValidationJobDetail): TimelineItem[] {
     e.eventType === 'sf_scrape_fields_patched' ||
     e.eventType === 'sf_scrape_fields_error' ||
     e.eventType === 'sf_scrape_fields_skip' ||
-    e.eventType === 'sf_sync_skipped_no_mapping' ||
-    e.eventType.startsWith('sf_patch_')
+    e.eventType === 'sf_sync_skipped_no_mapping'
   )
   const hasAnyMappingEvent = evs.some(e =>
     e.eventType === 'sf_ids_update' ||
@@ -258,62 +257,6 @@ function buildTimeline(job: ValidationJobDetail): TimelineItem[] {
         kind: 'skip' as const,
         title: 'Skipped',
         subtitle: String(msg),
-        event: e,
-      }
-    }
-
-    // Salesforce delayed patch queue family
-    if (type === 'sf_patch_enqueued' || type === 'sf_patch_queue_refreshed') {
-      const eligibleAt = e.payload?.eligible_at
-      return {
-        key: `ev_${e.id ?? ts}_${type}`,
-        ts,
-        kind: 'info' as const,
-        title: 'Salesforce update queued',
-        subtitle: eligibleAt ? `Eligible at ${String(eligibleAt)}` : 'Queued',
-        event: e,
-      }
-    }
-    if (type === 'sf_patch_deferred_no_mapping') {
-      return {
-        key: `ev_${e.id ?? ts}_${type}`,
-        ts,
-        kind: 'skip' as const,
-        title: 'Salesforce update',
-        subtitle: 'Deferred (no sf_job_id mapping yet)',
-        event: e,
-      }
-    }
-    if (type === 'sf_patch_skipped_short_lived') {
-      return {
-        key: `ev_${e.id ?? ts}_${type}`,
-        ts,
-        kind: 'skip' as const,
-        title: 'Salesforce update',
-        subtitle: 'Skipped (closed before eligible window elapsed)',
-        event: e,
-      }
-    }
-    if (type === 'sf_patch_error') {
-      const msg = e.payload?.error || 'Salesforce queued update failed'
-      return {
-        key: `ev_${e.id ?? ts}_${type}`,
-        ts,
-        kind: 'error' as const,
-        title: 'Salesforce update error',
-        subtitle: String(msg),
-        event: e,
-      }
-    }
-    if (type === 'sf_patch_processed') {
-      const patched = Boolean(e.payload?.patched)
-      const reason = e.payload?.reason
-      return {
-        key: `ev_${e.id ?? ts}_${type}`,
-        ts,
-        kind: 'sf' as const,
-        title: 'Salesforce update',
-        subtitle: patched ? 'Processed (patched)' : `Processed${reason ? ` (${String(reason)})` : ''}`,
         event: e,
       }
     }

@@ -480,13 +480,6 @@ export async function getValidationData(runId: number, jobId?: string) {
         'sf_scrape_fields_skip',
         'sf_scrape_fields_error',
         'sf_scrape_fields_patched',
-        // Delayed queue lifecycle
-        'sf_patch_enqueued',
-        'sf_patch_queue_refreshed',
-        'sf_patch_deferred_no_mapping',
-        'sf_patch_skipped_short_lived',
-        'sf_patch_processed',
-        'sf_patch_error',
       ].includes(e.eventType)
     )
 
