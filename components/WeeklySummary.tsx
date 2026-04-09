@@ -54,26 +54,35 @@ export default function WeeklySummaryCards({ summary }: Props) {
   start.setUTCDate(start.getUTCDate() - 6)
   const rangeLabel = `${formatUTCShortDate(start)}–${formatUTCShortDate(end)} (UTC)`
 
+  const { allTime } = summary
+
   const stats = [
     {
       icon: <MailIcon />,
       value: summary.emailsProcessed.toLocaleString(),
       label: 'Emails',
+      allTimeLine: `${allTime.emailsProcessed.toLocaleString()} all-time`,
     },
     {
       icon: <SearchIcon />,
       value: summary.jobsScraped.toLocaleString(),
       label: 'Jobs scraped',
+      allTimeLine: `${allTime.jobsScraped.toLocaleString()} all-time`,
     },
     {
       icon: <CloudIcon />,
       value: summary.sfPatches.toLocaleString(),
       label: 'SF synced',
+      allTimeLine: `${allTime.sfPatches.toLocaleString()} all-time`,
     },
     {
       icon: <CheckIcon />,
       value: `${summary.successRate}%`,
       label: `${summary.completedRuns} of ${summary.totalRuns} runs`,
+      allTimeLine:
+        allTime.totalRuns > 0
+          ? `${allTime.successRate}% · ${allTime.totalRuns.toLocaleString()} runs all-time`
+          : '0 runs all-time',
     },
   ]
 
@@ -91,11 +100,14 @@ export default function WeeklySummaryCards({ summary }: Props) {
       {stats.map((stat) => (
         <div key={stat.label} className="flex items-center gap-3 px-5 py-4">
           <div className="text-zinc-500 shrink-0">{stat.icon}</div>
-          <div>
+          <div className="min-w-0">
             <p className="text-xl font-semibold text-white tabular-nums tracking-tight leading-none">
               {stat.value}
             </p>
             <p className="text-xs text-zinc-500 mt-1">{stat.label}</p>
+            <p className="text-[10px] text-zinc-600/90 tabular-nums mt-1 leading-snug">
+              {stat.allTimeLine}
+            </p>
           </div>
         </div>
       ))}

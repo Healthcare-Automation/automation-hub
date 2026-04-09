@@ -623,31 +623,46 @@ export async function getValidationData(runId: number, jobId?: string) {
 
 /** Rolling 7-day window (`NOW() - 7 days`) — must match WeeklySummaryCards copy. */
 export async function getWeeklySummary(): Promise<WeeklySummary> {
-  const [emailRes, jobRes, sfRes, runRes] = await Promise.all([
+  const runAggSql = sql`
+    WITH ${sql.unsafe(PAIRED_CTE)}
+    SELECT
+      count(*)  AS total,
+      count(*) FILTER (
+        WHERE gmail_finished IS NOT NULL
+          AND (batch_id IS NULL OR batch_finished IS NOT NULL)
+          AND NOT EXISTS (
+            SELECT 1 FROM job_event_log e
+            WHERE e.run_id = paired.batch_id
+              AND e.event_type IN ('sf_scrape_fields_error', 'sf_mapping_pull_failed')
+          )
+      ) AS completed
+    FROM paired
+  `
+
+  const [
+    emailRes,
+    jobRes,
+    sfRes,
+    runRes,
+    allTimeEmailRes,
+    allTimeJobRes,
+    allTimeSfRes,
+    allTimeRunRes,
+  ] = await Promise.all([
     sql`SELECT count(*) AS c FROM email_scrapes WHERE created_at > NOW() - INTERVAL '7 days'`,
     sql`SELECT count(*) AS c FROM job_content   WHERE created_at > NOW() - INTERVAL '7 days'`,
     sql`SELECT count(*) AS c FROM job_event_log WHERE event_type = 'sf_scrape_fields_patched' AND created_at > NOW() - INTERVAL '7 days'`,
-    // Count pipeline runs — "completed" means finished AND zero SF errors
-    sql`
-      WITH ${sql.unsafe(PAIRED_CTE)}
-      SELECT
-        count(*)  AS total,
-        count(*) FILTER (
-          WHERE gmail_finished IS NOT NULL
-            AND (batch_id IS NULL OR batch_finished IS NOT NULL)
-            AND NOT EXISTS (
-              SELECT 1 FROM job_event_log e
-              WHERE e.run_id = paired.batch_id
-                AND e.event_type IN ('sf_scrape_fields_error', 'sf_mapping_pull_failed')
-            )
-        ) AS completed
-      FROM paired
-      WHERE started_at > NOW() - INTERVAL '7 days'
-    `,
+    sql`${runAggSql} WHERE started_at > NOW() - INTERVAL '7 days'`,
+    sql`SELECT count(*) AS c FROM email_scrapes`,
+    sql`SELECT count(*) AS c FROM job_content`,
+    sql`SELECT count(*) AS c FROM job_event_log WHERE event_type = 'sf_scrape_fields_patched'`,
+    sql`${runAggSql}`,
   ])
 
   const totalRuns = Number(runRes[0]?.total ?? 0)
   const completedRuns = Number(runRes[0]?.completed ?? 0)
+  const allTimeTotalRuns = Number(allTimeRunRes[0]?.total ?? 0)
+  const allTimeCompletedRuns = Number(allTimeRunRes[0]?.completed ?? 0)
 
   return {
     emailsProcessed: Number(emailRes[0]?.c ?? 0),
@@ -656,5 +671,14 @@ export async function getWeeklySummary(): Promise<WeeklySummary> {
     totalRuns,
     completedRuns,
     successRate: totalRuns > 0 ? Math.round((completedRuns / totalRuns) * 100) : 0,
+    allTime: {
+      emailsProcessed: Number(allTimeEmailRes[0]?.c ?? 0),
+      jobsScraped:     Number(allTimeJobRes[0]?.c ?? 0),
+      sfPatches:       Number(allTimeSfRes[0]?.c ?? 0),
+      totalRuns:       allTimeTotalRuns,
+      completedRuns:   allTimeCompletedRuns,
+      successRate:
+        allTimeTotalRuns > 0 ? Math.round((allTimeCompletedRuns / allTimeTotalRuns) * 100) : 0,
+    },
   }
 }

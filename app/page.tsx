@@ -7,6 +7,9 @@ import AutomationCard from '@/components/AutomationCard'
 
 export const revalidate = 60
 
+/** First day in production (UTC calendar day). Testing phase ends the prior day. */
+const PRODUCTION_GO_LIVE_DATE = '2026-04-09'
+
 function ProxiLogo() {
   return (
     <div className="flex items-center gap-2.5">
@@ -50,9 +53,15 @@ export default async function Page() {
     )
   }
 
-  // Testing phase: started from the first day we have any run data
+  // Automation clock start: first day we have any run data (for idle / chart context)
   const testingStartDate =
     dailyStatus.find(d => d.totalRuns > 0)?.day ?? dailyStatus[0].day
+
+  const lastTestingDay = (() => {
+    const d = new Date(PRODUCTION_GO_LIVE_DATE + 'T00:00:00Z')
+    d.setUTCDate(d.getUTCDate() - 1)
+    return d.toISOString().split('T')[0]
+  })()
 
   // Any no-data day on or after the automation started means the inbox was
   // empty — the script exits early without writing a DB row. Show as idle.
@@ -66,9 +75,20 @@ export default async function Page() {
   const overallStatus = getOverallStatus(enrichedDailyStatus, lastRun)
   const uptime = calculateUptime(enrichedDailyStatus)
 
-  const phases: Phase[] = [
-    { label: 'Testing', startDate: testingStartDate, kind: 'testing' },
-  ]
+  const phases: Phase[] = []
+  if (testingStartDate <= lastTestingDay) {
+    phases.push({
+      label: 'Testing',
+      startDate: testingStartDate,
+      endDate: lastTestingDay,
+      kind: 'testing',
+    })
+  }
+  phases.push({
+    label: 'Production',
+    startDate: PRODUCTION_GO_LIVE_DATE,
+    kind: 'production',
+  })
 
   return (
     <main className="min-h-screen" style={{ background: 'var(--background)' }}>

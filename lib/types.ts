@@ -45,6 +45,15 @@ export interface WeeklySummary {
   totalRuns: number
   completedRuns: number
   successRate: number
+  /** Lifetime totals for subtle display alongside rolling 7-day metrics */
+  allTime: {
+    emailsProcessed: number
+    jobsScraped: number
+    sfPatches: number
+    totalRuns: number
+    completedRuns: number
+    successRate: number
+  }
 }
 
 export interface OverallStatus {

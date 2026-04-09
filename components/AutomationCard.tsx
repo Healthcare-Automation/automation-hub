@@ -16,80 +16,103 @@ interface Props {
   phases?: Phase[]
 }
 
-const PHASE_STYLES = {
-  testing: {
-    bar: 'bg-amber-500/20 border-amber-500/30',
-    text: 'text-amber-400',
-    dot: 'bg-amber-500',
-    ping: 'bg-amber-400',
-    label: 'Testing',
-  },
-  production: {
-    bar: 'bg-emerald-500/20 border-emerald-500/30',
-    text: 'text-emerald-400',
-    dot: 'bg-emerald-500',
-    ping: 'bg-emerald-400',
-    label: 'Production',
-  },
+function segmentInWindow(
+  startMs: number,
+  endMs: number,
+  windowStart: number,
+  windowMs: number,
+): { left: number; width: number } {
+  const left = Math.max(0, Math.min(100, ((startMs - windowStart) / windowMs) * 100))
+  const right = Math.max(0, Math.min(100, ((endMs - windowStart) / windowMs) * 100))
+  return { left, width: Math.max(0, right - left) }
 }
 
+/** Single track: amber = testing (through last testing day), emerald = production (from go-live). */
 function PhaseTimeline({ dailyStatus, phases }: { dailyStatus: DayStatus[]; phases: Phase[] }) {
   if (!phases.length || !dailyStatus.length) return null
 
   const windowStart = new Date(dailyStatus[0].day + 'T00:00:00Z').getTime()
-  const windowEnd = new Date(dailyStatus[dailyStatus.length - 1].day + 'T00:00:00Z').getTime()
-  const windowMs = windowEnd - windowStart || 1
+  const lastDay = dailyStatus[dailyStatus.length - 1].day
+  const windowEndExclusive = (() => {
+    const d = new Date(lastDay + 'T00:00:00Z')
+    d.setUTCDate(d.getUTCDate() + 1)
+    return d.getTime()
+  })()
+  const windowMs = windowEndExclusive - windowStart || 1
+
+  const testing = phases.find(p => p.kind === 'testing')
+  const production = phases.find(p => p.kind === 'production')
+
+  let testingSeg = { left: 0, width: 0 }
+  if (testing) {
+    const tStart = new Date(testing.startDate + 'T00:00:00Z').getTime()
+    const tEnd = testing.endDate
+      ? (() => {
+          const d = new Date(testing.endDate + 'T00:00:00Z')
+          d.setUTCDate(d.getUTCDate() + 1)
+          return d.getTime()
+        })()
+      : windowEndExclusive
+    testingSeg = segmentInWindow(tStart, tEnd, windowStart, windowMs)
+  }
+
+  let productionSeg = { left: 0, width: 0 }
+  if (production) {
+    const pStart = new Date(production.startDate + 'T00:00:00Z').getTime()
+    productionSeg = segmentInWindow(pStart, windowEndExclusive, windowStart, windowMs)
+  }
 
   return (
-    <div className="mt-3 space-y-2.5">
+    <div className="mt-3 space-y-2">
       <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest">
         Phase
       </p>
 
-      {phases.map((phase, i) => {
-        const phaseStart = new Date(phase.startDate + 'T00:00:00Z').getTime()
-        const phaseEnd = phase.endDate
-          ? new Date(phase.endDate + 'T00:00:00Z').getTime()
-          : windowEnd
+      <div className="relative h-2 w-full bg-zinc-700/50 rounded-full overflow-hidden">
+        {testingSeg.width > 0 && (
+          <div
+            className="absolute top-0 bottom-0 bg-amber-500"
+            style={{ left: `${testingSeg.left}%`, width: `${testingSeg.width}%` }}
+            title="Testing"
+          />
+        )}
+        {productionSeg.width > 0 && (
+          <div
+            className="absolute top-0 bottom-0 bg-emerald-500 z-[1]"
+            style={{ left: `${productionSeg.left}%`, width: `${productionSeg.width}%` }}
+            title="Production"
+          />
+        )}
+      </div>
 
-        const leftPct = Math.max(0, ((phaseStart - windowStart) / windowMs) * 100)
-        const rightEdgePct = Math.min(100, ((phaseEnd - windowStart) / windowMs) * 100)
-        const widthPct = Math.max(0, rightEdgePct - leftPct)
-        const isOngoing = !phase.endDate
-
-        const s = PHASE_STYLES[phase.kind]
-
-        return (
-          <div key={i} className="space-y-1.5">
-            {/* Visual track — full width background with colored fill */}
-            <div className="relative h-2 w-full bg-zinc-700/50 rounded-full overflow-hidden">
-              <div
-                className={cn('absolute top-0 h-full rounded-full', s.dot)}
-                style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
-              />
-            </div>
-
-            {/* Label row — always full width, never clipped */}
-            <div className="flex items-center gap-2 flex-wrap">
-              {isOngoing && (
+      <div className="flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-5 sm:gap-y-1">
+        {testing && (
+          <div className="flex items-center gap-2 text-[10px]">
+            <span className="h-1.5 w-5 shrink-0 rounded-sm bg-amber-500" aria-hidden />
+            <span className="font-semibold text-amber-400">Testing</span>
+            <span className="text-zinc-500">
+              {testing.endDate
+                ? `${formatShortDate(testing.startDate)} – ${formatShortDate(testing.endDate)}`
+                : `since ${formatShortDate(testing.startDate)}`}
+            </span>
+          </div>
+        )}
+        {production && (
+          <div className="flex items-center gap-2 text-[10px]">
+            <span className="h-1.5 w-5 shrink-0 rounded-sm bg-emerald-500" aria-hidden />
+            <span className="font-semibold text-emerald-400">Production</span>
+            <span className="text-zinc-500 inline-flex items-center gap-1.5">
+              from {formatShortDate(production.startDate)}
+              {!production.endDate && (
                 <span className="relative flex h-1.5 w-1.5 shrink-0">
-                  <span className={cn('animate-ping absolute inline-flex h-full w-full rounded-full opacity-75', s.ping)} />
-                  <span className={cn('relative inline-flex rounded-full h-1.5 w-1.5', s.dot)} />
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
                 </span>
               )}
-              <span className={cn('text-[10px] font-semibold', s.text)}>
-                {s.label}
-              </span>
-              <span className="text-[10px] text-zinc-500">
-                since {formatShortDate(phase.startDate)}
-              </span>
-              {isOngoing && (
-                <span className="text-[10px] text-zinc-500">· Ongoing</span>
-              )}
-            </div>
+            </span>
           </div>
-        )
-      })}
+        )}
+      </div>
     </div>
   )
 }

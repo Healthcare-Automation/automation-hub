@@ -3,6 +3,19 @@
 import { formatRelativeTime, formatShortDate } from '@/lib/utils'
 import type { OverallStatus, RunDetail, Phase } from '@/lib/types'
 
+const PHASE_ROW = {
+  testing: {
+    ping: 'bg-amber-400',
+    dot: 'bg-amber-500',
+    text: 'text-amber-400',
+  },
+  production: {
+    ping: 'bg-emerald-400',
+    dot: 'bg-emerald-500',
+    text: 'text-emerald-400',
+  },
+} as const
+
 const CONFIG = {
   operational: {
     bg: 'bg-emerald-500/10 border-emerald-500/20',
@@ -36,6 +49,7 @@ interface Props {
 export default function StatusHeader({ overallStatus, lastRun, phases = [] }: Props) {
   const c = CONFIG[overallStatus.kind]
   const activePhase = phases.find(p => !p.endDate)
+  const phaseStyle = activePhase ? PHASE_ROW[activePhase.kind] : null
 
   return (
     <div className={`${c.bg} border rounded-xl overflow-hidden`}>
@@ -60,15 +74,15 @@ export default function StatusHeader({ overallStatus, lastRun, phases = [] }: Pr
       </div>
 
       {/* Phase row */}
-      {activePhase && (
+      {activePhase && phaseStyle && (
         <div className={`border-t ${c.divider} px-5 py-2.5 flex items-center gap-2`}>
           <span className="relative flex h-1.5 w-1.5 shrink-0">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500" />
+            <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${phaseStyle.ping} opacity-75`} />
+            <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${phaseStyle.dot}`} />
           </span>
-          <span className="text-amber-400 text-xs font-semibold">{activePhase.label} Phase</span>
+          <span className={`${phaseStyle.text} text-xs font-semibold`}>{activePhase.label} Phase</span>
           <span className="text-zinc-500 text-xs">
-            · since {formatShortDate(activePhase.startDate)} · Ongoing
+            · since {formatShortDate(activePhase.startDate)}
           </span>
         </div>
       )}
