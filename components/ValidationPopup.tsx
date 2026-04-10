@@ -45,15 +45,18 @@ interface ValidationJobDetail {
     details: any
   }>
 
-  // Family C: Salesforce Field Updates
+  // Family C: Salesforce Field Updates (includes full field audits when nothing PATCHed)
   salesforceFieldPatches?: Array<{
     eventId?: number
     runId?: number
     createdAt?: string
     sfJobId: string
     fieldsChanged: string[]
+    fieldsCompared?: string[]
     prev: Record<string, any>
     next: Record<string, any>
+    auditOnly?: boolean
+    skipReason?: string
   }>
   salesforceIssues?: Array<{
     type: string
@@ -171,6 +174,73 @@ function fmtVal(v: any) {
   }
 }
 
+/** Job__c layout (Overview → dates/schedule → insight → …); description last. Unknown __c fields sort before description. */
+const SF_VALIDATION_FIELD_ORDER: string[] = [
+  'Job_Account__c',
+  'Job_Worksite_Location_1__c',
+  'Job_Street_Address__c',
+  'Job_Point_of_Contact__c',
+  'External_Job_ID__c',
+  'External_Job_Link__c',
+  'test_status__c',
+  'test_posted_date__c',
+  'Job_Status__c',
+  'Position_Type_DJC__c',
+  'Specialty_DJC__c',
+  'Occupation_DJC__c',
+  'Job_City__c',
+  'Job_State__c',
+  'Job_Ranking__c',
+  'Job_Facility_Display__c',
+  'Job_Client_Job_Id__c',
+  'Worksite_Parent__c',
+  'Job_Patient_Ages__c',
+  'Job_Volume__c',
+  'Job_Recruitment_Level__c',
+  'Salary_Pay_Range__c',
+  'Job_Dates_Needed__c',
+  'Job_Standard_Schedule__c',
+  'Standard_Schedule_Hours__c',
+  'Job_Provider_Start_Date__c',
+  'Job_Provider_End_Date__c',
+  'Insight__c',
+  'Job_Types_of_Cases__c',
+  'Job_Support_Staff__c',
+]
+
+const SF_DESC_FIELD = 'Job_Client_Job_Description__c'
+
+function sortSfValidationFields(fields: string[]): string[] {
+  const known = new Map(SF_VALIDATION_FIELD_ORDER.map((f, i) => [f, i]))
+  const maxKnown = SF_VALIDATION_FIELD_ORDER.length
+  const rank = (f: string) => {
+    if (f === SF_DESC_FIELD) return maxKnown + 2
+    const i = known.get(f)
+    if (i !== undefined) return i
+    return maxKnown + 1
+  }
+  return [...fields].sort((a, b) => {
+    const ra = rank(a)
+    const rb = rank(b)
+    if (ra !== rb) return ra - rb
+    return a.localeCompare(b)
+  })
+}
+
+/** All fields evaluated for a sync (preferred); legacy events only have fields_changed. */
+function sfSyncDisplayedFields(payload: Record<string, any> | undefined): string[] {
+  if (!payload) return []
+  const fc = payload.fields_compared
+  if (Array.isArray(fc) && fc.length > 0) return sortSfValidationFields(fc)
+  return sortSfValidationFields(payload.fields_changed ?? [])
+}
+
+function sfValuesMatchDisplay(a: unknown, b: unknown): boolean {
+  const sa = fmtVal(a)
+  const sb = fmtVal(b)
+  return sa === sb
+}
+
 function buildTimeline(job: ValidationJobDetail): TimelineItem[] {
   const practice = job.kimedicsData?.practice || job.kimedicsData?.practice_value
   const evs = job.eventsThisRun ?? []
@@ -228,13 +298,18 @@ function buildTimeline(job: ValidationJobDetail): TimelineItem[] {
     // Salesforce field update family
     if (type === 'sf_scrape_fields_patched') {
       const sfJobId = e.payload?.sf_job_id
-      const fields = e.payload?.fields_changed ?? []
+      const fields = sfSyncDisplayedFields(e.payload)
+      const nPatch = Array.isArray(e.payload?.fields_changed) ? e.payload.fields_changed.length : 0
+      const sub =
+        fields.length > 0
+          ? `${sfJobId ? `Record ${sfJobId}` : 'Record'} · ${nPatch} PATCHed · ${fields.length} field${fields.length !== 1 ? 's' : ''} in audit · ${fields.slice(0, 2).join(', ')}${fields.length > 2 ? ` +${fields.length - 2} more` : ''}`
+          : `${sfJobId ? `Record ${sfJobId}` : 'Record'}`
       return {
         key: `ev_${e.id ?? ts}_${type}`,
         ts,
         kind: 'sf' as const,
         title: 'Salesforce update',
-        subtitle: `${sfJobId ? `Record ${sfJobId}` : 'Record'} · ${fields.slice(0, 3).join(', ')}${fields.length > 3 ? ` +${fields.length - 3} more` : ''}`,
+        subtitle: sub,
         event: e,
       }
     }
@@ -251,12 +326,22 @@ function buildTimeline(job: ValidationJobDetail): TimelineItem[] {
     }
     if (type === 'sf_scrape_fields_skip' || type === 'sf_sync_skipped_no_mapping') {
       const msg = e.payload?.reason || e.payload?.message || type
+      const fields = sfSyncDisplayedFields(e.payload)
+      const sub =
+        type === 'sf_scrape_fields_skip' && fields.length > 0
+          ? `${String(msg)} · ${fields.length} field${fields.length !== 1 ? 's' : ''} compared (all matched SF)`
+          : String(msg)
       return {
         key: `ev_${e.id ?? ts}_${type}`,
         ts,
         kind: 'skip' as const,
-        title: 'Skipped',
-        subtitle: String(msg),
+        title:
+          type === 'sf_sync_skipped_no_mapping'
+            ? 'Skipped'
+            : fields.length > 0
+              ? 'Salesforce sync'
+              : 'Skipped',
+        subtitle: sub,
         event: e,
       }
     }
@@ -386,9 +471,9 @@ function Timeline({ job }: { job: ValidationJobDetail }) {
 
                           {Array.isArray(it.event?.payload?.fields_changed) && it.event.payload.fields_changed.length > 0 && (
                             <div className="mt-3 space-y-2">
-                              {it.event.payload.fields_changed
-                                .filter((f: string) => f !== 'sf_worksite_account_id')
-                                .map((field: string) => (
+                              {sortSfValidationFields(
+                                it.event.payload.fields_changed.filter((f: string) => f !== 'sf_worksite_account_id'),
+                              ).map((field: string) => (
                                   <div key={field} className="bg-emerald-500/5 border border-emerald-500/10 rounded p-2">
                                     <div className="text-[10px] font-semibold text-emerald-400 mb-1">{field}</div>
                                     <div className="grid grid-cols-2 gap-2 text-[11px]">
@@ -414,28 +499,90 @@ function Timeline({ job }: { job: ValidationJobDetail }) {
                             <span className="text-zinc-500">Record:</span>{' '}
                             <span className="font-mono text-emerald-200">{it.event?.payload?.sf_job_id ?? '—'}</span>
                           </div>
+                          {(() => {
+                            const p = it.event?.payload || {}
+                            const list = sfSyncDisplayedFields(p)
+                            const patched = new Set<string>(Array.isArray(p.fields_changed) ? p.fields_changed : [])
+                            if (list.length === 0) return null
+                            return (
+                              <div className="mt-3 space-y-2">
+                                {list.map((field: string) => {
+                                  const didPatch = patched.has(field)
+                                  const matched = sfValuesMatchDisplay(p.prev?.[field], p.next?.[field])
+                                  return (
+                                    <div
+                                      key={field}
+                                      className={cn(
+                                        'rounded p-2 border',
+                                        didPatch
+                                          ? 'bg-emerald-500/5 border-emerald-500/10'
+                                          : 'bg-zinc-800/40 border-zinc-700/40',
+                                      )}
+                                    >
+                                      <div className="flex items-center justify-between gap-2 mb-1">
+                                        <div className="text-[10px] font-semibold text-emerald-400">{field}</div>
+                                        <span
+                                          className={cn(
+                                            'text-[9px] px-1.5 py-0.5 rounded shrink-0',
+                                            didPatch
+                                              ? 'bg-emerald-500/20 text-emerald-300'
+                                              : matched
+                                                ? 'bg-zinc-700/60 text-zinc-400'
+                                                : 'bg-amber-500/15 text-amber-300',
+                                          )}
+                                        >
+                                          {didPatch ? 'PATCHed' : matched ? 'unchanged' : 'review'}
+                                        </span>
+                                      </div>
+                                      <div className="grid grid-cols-2 gap-2 text-[11px]">
+                                        <div>
+                                          <span className="text-zinc-500">Before: </span>
+                                          <span className="font-mono text-zinc-300">{fmtVal(p.prev?.[field])}</span>
+                                        </div>
+                                        <div>
+                                          <span className="text-zinc-500">After: </span>
+                                          <span className="font-mono text-emerald-200">{fmtVal(p.next?.[field])}</span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            )
+                          })()}
+                        </div>
+                      )}
 
-                          {Array.isArray(it.event?.payload?.fields_changed) && it.event.payload.fields_changed.length > 0 && (
+                      {it.event?.eventType === 'sf_scrape_fields_skip' &&
+                        Array.isArray(it.event.payload?.fields_compared) &&
+                        it.event.payload.fields_compared.length > 0 && (
+                          <div className="mt-2 rounded-lg p-3 bg-blue-500/5 border border-blue-500/15">
+                            <div className="text-xs text-zinc-300">
+                              <span className="text-zinc-500">Record:</span>{' '}
+                              <span className="font-mono text-blue-200">{it.event?.payload?.sf_job_id ?? '—'}</span>
+                            </div>
+                            <p className="text-[10px] text-zinc-500 mt-1">
+                              Full audit — values already matched Salesforce (no PATCH).
+                            </p>
                             <div className="mt-3 space-y-2">
-                              {it.event.payload.fields_changed.map((field: string) => (
-                                <div key={field} className="bg-emerald-500/5 border border-emerald-500/10 rounded p-2">
-                                  <div className="text-[10px] font-semibold text-emerald-400 mb-1">{field}</div>
+                              {sfSyncDisplayedFields(it.event.payload).map((field: string) => (
+                                <div key={field} className="bg-zinc-800/40 border border-zinc-700/40 rounded p-2">
+                                  <div className="text-[10px] font-semibold text-blue-300 mb-1">{field}</div>
                                   <div className="grid grid-cols-2 gap-2 text-[11px]">
                                     <div>
-                                      <span className="text-zinc-500">Before: </span>
+                                      <span className="text-zinc-500">Salesforce: </span>
                                       <span className="font-mono text-zinc-300">{fmtVal(it.event?.payload?.prev?.[field])}</span>
                                     </div>
                                     <div>
-                                      <span className="text-zinc-500">After: </span>
-                                      <span className="font-mono text-emerald-200">{fmtVal(it.event?.payload?.next?.[field])}</span>
+                                      <span className="text-zinc-500">Desired: </span>
+                                      <span className="font-mono text-blue-200">{fmtVal(it.event?.payload?.next?.[field])}</span>
                                     </div>
                                   </div>
                                 </div>
                               ))}
                             </div>
-                          )}
-                        </div>
-                      )}
+                          </div>
+                        )}
 
                       {/* Fallback: show raw payload in a subtle way */}
                       {it.event?.eventType !== 'sf_ids_update' &&
@@ -598,52 +745,99 @@ function SalesforceFieldUpdatesSection({ job }: { job: ValidationJobDetail }) {
     }
   }
 
+  const patchList = job.salesforceFieldPatches || []
+  const anyAudit = patchList.some(p => p.auditOnly)
+  const anyPatched = patchList.some(p => !p.auditOnly)
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-xs font-semibold text-zinc-400">Salesforce Field Updates</p>
+        <p className="text-xs font-semibold text-zinc-400">Salesforce field sync</p>
         <span className="text-[10px] text-zinc-600">Family C</span>
       </div>
 
-      {/* Successful Field Patches */}
       {hasPatches && (
-        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3">
+        <div
+          className={cn(
+            'rounded-lg p-3 border',
+            anyPatched && !anyAudit && 'bg-emerald-500/10 border-emerald-500/20',
+            anyAudit && !anyPatched && 'bg-blue-500/10 border-blue-500/20',
+            anyAudit && anyPatched && 'bg-zinc-800/40 border-zinc-700/50',
+          )}
+        >
           <div className="flex items-center justify-between mb-3">
-            <p className="text-emerald-400 text-xs font-semibold flex items-center gap-1">
+            <p
+              className={cn(
+                'text-xs font-semibold flex items-center gap-1',
+                anyPatched && !anyAudit && 'text-emerald-400',
+                anyAudit && !anyPatched && 'text-blue-300',
+                anyAudit && anyPatched && 'text-zinc-300',
+              )}
+            >
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M20 6 9 17l-5-5" />
               </svg>
-              Fields Successfully Updated
+              {anyPatched && anyAudit && 'PATCH + full-field audit'}
+              {anyPatched && !anyAudit && 'Fields pushed to Salesforce'}
+              {!anyPatched && anyAudit && 'Full-field audit (already matched SF)'}
             </p>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-300">
-                {job.salesforceFieldPatches?.length || 0} record{(job.salesforceFieldPatches?.length || 0) !== 1 ? 's' : ''}
+              <span
+                className={cn(
+                  'text-[10px] px-2 py-1 rounded-full',
+                  anyPatched && !anyAudit && 'bg-emerald-500/20 text-emerald-300',
+                  anyAudit && !anyPatched && 'bg-blue-500/20 text-blue-300',
+                  anyAudit && anyPatched && 'bg-zinc-700/50 text-zinc-300',
+                )}
+              >
+                {patchList.length} event{patchList.length !== 1 ? 's' : ''}
               </span>
-              {(job.salesforceFieldPatches?.length || 0) > 1 && (
+              {patchList.length > 1 && (
                 <button
                   onClick={toggleAllPatches}
-                  className="text-[10px] px-2 py-1 rounded border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10 transition-colors"
+                  className="text-[10px] px-2 py-1 rounded border border-zinc-600 text-zinc-300 hover:bg-zinc-800/50 transition-colors"
                 >
-                  {job.salesforceFieldPatches?.every((_, i) => expandedPatches.has(i)) ? 'Collapse All' : 'Expand All'}
+                  {patchList.every((_, i) => expandedPatches.has(i)) ? 'Collapse All' : 'Expand All'}
                 </button>
               )}
             </div>
           </div>
-          {job.salesforceFieldPatches?.map((patch, i) => {
+          {patchList.map((patch, i) => {
             const isExpanded = expandedPatches.has(i)
+            const fc = patch.fieldsCompared?.length ? patch.fieldsCompared : patch.fieldsChanged
+            const fieldsOrdered = sortSfValidationFields(fc)
+            const patchedSet = new Set(patch.fieldsChanged || [])
+            const isAudit = Boolean(patch.auditOnly)
             return (
-              <div key={i} className="border border-emerald-500/20 rounded-lg mb-2 last:mb-0">
-                {/* Collapsible header */}
+              <div
+                key={`${patch.eventId ?? i}_${isAudit ? 'a' : 'p'}`}
+                className={cn(
+                  'rounded-lg mb-2 last:mb-0 border',
+                  isAudit ? 'border-blue-500/25 bg-blue-500/5' : 'border-emerald-500/20 bg-emerald-500/5',
+                )}
+              >
                 <button
                   onClick={() => togglePatch(i)}
-                  className="w-full p-3 text-left hover:bg-emerald-500/5 transition-colors flex items-center justify-between"
+                  className={cn(
+                    'w-full p-3 text-left transition-colors flex items-center justify-between rounded-lg',
+                    isAudit ? 'hover:bg-blue-500/10' : 'hover:bg-emerald-500/10',
+                  )}
                 >
-                  <div className="flex-1">
-                    <div className="text-xs text-emerald-400 font-medium mb-1">
+                  <div className="flex-1 min-w-0">
+                    <div className={cn('text-xs font-medium mb-1', isAudit ? 'text-blue-300' : 'text-emerald-400')}>
                       Record {patch.sfJobId}
+                      {isAudit ? (
+                        <span className="text-zinc-500 font-normal"> · audit only</span>
+                      ) : (
+                        <span className="text-zinc-500 font-normal">
+                          {' '}
+                          · {patch.fieldsChanged.length} PATCHed · {fieldsOrdered.length} in audit
+                        </span>
+                      )}
                     </div>
-                    <div className="text-[10px] text-zinc-400">
-                      Updated {patch.fieldsChanged.length} field{patch.fieldsChanged.length !== 1 ? 's' : ''}: {patch.fieldsChanged.slice(0, 3).join(', ')}{patch.fieldsChanged.length > 3 ? ` +${patch.fieldsChanged.length - 3} more` : ''}
+                    <div className="text-[10px] text-zinc-400 truncate">
+                      {fieldsOrdered.slice(0, 4).join(', ')}
+                      {fieldsOrdered.length > 4 ? ` +${fieldsOrdered.length - 4} more` : ''}
                     </div>
                   </div>
                   <svg
@@ -655,31 +849,66 @@ function SalesforceFieldUpdatesSection({ job }: { job: ValidationJobDetail }) {
                     strokeWidth="2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    className={cn("text-emerald-400 transition-transform", isExpanded ? "rotate-90" : "")}
+                    className={cn(
+                      'shrink-0 transition-transform',
+                      isAudit ? 'text-blue-400' : 'text-emerald-400',
+                      isExpanded ? 'rotate-90' : '',
+                    )}
                   >
-                    <path d="M9 18l6-6-6-6"/>
+                    <path d="M9 18l6-6-6-6" />
                   </svg>
                 </button>
 
-                {/* Expanded content */}
                 {isExpanded && (
-                  <div className="px-3 pb-3 border-t border-emerald-500/10">
+                  <div
+                    className={cn(
+                      'px-3 pb-3 border-t',
+                      isAudit ? 'border-blue-500/15' : 'border-emerald-500/10',
+                    )}
+                  >
                     <div className="space-y-2 pt-2">
-                      {patch.fieldsChanged.map(field => (
-                        <div key={field} className="bg-emerald-500/5 border border-emerald-500/10 rounded p-2">
-                          <div className="text-[10px] font-semibold text-emerald-400 mb-1">{field}</div>
-                          <div className="grid grid-cols-2 gap-2 text-[11px]">
-                            <div>
-                              <span className="text-zinc-500">Before: </span>
-                              <span className="font-mono text-zinc-300">{patch.prev[field] || '—'}</span>
+                      {fieldsOrdered.map(field => {
+                        const didPatch = !isAudit && patchedSet.has(field)
+                        const matched = sfValuesMatchDisplay(patch.prev?.[field], patch.next?.[field])
+                        const badgeLabel = isAudit ? 'matched SF' : didPatch ? 'PATCHed' : matched ? 'unchanged' : 'review'
+                        const badgeClass = didPatch
+                          ? 'bg-emerald-500/20 text-emerald-300'
+                          : isAudit || matched
+                            ? 'bg-zinc-700/60 text-zinc-400'
+                            : 'bg-amber-500/15 text-amber-300'
+                        return (
+                          <div
+                            key={field}
+                            className={cn(
+                              'rounded p-2 border',
+                              didPatch
+                                ? 'bg-emerald-500/5 border-emerald-500/15'
+                                : 'bg-zinc-900/50 border-zinc-700/40',
+                            )}
+                          >
+                            <div className="flex items-center justify-between gap-2 mb-1">
+                              <div className={cn('text-[10px] font-semibold', isAudit ? 'text-blue-300' : 'text-emerald-400')}>
+                                {field}
+                              </div>
+                              <span className={cn('text-[9px] px-1.5 py-0.5 rounded shrink-0', badgeClass)}>
+                                {badgeLabel}
+                              </span>
                             </div>
-                            <div>
-                              <span className="text-zinc-500">After: </span>
-                              <span className="font-mono text-emerald-300">{patch.next[field] || '—'}</span>
+                            <div className="grid grid-cols-2 gap-2 text-[11px]">
+                              <div>
+                                <span className="text-zinc-500">{isAudit ? 'Salesforce: ' : 'Before: '}</span>
+                                <span className="font-mono text-zinc-300">{fmtVal(patch.prev?.[field])}</span>
+                              </div>
+                              <div>
+                                <span className="text-zinc-500">{isAudit ? 'Desired: ' : 'After: '}</span>
+                                <span className={cn('font-mono', isAudit ? 'text-blue-200' : 'text-emerald-300')}>
+                                  {fmtVal(patch.next?.[field])}
+                                </span>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   </div>
                 )}
@@ -793,6 +1022,16 @@ function JobCard({ job }: { job: ValidationJobDetail }) {
               </a>
             )}
           </div>
+          {(job.kimedicsData?.practice || job.kimedicsData?.practice_value) ? (
+            <div className="text-[11px] text-zinc-400 leading-snug">
+              <span className="text-zinc-500">Kimedics practice → Salesforce </span>
+              <span className="font-mono text-zinc-300">Job_Client_Job_Id__c</span>
+              <span className="text-zinc-500">: </span>
+              <span className="text-zinc-200">{String(job.kimedicsData.practice ?? job.kimedicsData.practice_value)}</span>
+              <span className="text-zinc-600"> · </span>
+              <span className="text-zinc-500">Shown only in PATCH diffs when SF value differs from Kimedics.</span>
+            </div>
+          ) : null}
         </div>
       </div>
 

@@ -497,19 +497,48 @@ export async function getValidationData(runId: number, jobId?: string) {
       updatedRows: e.payload?.updated_rows || {}
     }))[0] // Take the first one since there's usually only one per job
 
-    // Extract Salesforce field changes with before/after
-    const salesforceFieldPatches = salesforceFieldEvents
+    // Extract Salesforce field changes with before/after (full audit: all compared fields, not only PATCH body)
+    const patchedRows = salesforceFieldEvents
       .filter(e => e.eventType === 'sf_scrape_fields_patched')
       .map(e => ({
+        ...e.payload,
         eventId: e.id,
         runId: e.runId,
         createdAt: e.createdAt,
         sfJobId: e.payload?.sf_job_id,
         fieldsChanged: e.payload?.fields_changed || [],
+        fieldsCompared: e.payload?.fields_compared?.length
+          ? e.payload.fields_compared
+          : (e.payload?.fields_changed || []),
         prev: e.payload?.prev || {},
         next: e.payload?.next || {},
-        ...e.payload
+        auditOnly: false,
       }))
+
+    const auditRows = salesforceFieldEvents
+      .filter(e =>
+        e.eventType === 'sf_scrape_fields_skip' &&
+        e.payload?.reason === 'already_matches_salesforce' &&
+        Array.isArray(e.payload?.fields_compared) &&
+        e.payload.fields_compared.length > 0
+      )
+      .map(e => ({
+        ...e.payload,
+        eventId: e.id,
+        runId: e.runId,
+        createdAt: e.createdAt,
+        sfJobId: e.payload?.sf_job_id,
+        fieldsChanged: e.payload?.fields_changed || [],
+        fieldsCompared: e.payload.fields_compared || [],
+        prev: e.payload?.prev || {},
+        next: e.payload?.next || {},
+        auditOnly: true,
+        skipReason: e.payload?.reason,
+      }))
+
+    const salesforceFieldPatches = [...patchedRows, ...auditRows].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )
 
     // Extract skip/error reasons by family
     const mappingIssues = mappingEvents
