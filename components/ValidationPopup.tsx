@@ -67,6 +67,17 @@ interface ValidationJobDetail {
     details: any
   }>
 
+  /** Set when automation POSTed a new Job__c (event ``job_created_in_salesforce``). */
+  salesforceJobCreated?: {
+    eventId?: number
+    runId?: number | null
+    createdAt: string
+    sfJobId: string | null
+    sfWorksiteAccountId: string | null
+    automationKind: string | null
+    summary: string | null
+  } | null
+
   // Raw events for debugging
   mappingEvents?: any[]
   salesforceFieldEvents?: any[]
@@ -283,6 +294,7 @@ function pipelineTieRank(item: TimelineItem): number {
   if (t === 'sf_worksite_missing_on_job_row') return 350
   if (t === 'job_current_sf_ids_changed' || t === 'job_current_upsert') return 400
   if (t === 'sf_ids_update' || t.startsWith('mapping_') || t.startsWith('sf_mapping_')) return 500
+  if (t === 'job_created_in_salesforce') return 550
   if (t.startsWith('sf_scrape_fields_') || t === 'sf_sync_skipped_no_mapping') return 800
   if (t === 'synthetic_sf_skip') return 900
   return 200
@@ -311,12 +323,14 @@ function buildTimeline(job: ValidationJobDetail): TimelineItem[] {
     e.eventType === 'sf_scrape_fields_patched' ||
     e.eventType === 'sf_scrape_fields_error' ||
     e.eventType === 'sf_scrape_fields_skip' ||
-    e.eventType === 'sf_sync_skipped_no_mapping'
+    e.eventType === 'sf_sync_skipped_no_mapping' ||
+    e.eventType === 'job_created_in_salesforce'
   )
   const hasAnyMappingEvent = evs.some(e =>
     e.eventType === 'sf_ids_update' ||
     e.eventType.startsWith('mapping_') ||
-    e.eventType.startsWith('sf_mapping_')
+    e.eventType.startsWith('sf_mapping_') ||
+    e.eventType === 'job_created_in_salesforce'
   )
 
   const items: TimelineItem[] = evs.map((e) => {
@@ -347,6 +361,20 @@ function buildTimeline(job: ValidationJobDetail): TimelineItem[] {
         kind,
         title: type.replaceAll('_', ' '),
         subtitle: String(msg),
+        event: e,
+      }
+    }
+
+    if (type === 'job_created_in_salesforce') {
+      const sid = e.payload?.sf_job_id ? String(e.payload.sf_job_id) : '—'
+      const wid = e.payload?.sf_worksite_account_id ? String(e.payload.sf_worksite_account_id) : ''
+      const sum = e.payload?.summary ? String(e.payload.summary) : 'New Job__c created via API (unmapped Kimedics job).'
+      return {
+        key: `ev_${e.id ?? ts}_${type}`,
+        ts,
+        kind: 'new' as const,
+        title: 'New Job__c in Salesforce',
+        subtitle: [sum, `Record ${sid}`, wid ? `Worksite Account ${wid}` : null].filter(Boolean).join(' · '),
         event: e,
       }
     }
@@ -721,8 +749,39 @@ function Timeline({ job }: { job: ValidationJobDetail }) {
                         </div>
                       )}
 
+                      {it.event?.eventType === 'job_created_in_salesforce' && (
+                        <div className="mt-2 rounded-lg p-3 bg-violet-500/10 border border-violet-500/25 text-xs text-zinc-300 space-y-2">
+                          <p className="text-[11px] font-semibold text-violet-200">
+                            New Job__c (automation — not an existing match)
+                          </p>
+                          {it.event.payload?.summary ? (
+                            <p className="text-[11px] text-zinc-400 leading-relaxed">{String(it.event.payload.summary)}</p>
+                          ) : null}
+                          <div className="grid gap-1 font-mono text-[11px]">
+                            <p>
+                              <span className="text-zinc-500">sf_job_id</span>{' '}
+                              <span className="text-violet-200">{String(it.event.payload?.sf_job_id ?? '—')}</span>
+                            </p>
+                            {it.event.payload?.sf_worksite_account_id ? (
+                              <p>
+                                <span className="text-zinc-500">sf_worksite_account_id</span>{' '}
+                                <span className="text-violet-200">
+                                  {String(it.event.payload.sf_worksite_account_id)}
+                                </span>
+                              </p>
+                            ) : null}
+                            {it.event.payload?.automation_kind ? (
+                              <p className="text-zinc-600">
+                                automation_kind: {String(it.event.payload.automation_kind)}
+                              </p>
+                            ) : null}
+                          </div>
+                        </div>
+                      )}
+
                       {/* Fallback: show raw payload in a subtle way */}
                       {it.event?.eventType !== 'sf_ids_update' &&
+                        it.event?.eventType !== 'job_created_in_salesforce' &&
                         it.event?.eventType !== 'sf_scrape_fields_patched' &&
                         it.event?.eventType !== 'sf_sync_skipped_no_mapping' &&
                         it.event?.eventType !== 'job_current_sf_ids_changed' &&
@@ -1127,6 +1186,7 @@ function SalesforceFieldUpdatesSection({ job }: { job: ValidationJobDetail }) {
 
 function JobCard({ job }: { job: ValidationJobDetail }) {
   const sfLink = job.sfJobId ? `https://proxi.lightning.force.com/lightning/r/Job__c/${job.sfJobId}/view` : null
+  const jc = job.salesforceJobCreated
 
   return (
     <div className="border border-zinc-700/40 rounded-xl p-4 space-y-4">
@@ -1136,6 +1196,27 @@ function JobCard({ job }: { job: ValidationJobDetail }) {
             <StatusBadge status={job.status} />
             <span className="text-xs text-zinc-500">JobContent: {job.id}</span>
           </div>
+          {jc && (
+            <div className="rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-2.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-violet-300">
+                  New Job__c
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/25 text-violet-200">
+                  auto-created
+                </span>
+              </div>
+              <p className="text-[11px] text-zinc-400 mt-1.5 leading-relaxed">
+                {jc.summary ||
+                  'Salesforce record was created by automation because no existing Job__c matched this Kimedics post.'}
+              </p>
+              {jc.sfJobId ? (
+                <p className="text-[11px] font-mono text-violet-200 mt-2">
+                  <span className="text-zinc-500">sf_job_id</span> {jc.sfJobId}
+                </p>
+              ) : null}
+            </div>
+          )}
           {/* Subtle debug IDs (kept small for non-technical users) */}
           <div className="text-[10px] text-zinc-600 font-mono">
             {job.jobId ? <span>job_id={job.jobId}</span> : null}

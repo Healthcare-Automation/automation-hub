@@ -55,6 +55,7 @@ export async function getDailyStatus(): Promise<DayStatus[]> {
     emails_scraped: string | number
     jobs_scraped: string | number
     sf_patches: string | number
+    sf_jobs_created: string | number
     sf_errors: string | number
   }>>`
     WITH ${sql.unsafe(PAIRED_CTE)}
@@ -68,6 +69,7 @@ export async function getDailyStatus(): Promise<DayStatus[]> {
       count(DISTINCT es.id)  AS emails_scraped,
       count(DISTINCT jc.id)  AS jobs_scraped,
       count(DISTINCT jel.id) FILTER (WHERE jel.event_type = 'sf_scrape_fields_patched')                           AS sf_patches,
+      count(DISTINCT jel.job_id) FILTER (WHERE jel.event_type = 'job_created_in_salesforce')                       AS sf_jobs_created,
       count(DISTINCT jel.id) FILTER (WHERE jel.event_type IN ('sf_scrape_fields_error','sf_mapping_pull_failed')) AS sf_errors
     FROM paired p
     LEFT JOIN email_scrapes es  ON es.run_id  = p.gmail_id
@@ -86,11 +88,22 @@ export async function getDailyStatus(): Promise<DayStatus[]> {
   return generateDays(90).map(day => {
     const row = dbMap.get(day)
     if (!row) {
-      return { day, totalRuns: 0, completedRuns: 0, emailsScraped: 0, jobsScraped: 0, sfPatches: 0, sfErrors: 0, status: 'no_data' as const }
+      return {
+        day,
+        totalRuns: 0,
+        completedRuns: 0,
+        emailsScraped: 0,
+        jobsScraped: 0,
+        sfPatches: 0,
+        sfJobsCreated: 0,
+        sfErrors: 0,
+        status: 'no_data' as const,
+      }
     }
     const totalRuns = Number(row.total_runs)
     const completedRuns = Number(row.completed_runs)
     const sfErrors = Number(row.sf_errors)
+    const sfJobsCreated = Number(row.sf_jobs_created ?? 0)
     return {
       day,
       totalRuns,
@@ -98,6 +111,7 @@ export async function getDailyStatus(): Promise<DayStatus[]> {
       emailsScraped: Number(row.emails_scraped),
       jobsScraped: Number(row.jobs_scraped),
       sfPatches: Number(row.sf_patches),
+      sfJobsCreated,
       sfErrors,
       status: getDayStatusKind({ totalRuns, completedRuns, emailsScraped: Number(row.emails_scraped), sfErrors }),
     }
@@ -117,6 +131,7 @@ export async function getRecentRuns(limit = 20): Promise<RunDetail[]> {
     email_count:        string | number
     job_count:          string | number
     sf_patch_count:     string | number
+    sf_jobs_created_count: string | number
     sf_error_count:     string | number
     sf_error_details:   unknown
   }>>`
@@ -135,6 +150,7 @@ export async function getRecentRuns(limit = 20): Promise<RunDetail[]> {
       count(DISTINCT es.id)  AS email_count,
       count(DISTINCT jc.id)  AS job_count,
       count(DISTINCT jel.id) FILTER (WHERE jel.event_type = 'sf_scrape_fields_patched') AS sf_patch_count,
+      count(DISTINCT jel.job_id) FILTER (WHERE jel.event_type = 'job_created_in_salesforce') AS sf_jobs_created_count,
       count(DISTINCT jel.id) FILTER (WHERE jel.event_type IN ('sf_scrape_fields_error', 'sf_mapping_pull_failed')) AS sf_error_count,
       (
         SELECT COALESCE(
@@ -200,6 +216,7 @@ export async function getRecentRuns(limit = 20): Promise<RunDetail[]> {
       emailCount:           Number(row.email_count),
       jobCount:             Number(row.job_count),
       sfPatchCount:         Number(row.sf_patch_count),
+      sfJobsCreatedCount:   Number(row.sf_jobs_created_count ?? 0),
       sfErrorCount:         Number(row.sf_error_count),
       status,
       sfErrorDetails,
@@ -220,6 +237,7 @@ export async function getRunsForJobId(jobId: string): Promise<RunDetail[]> {
     email_count:        string | number
     job_count:          string | number
     sf_patch_count:     string | number
+    sf_jobs_created_count: string | number
     sf_error_count:     string | number
     sf_error_details:   unknown
   }>>`
@@ -238,6 +256,7 @@ export async function getRunsForJobId(jobId: string): Promise<RunDetail[]> {
       count(DISTINCT es.id)  AS email_count,
       count(DISTINCT jc.id)  AS job_count,
       count(DISTINCT jel.id) FILTER (WHERE jel.event_type = 'sf_scrape_fields_patched') AS sf_patch_count,
+      count(DISTINCT jel.job_id) FILTER (WHERE jel.event_type = 'job_created_in_salesforce') AS sf_jobs_created_count,
       count(DISTINCT jel.id) FILTER (WHERE jel.event_type IN ('sf_scrape_fields_error', 'sf_mapping_pull_failed')) AS sf_error_count,
       (
         SELECT COALESCE(
@@ -305,6 +324,7 @@ export async function getRunsForJobId(jobId: string): Promise<RunDetail[]> {
       emailCount:           Number(row.email_count),
       jobCount:             Number(row.job_count),
       sfPatchCount:         Number(row.sf_patch_count),
+      sfJobsCreatedCount:   Number(row.sf_jobs_created_count ?? 0),
       sfErrorCount:         Number(row.sf_error_count),
       status,
       sfErrorDetails,
@@ -330,6 +350,8 @@ type ValidationSqlRow = {
   point_of_contact: string | null
   provider_start_date: string | null
   provider_end_date: string | null
+  avg_patients_per_day: string | null
+  roster_only: string | null
   description_full_text: string | null
   raw_columns_json: unknown
   created_at: Date | string
@@ -381,6 +403,8 @@ async function fetchValidationSqlRows(
       jc.point_of_contact,
       jc.provider_start_date,
       jc.provider_end_date,
+      jc.avg_patients_per_day,
+      jc.roster_only,
       jc.description_full_text,
       jc.raw_columns_json,
       jc.created_at,
@@ -433,6 +457,8 @@ async function fetchValidationSqlRows(
             'mapping_cache_hit','sf_mapping_skipped','sf_mapping_pull_failed',
             'mapping_ambiguous','mapping_ai_match','mapping_no_match',
             'sf_ids_update',
+            'job_created_in_salesforce','job_create_failed','job_create_skipped',
+            'worksite_created','worksite_create_failed',
             'sf_sync_skipped_no_mapping','sf_scrape_fields_skip',
             'sf_scrape_fields_error','sf_scrape_fields_patched',
             'job_current_sf_ids_changed','job_current_upsert'
@@ -521,6 +547,24 @@ export async function getValidationData(runId: number, jobId?: string) {
         'sf_scrape_fields_patched',
       ].includes(e.eventType)
     )
+
+    const jobCreatedEvents = eventsThisRun.filter(e => e.eventType === 'job_created_in_salesforce')
+    const jobCreatedSorted = [...jobCreatedEvents].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    )
+    const latestJobCreated = jobCreatedSorted[0]
+    const salesforceJobCreated = latestJobCreated
+      ? {
+          eventId: latestJobCreated.id,
+          runId: latestJobCreated.runId,
+          createdAt: latestJobCreated.createdAt,
+          sfJobId: String(latestJobCreated.payload?.sf_job_id ?? '').trim() || null,
+          sfWorksiteAccountId:
+            String(latestJobCreated.payload?.sf_worksite_account_id ?? '').trim() || null,
+          automationKind: String(latestJobCreated.payload?.automation_kind ?? '').trim() || null,
+          summary: String(latestJobCreated.payload?.summary ?? '').trim() || null,
+        }
+      : null
 
     // Extract mapping resolution details
     const mappingResolution = mappingUpdateEvents.map(e => ({
@@ -642,6 +686,8 @@ export async function getValidationData(runId: number, jobId?: string) {
       point_of_contact: row.point_of_contact,
       provider_start_date: row.provider_start_date,
       provider_end_date: row.provider_end_date,
+      avg_patients_per_day: row.avg_patients_per_day,
+      roster_only: row.roster_only,
       description: row.description_full_text,
       ...rawData // Include any additional scraped fields
     }
@@ -681,6 +727,9 @@ export async function getValidationData(runId: number, jobId?: string) {
       // Family C: Salesforce Field Updates
       salesforceFieldPatches,
       salesforceIssues,
+
+      // New Job__c auto-created (no prior 1:1 match)
+      salesforceJobCreated,
 
       // Raw events for debugging
       mappingEvents,

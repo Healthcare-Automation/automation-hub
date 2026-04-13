@@ -142,6 +142,33 @@ function LayerCell({
   )
 }
 
+function SfPushCell({ run }: { run: RunDetail }) {
+  const patch = run.sfPatchCount
+  const created = run.sfJobsCreatedCount
+  const errs = run.sfErrorDetails
+  const hasLine =
+    patch > 0 || created > 0 || errs.length > 0
+  if (!hasLine) {
+    return <span className="text-zinc-600 tabular-nums">—</span>
+  }
+  return (
+    <span className="tabular-nums inline-flex flex-col items-start gap-0.5 min-w-0">
+      <span className="inline-flex items-center">
+        <span className={cn(patch > 0 ? 'text-zinc-200' : 'text-zinc-600')}>{patch}</span>
+        <SFErrorBadge errors={errs} />
+      </span>
+      {created > 0 ? (
+        <span
+          className="text-[9px] font-semibold text-violet-400 leading-tight truncate max-w-full"
+          title={`${created} new Job__c record(s) created in Salesforce this run`}
+        >
+          +{created} new Job__c
+        </span>
+      ) : null}
+    </span>
+  )
+}
+
 interface Props {
   runs: RunDetail[]
 }
@@ -304,7 +331,7 @@ export default function LayerBreakdown({ runs }: Props) {
 
           <LayerCell count={run.emailCount} />
           <LayerCell count={run.jobCount} />
-          <LayerCell count={run.sfPatchCount} sfErrors={run.sfErrorDetails} />
+          <SfPushCell run={run} />
 
           {/* Click indicator */}
           <div className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
