@@ -12,6 +12,8 @@ interface ValidationJobDetail {
   emailSubject?: string | null
   emailActionOrChange?: string | null
   emailCreatedAt?: string | null
+  /** Derived from scraped job_content diff — more accurate than email subject for “what changed”. */
+  scrapeChangeSummary?: string | null
   kimedicsLink: string
   sfJobId: string | null
   status: 'success' | 'failed' | 'partial'
@@ -241,6 +243,60 @@ function sfValuesMatchDisplay(a: unknown, b: unknown): boolean {
   return sa === sb
 }
 
+/**
+ * Fallback when the hub still finds no SF field-sync rows after widening run_id matching.
+ * Usually means the sync step did not run, logging failed, or data predates logging.
+ */
+function explainMissingSfFieldSyncEvents(job: ValidationJobDetail): string {
+  const hasSfId = !!(job.sfJobId && String(job.sfJobId).trim())
+  const hasMappingIssues = (job.mappingIssues?.length ?? 0) > 0
+
+  if (hasMappingIssues) {
+    return (
+      'Still no Salesforce field-sync log lines for this job and run anchor. Mapping issues are present — resolve mapping, then re-run the pipeline.'
+    )
+  }
+  if (!hasSfId) {
+    return (
+      'Still no Salesforce field-sync log lines. This row has no sf_job_id; the sync step logs a skip when it runs — if nothing appears, sync may not have run for this batch or logging failed.'
+    )
+  }
+  return (
+    'Still no Salesforce field-sync log lines despite a stored sf_job_id. Check Modal logs for this link_batch run, or whether this job_content row predates sf_field sync logging.'
+  )
+}
+
+/** Milliseconds for timeline ordering; NaN → 0 */
+function timelinePrimaryMs(ts: string): number {
+  const x = new Date(ts).getTime()
+  return Number.isNaN(x) ? 0 : x
+}
+
+/**
+ * When timestamps tie, higher rank sorts first in "newest first" view = later pipeline stage on top.
+ * Order: email → Supabase snapshot → mapping → Salesforce field sync (last step wins ties).
+ */
+function pipelineTieRank(item: TimelineItem): number {
+  const t = item.event?.eventType ?? ''
+  if (t === 'synthetic_email_context') return 0
+  if (t === 'synthetic_mapping_skip') return 100
+  if (t === 'sf_worksite_missing_on_job_row') return 350
+  if (t === 'job_current_sf_ids_changed' || t === 'job_current_upsert') return 400
+  if (t === 'sf_ids_update' || t.startsWith('mapping_') || t.startsWith('sf_mapping_')) return 500
+  if (t.startsWith('sf_scrape_fields_') || t === 'sf_sync_skipped_no_mapping') return 800
+  if (t === 'synthetic_sf_skip') return 900
+  return 200
+}
+
+function maxTimelineMs(list: TimelineItem[]): number {
+  let m = 0
+  for (const it of list) {
+    const x = timelinePrimaryMs(it.ts)
+    if (x > m) m = x
+  }
+  return m
+}
+
 function buildTimeline(job: ValidationJobDetail): TimelineItem[] {
   const practice = job.kimedicsData?.practice || job.kimedicsData?.practice_value
   const evs = job.eventsThisRun ?? []
@@ -299,16 +355,16 @@ function buildTimeline(job: ValidationJobDetail): TimelineItem[] {
     if (type === 'sf_scrape_fields_patched') {
       const sfJobId = e.payload?.sf_job_id
       const fields = sfSyncDisplayedFields(e.payload)
-      const nPatch = Array.isArray(e.payload?.fields_changed) ? e.payload.fields_changed.length : 0
+      const nUpdated = Array.isArray(e.payload?.fields_changed) ? e.payload.fields_changed.length : 0
       const sub =
         fields.length > 0
-          ? `${sfJobId ? `Record ${sfJobId}` : 'Record'} · ${nPatch} PATCHed · ${fields.length} field${fields.length !== 1 ? 's' : ''} in audit · ${fields.slice(0, 2).join(', ')}${fields.length > 2 ? ` +${fields.length - 2} more` : ''}`
+          ? `${sfJobId ? `Record ${sfJobId}` : 'Record'} · ${nUpdated} field${nUpdated !== 1 ? 's' : ''} updated in Salesforce · ${fields.length} compared · ${fields.slice(0, 2).join(', ')}${fields.length > 2 ? ` +${fields.length - 2} more` : ''}`
           : `${sfJobId ? `Record ${sfJobId}` : 'Record'}`
       return {
         key: `ev_${e.id ?? ts}_${type}`,
         ts,
         kind: 'sf' as const,
-        title: 'Salesforce update',
+        title: 'Salesforce field update',
         subtitle: sub,
         event: e,
       }
@@ -319,29 +375,60 @@ function buildTimeline(job: ValidationJobDetail): TimelineItem[] {
         key: `ev_${e.id ?? ts}_${type}`,
         ts,
         kind: 'error' as const,
-        title: 'Salesforce update error',
+        title: 'Salesforce field update error',
         subtitle: String(msg),
         event: e,
       }
     }
     if (type === 'sf_scrape_fields_skip' || type === 'sf_sync_skipped_no_mapping') {
-      const msg = e.payload?.reason || e.payload?.message || type
+      const reason = e.payload?.reason || e.payload?.message || type
+      const detail = e.payload?.detail ? String(e.payload.detail) : ''
+      const jid = e.payload?.job_id ? `job_id ${e.payload.job_id}` : ''
       const fields = sfSyncDisplayedFields(e.payload)
-      const sub =
-        type === 'sf_scrape_fields_skip' && fields.length > 0
-          ? `${String(msg)} · ${fields.length} field${fields.length !== 1 ? 's' : ''} compared (all matched SF)`
-          : String(msg)
+      const parts: string[] = []
+      if (type === 'sf_sync_skipped_no_mapping') {
+        parts.push(detail || String(reason))
+        if (jid) parts.push(jid)
+      } else if (fields.length > 0) {
+        parts.push(
+          `${String(reason)} · ${fields.length} field${fields.length !== 1 ? 's' : ''} compared (already matched Salesforce — no write)`,
+        )
+      } else {
+        parts.push(detail ? `${String(reason)} — ${detail}` : String(reason))
+      }
+      const sub = parts.filter(Boolean).join(' · ')
       return {
         key: `ev_${e.id ?? ts}_${type}`,
         ts,
         kind: 'skip' as const,
         title:
           type === 'sf_sync_skipped_no_mapping'
-            ? 'Skipped'
+            ? 'Salesforce field sync skipped'
             : fields.length > 0
-              ? 'Salesforce sync'
-              : 'Skipped',
+              ? 'Salesforce — no write needed'
+              : 'Salesforce skipped',
         subtitle: sub,
+        event: e,
+      }
+    }
+
+    if (type === 'job_current_sf_ids_changed' || type === 'job_current_upsert') {
+      const saved = e.payload?.saved_as
+      const label =
+        saved === 'inserted_new_latest_row'
+          ? 'New latest job row saved'
+          : saved === 'updated_existing_latest_row'
+            ? 'Existing latest job row updated'
+          : type === 'job_current_upsert'
+            ? 'Latest job row saved (legacy event)'
+            : 'Latest job row — Salesforce Id fields changed'
+      const fc = (e.payload?.fields_changed ?? []).join(', ')
+      return {
+        key: `ev_${e.id ?? ts}_${type}`,
+        ts,
+        kind: 'mapping' as const,
+        title: 'Supabase latest job snapshot',
+        subtitle: [label, fc ? `Ids: ${fc}` : null].filter(Boolean).join(' · '),
         event: e,
       }
     }
@@ -357,12 +444,18 @@ function buildTimeline(job: ValidationJobDetail): TimelineItem[] {
   })
 
   // Every run originates from an email scrape; always show email context first.
+  const emailSubLines = [
+    `Subject: ${job.emailSubject ?? '—'}`,
+    job.scrapeChangeSummary
+      ? `Scrape summary: ${job.scrapeChangeSummary}`
+      : null,
+  ].filter(Boolean)
   items.unshift({
     key: `synthetic_email_${job.id}`,
     ts: job.emailCreatedAt ?? job.createdAt,
     kind: isNewJobPost ? 'new' : 'info',
     title: 'Email',
-    subtitle: `Subject: ${job.emailSubject ?? '—'}`,
+    subtitle: emailSubLines.join('\n'),
     event: { eventType: 'synthetic_email_context', createdAt: job.emailCreatedAt ?? job.createdAt },
   })
 
@@ -378,19 +471,29 @@ function buildTimeline(job: ValidationJobDetail): TimelineItem[] {
       })
     }
     if (!hasAnySfEvent) {
+      const anchor = maxTimelineMs(items)
+      const sfTs =
+        anchor > 0
+          ? new Date(anchor + 2500).toISOString()
+          : job.createdAt
       items.push({
         key: `synthetic_sf_${job.id}`,
-        ts: job.createdAt,
+        ts: sfTs,
         kind: 'skip' as const,
-        title: 'Salesforce update',
-        subtitle: 'Skipped (no field updates)',
-        event: { eventType: 'synthetic_sf_skip', createdAt: job.createdAt },
+        title: 'Salesforce field sync',
+        subtitle: explainMissingSfFieldSyncEvents(job),
+        event: { eventType: 'synthetic_sf_skip', createdAt: sfTs },
       })
     }
   }
 
-  // Newest first (descending)
-  items.sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime())
+  // Newest first; same-time events ordered by pipeline stage (Salesforce field sync last)
+  items.sort((a, b) => {
+    const ta = timelinePrimaryMs(a.ts)
+    const tb = timelinePrimaryMs(b.ts)
+    if (tb !== ta) return tb - ta
+    return pipelineTieRank(b) - pipelineTieRank(a)
+  })
   return items
 }
 
@@ -447,7 +550,9 @@ function Timeline({ job }: { job: ValidationJobDetail }) {
                         </span>
                       </div>
                       {it.subtitle ? (
-                        <div className="text-xs text-zinc-400 mt-0.5 break-words">{it.subtitle}</div>
+                        <div className="text-xs text-zinc-400 mt-0.5 break-words whitespace-pre-line">
+                          {it.subtitle}
+                        </div>
                       ) : null}
                     </div>
                     <div className="shrink-0 text-right">
@@ -531,7 +636,7 @@ function Timeline({ job }: { job: ValidationJobDetail }) {
                                                 : 'bg-amber-500/15 text-amber-300',
                                           )}
                                         >
-                                          {didPatch ? 'PATCHed' : matched ? 'unchanged' : 'review'}
+                                          {didPatch ? 'updated in SF' : matched ? 'unchanged' : 'review'}
                                         </span>
                                       </div>
                                       <div className="grid grid-cols-2 gap-2 text-[11px]">
@@ -562,7 +667,7 @@ function Timeline({ job }: { job: ValidationJobDetail }) {
                               <span className="font-mono text-blue-200">{it.event?.payload?.sf_job_id ?? '—'}</span>
                             </div>
                             <p className="text-[10px] text-zinc-500 mt-1">
-                              Full audit — values already matched Salesforce (no PATCH).
+                              Full audit — values already matched Salesforce (no write sent).
                             </p>
                             <div className="mt-3 space-y-2">
                               {sfSyncDisplayedFields(it.event.payload).map((field: string) => (
@@ -584,9 +689,52 @@ function Timeline({ job }: { job: ValidationJobDetail }) {
                           </div>
                         )}
 
+                      {(it.event?.eventType === 'sf_sync_skipped_no_mapping' ||
+                        (it.event?.eventType === 'sf_scrape_fields_skip' &&
+                          it.event?.payload?.detail &&
+                          !(Array.isArray(it.event.payload?.fields_compared) && it.event.payload.fields_compared.length > 0))) && (
+                        <div className="mt-2 rounded-lg p-3 bg-blue-500/5 border border-blue-500/15">
+                          <p className="text-[10px] font-semibold text-blue-300 mb-1">Why this was skipped</p>
+                          <p className="text-xs text-zinc-300 leading-relaxed">
+                            {String(it.event.payload?.detail || it.event.payload?.reason || '—')}
+                          </p>
+                          {it.event.payload?.job_id ? (
+                            <p className="text-[11px] text-zinc-500 mt-2 font-mono">
+                              job_id: {String(it.event.payload.job_id)}
+                            </p>
+                          ) : null}
+                        </div>
+                      )}
+
+                      {(it.event?.eventType === 'job_current_sf_ids_changed' ||
+                        it.event?.eventType === 'job_current_upsert') && (
+                        <div className="mt-2 rounded-lg p-3 bg-emerald-500/5 border border-emerald-500/10 text-xs text-zinc-300 space-y-1">
+                          <p>
+                            <span className="text-zinc-500">saved_as:</span>{' '}
+                            {String(it.event.payload?.saved_as ?? '—')}
+                          </p>
+                          {it.event.payload?.job_content_id != null ? (
+                            <p className="font-mono text-[11px] text-zinc-500">
+                              job_content_id: {String(it.event.payload.job_content_id)}
+                            </p>
+                          ) : null}
+                        </div>
+                      )}
+
                       {/* Fallback: show raw payload in a subtle way */}
                       {it.event?.eventType !== 'sf_ids_update' &&
                         it.event?.eventType !== 'sf_scrape_fields_patched' &&
+                        it.event?.eventType !== 'sf_sync_skipped_no_mapping' &&
+                        it.event?.eventType !== 'job_current_sf_ids_changed' &&
+                        it.event?.eventType !== 'job_current_upsert' &&
+                        !(
+                          it.event?.eventType === 'sf_scrape_fields_skip' &&
+                          it.event?.payload?.detail &&
+                          !(
+                            Array.isArray(it.event.payload?.fields_compared) &&
+                            it.event.payload.fields_compared.length > 0
+                          )
+                        ) &&
                         !String(it.event?.eventType || '').startsWith('synthetic_') && (
                           <div className="mt-2 text-[11px] text-zinc-500">
                             <span className="font-mono">event_type</span>={it.event?.eventType}
@@ -777,9 +925,9 @@ function SalesforceFieldUpdatesSection({ job }: { job: ValidationJobDetail }) {
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M20 6 9 17l-5-5" />
               </svg>
-              {anyPatched && anyAudit && 'PATCH + full-field audit'}
-              {anyPatched && !anyAudit && 'Fields pushed to Salesforce'}
-              {!anyPatched && anyAudit && 'Full-field audit (already matched SF)'}
+              {anyPatched && anyAudit && 'Salesforce updates + full-field audit'}
+              {anyPatched && !anyAudit && 'Fields written to Salesforce'}
+              {!anyPatched && anyAudit && 'Full-field audit (already matched Salesforce)'}
             </p>
             <div className="flex items-center gap-2">
               <span
@@ -831,7 +979,7 @@ function SalesforceFieldUpdatesSection({ job }: { job: ValidationJobDetail }) {
                       ) : (
                         <span className="text-zinc-500 font-normal">
                           {' '}
-                          · {patch.fieldsChanged.length} PATCHed · {fieldsOrdered.length} in audit
+                          · {patch.fieldsChanged.length} updated in SF · {fieldsOrdered.length} compared
                         </span>
                       )}
                     </div>
@@ -870,7 +1018,7 @@ function SalesforceFieldUpdatesSection({ job }: { job: ValidationJobDetail }) {
                       {fieldsOrdered.map(field => {
                         const didPatch = !isAudit && patchedSet.has(field)
                         const matched = sfValuesMatchDisplay(patch.prev?.[field], patch.next?.[field])
-                        const badgeLabel = isAudit ? 'matched SF' : didPatch ? 'PATCHed' : matched ? 'unchanged' : 'review'
+                        const badgeLabel = isAudit ? 'matched SF' : didPatch ? 'updated in SF' : matched ? 'unchanged' : 'review'
                         const badgeClass = didPatch
                           ? 'bg-emerald-500/20 text-emerald-300'
                           : isAudit || matched
@@ -1029,7 +1177,7 @@ function JobCard({ job }: { job: ValidationJobDetail }) {
               <span className="text-zinc-500">: </span>
               <span className="text-zinc-200">{String(job.kimedicsData.practice ?? job.kimedicsData.practice_value)}</span>
               <span className="text-zinc-600"> · </span>
-              <span className="text-zinc-500">Shown only in PATCH diffs when SF value differs from Kimedics.</span>
+              <span className="text-zinc-500">Shown when Salesforce values differ from the scrape.</span>
             </div>
           ) : null}
         </div>

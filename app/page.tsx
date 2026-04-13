@@ -119,8 +119,8 @@ export default async function Page() {
             <div className="p-3 space-y-3">
               <AutomationCard
                 name="Kimedics → Salesforce Pipeline"
-                description="Scrapes Kimedics job emails, enriches via Playwright, and syncs to Salesforce"
-                schedule="Runs every 30 min via Modal"
+                description="Scrapes Kimedics job emails, enriches via Playwright, syncs to Salesforce, validates each job (with alert emails on failures), and sends a daily 24h quality digest"
+                schedule="Pipeline every 10 min · Daily summary ~9 AM ET · Modal"
                 dailyStatus={enrichedDailyStatus}
                 recentRuns={recentRuns}
                 uptime={uptime}

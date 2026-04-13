@@ -22,8 +22,8 @@ function toISOString(val: unknown): string {
   return String(val)
 }
 
-// Pair each gmail run with its next link_batch within 10 minutes.
-// Used in all three queries so the "run count" always means one full pipeline cycle.
+// Pair each gmail run with its next link_batch that starts within 15 minutes of gmail start.
+// Must stay aligned with scrape_gmail_modal._pair_runs (Gmail + Playwright + DB in one Modal run).
 const PAIRED_CTE = `
   paired AS (
     SELECT
@@ -39,7 +39,7 @@ const PAIRED_CTE = `
       FROM scrape_runs b2
       WHERE b2.run_type = 'link_batch'
         AND b2.started_at > g.started_at
-        AND b2.started_at < g.started_at + INTERVAL '10 minutes'
+        AND b2.started_at < g.started_at + INTERVAL '15 minutes'
       ORDER BY b2.started_at ASC
       LIMIT 1
     ) b ON true
@@ -312,43 +312,53 @@ export async function getRunsForJobId(jobId: string): Promise<RunDetail[]> {
   })
 }
 
-export async function getValidationData(runId: number, jobId?: string) {
-  // Get detailed job validation data for a specific run
-  console.log('=== getValidationData Debug ===')
-  console.log('Querying for runId:', runId)
+type ValidationSqlRow = {
+  id: number | string
+  job_id: string
+  job_post_id: string | null
+  kimedics_link: string | null
+  sf_job_id: string | null
+  title_line: string | null
+  location_line: string | null
+  job_title: string | null
+  practice_value: string | null
+  city: string | null
+  state: string | null
+  posting_org: string | null
+  priority: string | null
+  status: string | null
+  point_of_contact: string | null
+  provider_start_date: string | null
+  provider_end_date: string | null
+  description_full_text: string | null
+  raw_columns_json: unknown
+  created_at: Date | string
+  run_id: number | string | null
+  email_scrape_id: number | string | null
+  email_subject: string | null
+  email_action_or_change: string | null
+  email_created_at: Date | string | null
+  scrape_change_summary?: string | null
+  events_this_run: unknown
+  events_history: unknown
+}
 
-  // Note: UI passes a pipeline "run id" (gmail anchor). Depending on how the
-  // automation writes data, job_content may be keyed by either gmail run or
-  // the paired link_batch run. This query tolerates both.
-  const rows = await sql<Array<{
-    id: number | string
-    job_id: string
-    job_post_id: string | null
-    kimedics_link: string | null
-    sf_job_id: string | null
-    title_line: string | null
-    location_line: string | null
-    job_title: string | null
-    practice_value: string | null
-    city: string | null
-    state: string | null
-    posting_org: string | null
-    priority: string | null
-    status: string | null
-    point_of_contact: string | null
-    provider_start_date: string | null
-    provider_end_date: string | null
-    description_full_text: string | null
-    raw_columns_json: unknown
-    created_at: Date | string
-    run_id: number | string | null
-    email_scrape_id: number | string | null
-    email_subject: string | null
-    email_action_or_change: string | null
-    email_created_at: Date | string | null
-    events_this_run: unknown
-    events_history: unknown
-  }>>`
+function isMissingScrapeChangeSummaryColumnError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err)
+  if (!/scrape_change_summary/i.test(msg)) return false
+  if (/does not exist/i.test(msg)) return true
+  const code = (err as { code?: string })?.code
+  return code === '42703'
+}
+
+async function fetchValidationSqlRows(
+  runId: number,
+  jobId: string | undefined,
+  includeScrapeChangeSummary: boolean,
+): Promise<ValidationSqlRow[]> {
+  const summaryCol = includeScrapeChangeSummary ? sql`jc.scrape_change_summary,` : sql``
+
+  return sql<ValidationSqlRow[]>`
     SELECT
       jc.id,
       jc.job_id,
@@ -357,6 +367,7 @@ export async function getValidationData(runId: number, jobId?: string) {
       es.subject as email_subject,
       es.action_or_change as email_action_or_change,
       es.created_at as email_created_at,
+      ${summaryCol}
       jc.sf_job_id,
       jc.title_line,
       jc.location_line,
@@ -394,8 +405,12 @@ export async function getValidationData(runId: number, jobId?: string) {
       ) AS events
       FROM job_event_log jel
       WHERE jel.job_id = jc.job_id
-        AND jc.run_id IS NOT NULL
-        AND jel.run_id = jc.run_id
+        AND jel.run_id IS NOT NULL
+        AND (
+          (jc.run_id IS NOT NULL AND jel.run_id = jc.run_id)
+          OR (es.run_id IS NOT NULL AND jel.run_id = es.run_id)
+          OR jel.run_id = ${runId}
+        )
     ) ev_this ON true
     LEFT JOIN LATERAL (
       SELECT COALESCE(
@@ -419,7 +434,8 @@ export async function getValidationData(runId: number, jobId?: string) {
             'mapping_ambiguous','mapping_ai_match','mapping_no_match',
             'sf_ids_update',
             'sf_sync_skipped_no_mapping','sf_scrape_fields_skip',
-            'sf_scrape_fields_error','sf_scrape_fields_patched'
+            'sf_scrape_fields_error','sf_scrape_fields_patched',
+            'job_current_sf_ids_changed','job_current_upsert'
           )
         ORDER BY jel.created_at DESC
         LIMIT 50
@@ -432,6 +448,29 @@ export async function getValidationData(runId: number, jobId?: string) {
     ${jobId ? sql`AND jc.job_id = ${jobId}` : sql``}
     ORDER BY COALESCE(es.created_at, jc.created_at) DESC
   `
+}
+
+export async function getValidationData(runId: number, jobId?: string) {
+  // Get detailed job validation data for a specific run
+  console.log('=== getValidationData Debug ===')
+  console.log('Querying for runId:', runId)
+
+  // Note: UI passes a pipeline "run id" (gmail anchor). Depending on how the
+  // automation writes data, job_content may be keyed by either gmail run or
+  // the paired link_batch run. This query tolerates both.
+  let rows: ValidationSqlRow[]
+  try {
+    rows = await fetchValidationSqlRows(runId, jobId, true)
+  } catch (err) {
+    if (isMissingScrapeChangeSummaryColumnError(err)) {
+      console.warn(
+        '[getValidationData] job_content.scrape_change_summary missing; retrying without it. Run proxi_salesforce_automation ensure_tables / migration.',
+      )
+      rows = await fetchValidationSqlRows(runId, jobId, false)
+    } else {
+      throw err
+    }
+  }
 
   console.log('Raw SQL result:', rows.length, 'rows found')
   if (rows.length > 0) {
@@ -564,7 +603,11 @@ export async function getValidationData(runId: number, jobId?: string) {
           acc.push({
             key,
             type: e.eventType,
-            message: e.payload?.error || e.payload?.reason || e.eventType,
+            message:
+              e.payload?.detail ||
+              e.payload?.error ||
+              e.payload?.reason ||
+              e.eventType,
             count: 1,
             details: {
               ...e.payload,
@@ -620,6 +663,7 @@ export async function getValidationData(runId: number, jobId?: string) {
       emailSubject: row.email_subject ?? null,
       emailActionOrChange: row.email_action_or_change ?? null,
       emailCreatedAt: row.email_created_at ? toISOString(row.email_created_at) : null,
+      scrapeChangeSummary: row.scrape_change_summary ?? null,
       kimedicsLink: row.kimedics_link || '',
       sfJobId: row.sf_job_id,
       status,
