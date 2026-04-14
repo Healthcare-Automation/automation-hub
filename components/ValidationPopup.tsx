@@ -191,7 +191,7 @@ function fmtVal(v: any) {
 const SF_VALIDATION_FIELD_ORDER: string[] = [
   'Job_Account__c',
   'Job_Worksite_Location_1__c',
-  'Job_Street_Address__c',
+  'Job_Worksite_1_Address__c',
   'Job_Point_of_Contact__c',
   'External_Job_ID__c',
   'External_Job_Link__c',
@@ -368,12 +368,12 @@ function buildTimeline(job: ValidationJobDetail): TimelineItem[] {
     if (type === 'job_created_in_salesforce') {
       const sid = e.payload?.sf_job_id ? String(e.payload.sf_job_id) : '—'
       const wid = e.payload?.sf_worksite_account_id ? String(e.payload.sf_worksite_account_id) : ''
-      const sum = e.payload?.summary ? String(e.payload.summary) : 'New Job__c created via API (unmapped Kimedics job).'
+      const sum = e.payload?.summary ? String(e.payload.summary) : 'New Salesforce job record created via API (unmapped Kimedics job).'
       return {
         key: `ev_${e.id ?? ts}_${type}`,
         ts,
         kind: 'new' as const,
-        title: 'New Job__c in Salesforce',
+        title: 'New job created in Salesforce',
         subtitle: [sum, `Record ${sid}`, wid ? `Worksite Account ${wid}` : null].filter(Boolean).join(' · '),
         event: e,
       }
@@ -752,7 +752,7 @@ function Timeline({ job }: { job: ValidationJobDetail }) {
                       {it.event?.eventType === 'job_created_in_salesforce' && (
                         <div className="mt-2 rounded-lg p-3 bg-violet-500/10 border border-violet-500/25 text-xs text-zinc-300 space-y-2">
                           <p className="text-[11px] font-semibold text-violet-200">
-                            New Job__c (automation — not an existing match)
+                            New job (automation — not an existing match)
                           </p>
                           {it.event.payload?.summary ? (
                             <p className="text-[11px] text-zinc-400 leading-relaxed">{String(it.event.payload.summary)}</p>
@@ -1200,7 +1200,7 @@ function JobCard({ job }: { job: ValidationJobDetail }) {
             <div className="rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-2.5">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-violet-300">
-                  New Job__c
+                  New job
                 </span>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/25 text-violet-200">
                   auto-created
@@ -1208,7 +1208,7 @@ function JobCard({ job }: { job: ValidationJobDetail }) {
               </div>
               <p className="text-[11px] text-zinc-400 mt-1.5 leading-relaxed">
                 {jc.summary ||
-                  'Salesforce record was created by automation because no existing Job__c matched this Kimedics post.'}
+                  'Salesforce record was created by automation because no existing job matched this Kimedics post.'}
               </p>
               {jc.sfJobId ? (
                 <p className="text-[11px] font-mono text-violet-200 mt-2">

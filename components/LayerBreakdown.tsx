@@ -160,9 +160,9 @@ function SfPushCell({ run }: { run: RunDetail }) {
       {created > 0 ? (
         <span
           className="text-[9px] font-semibold text-violet-400 leading-tight truncate max-w-full"
-          title={`${created} new Job__c record(s) created in Salesforce this run`}
+          title={`${created} new Salesforce job record(s) created this run`}
         >
-          +{created} new Job__c
+          +{created} new job{created === 1 ? '' : 's'}
         </span>
       ) : null}
     </span>

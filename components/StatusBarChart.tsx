@@ -95,7 +95,7 @@ export default function StatusBarChart({ days }: Props) {
                 <TooltipRow label="SF synced" value={String(tooltip.day.sfPatches)} />
                 {tooltip.day.sfJobsCreated > 0 && (
                   <TooltipRow
-                    label="New Job__c"
+                    label="New jobs"
                     value={String(tooltip.day.sfJobsCreated)}
                     highlight={false}
                   />

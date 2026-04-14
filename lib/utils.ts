@@ -13,7 +13,8 @@ export function getDayStatusKind(day: {
   sfErrors: number
 }): DayStatusKind {
   if (day.totalRuns === 0) return 'no_data'
-  if (day.completedRuns < day.totalRuns) return 'outage'
+  // In-progress runs are normal; don't mark the day as an outage while a run is still running.
+  if (day.completedRuns < day.totalRuns) return 'operational'
   if (day.sfErrors > 0) return 'degraded'
   if (day.emailsScraped === 0) return 'idle'
   return 'operational'
@@ -107,6 +108,13 @@ export function getOverallStatus(days: DayStatus[], lastRun?: import('./types').
         kind: 'outage',
         label: 'Partial Outage',
         description: 'The most recent pipeline run failed',
+      }
+    }
+    if (lastRun.status === 'running') {
+      return {
+        kind: 'operational',
+        label: 'Running',
+        description: 'Automation is currently processing',
       }
     }
     if (lastRun.status === 'completed' && lastRun.sfErrorCount > 0) {

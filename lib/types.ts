@@ -7,7 +7,7 @@ export interface DayStatus {
   emailsScraped: number
   jobsScraped: number
   sfPatches: number
-  /** New Job__c records created by automation that day (``job_created_in_salesforce``). */
+  /** New job records created by automation that day (``job_created_in_salesforce``). */
   sfJobsCreated: number
   sfErrors: number
   status: DayStatusKind
@@ -35,7 +35,7 @@ export interface RunDetail {
   emailCount: number
   jobCount: number
   sfPatchCount: number
-  /** Distinct Kimedics job_id values that received a new Job__c in this link_batch run (``job_created_in_salesforce``). */
+  /** Distinct Kimedics job_id values that received a new job record in this link_batch run (``job_created_in_salesforce``). */
   sfJobsCreatedCount: number
   sfErrorCount: number
   status: 'completed' | 'running' | 'error'
