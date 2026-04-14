@@ -189,6 +189,7 @@ function fmtVal(v: any) {
 
 /** Job__c layout (Overview → dates/schedule → insight → …); description last. Unknown __c fields sort before description. */
 const SF_VALIDATION_FIELD_ORDER: string[] = [
+  'Name',
   'Job_Account__c',
   'Job_Worksite_Location_1__c',
   'Job_Worksite_1_Address__c',
