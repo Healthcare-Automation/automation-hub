@@ -4,8 +4,10 @@ import type { Phase } from '@/lib/types'
 import StatusHeader from '@/components/StatusHeader'
 import WeeklySummaryCards from '@/components/WeeklySummary'
 import AutomationCard from '@/components/AutomationCard'
+import { LiveDashboardRefresh } from '@/components/LiveDashboardRefresh'
 
-export const revalidate = 60
+/** Always read fresh DB state; client also calls router.refresh() on an interval (see LiveDashboardRefresh). */
+export const dynamic = 'force-dynamic'
 
 /** First day in production (UTC calendar day). Testing phase ends the prior day. */
 const PRODUCTION_GO_LIVE_DATE = '2026-04-09'
@@ -142,7 +144,7 @@ export default async function Page() {
         <footer className="pt-6 border-t border-zinc-800/60">
           <div className="flex items-center justify-between text-[11px] text-zinc-500">
             <span>Automation Hub</span>
-            <span>Refreshes every 60 s · Powered by Supabase + Next.js</span>
+            <span>Auto-refresh ~15s while open · Powered by Supabase + Next.js</span>
           </div>
         </footer>
 

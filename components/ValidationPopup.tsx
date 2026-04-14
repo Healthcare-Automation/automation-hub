@@ -1279,29 +1279,50 @@ export default function ValidationPopup({ runId, isOpen, onClose, jobId }: Valid
   useEffect(() => {
     if (!isOpen || !runId) return
 
-    setLoading(true)
-    setError(null)
+    const qs = jobId ? `?jobId=${encodeURIComponent(jobId)}` : ''
+    let cancelled = false
+    const POLL_MS = 12_000
 
-    const fetchValidationData = async () => {
+    const fetchValidationData = async (isInitial: boolean) => {
+      if (cancelled) return
+      if (isInitial) {
+        setLoading(true)
+        setError(null)
+      }
       try {
-        const qs = jobId ? `?jobId=${encodeURIComponent(jobId)}` : ''
-        const response = await fetch(`/api/validation/${runId}${qs}`)
+        const response = await fetch(`/api/validation/${runId}${qs}`, { cache: 'no-store' })
 
         if (!response.ok) {
           throw new Error('Failed to fetch validation data')
         }
 
         const data = await response.json()
-        setJobs(data.jobs || [])
-      } catch (err) {
-        setError('Failed to load validation data')
+        if (!cancelled) {
+          setJobs(data.jobs || [])
+          if (isInitial) setError(null)
+        }
+      } catch {
+        if (!cancelled && isInitial) {
+          setError('Failed to load validation data')
+        }
       } finally {
-        setLoading(false)
+        if (!cancelled && isInitial) {
+          setLoading(false)
+        }
       }
     }
 
-    fetchValidationData()
-  }, [isOpen, runId])
+    void fetchValidationData(true)
+    const poll = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
+      void fetchValidationData(false)
+    }, POLL_MS)
+
+    return () => {
+      cancelled = true
+      clearInterval(poll)
+    }
+  }, [isOpen, runId, jobId])
 
   if (!isOpen) return null
 
