@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
+import { mergeTimelineEvents } from '@/lib/mergeSalesforceFieldEvents'
 import { SF_JOB_DESCRIPTION_FIELD } from '@/lib/sfJobDescriptionField'
 import { valueToComparableString, sfFieldValuesEquivalent } from '@/lib/sfFieldDiffUtils'
 import { SfFieldCompared } from '@/components/SfFieldCompared'
@@ -316,7 +317,7 @@ function maxTimelineMs(list: TimelineItem[]): number {
 
 function buildTimeline(job: ValidationJobDetail): TimelineItem[] {
   const practice = job.kimedicsData?.practice || job.kimedicsData?.practice_value
-  const evs = job.eventsThisRun ?? []
+  const evs = mergeTimelineEvents(job.eventsThisRun ?? [], job.eventsHistory ?? [])
 
   const subj = (job.emailSubject ?? '').toLowerCase()
   const aoc = (job.emailActionOrChange ?? '').toLowerCase()

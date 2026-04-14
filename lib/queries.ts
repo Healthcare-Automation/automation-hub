@@ -1,4 +1,5 @@
 import sql from './db'
+import { mergeSalesforceFieldSyncEvents } from './mergeSalesforceFieldEvents'
 import type { DayStatus, RunDetail, WeeklySummary } from './types'
 import { getDayStatusKind } from './utils'
 
@@ -47,6 +48,37 @@ const PAIRED_CTE = `
   )
 `
 
+/** Include PATCH logs where run_id matches link_batch OR run_id is NULL but job_content ties the job to this batch (manual resync). */
+const JEL_ON_BATCH_SQL = sql.unsafe(`(
+  jel.run_id = p.batch_id
+  OR (
+    jel.run_id IS NULL
+    AND jel.event_type = 'sf_scrape_fields_patched'
+    AND EXISTS (
+      SELECT 1 FROM job_content jc_sf
+      WHERE jc_sf.run_id = p.batch_id
+        AND jc_sf.job_id = jel.job_id
+        AND jel.created_at >= jc_sf.created_at - INTERVAL '15 minutes'
+        AND jel.created_at <= jc_sf.created_at + INTERVAL '7 days'
+    )
+  )
+)`)
+
+/** Same batch linkage as JEL_ON_BATCH_SQL, for error rows (any event_type) with NULL run_id. */
+const ERR_ON_BATCH_SQL = sql.unsafe(`(
+  err.run_id = p.batch_id
+  OR (
+    err.run_id IS NULL
+    AND EXISTS (
+      SELECT 1 FROM job_content jc_sf
+      WHERE jc_sf.run_id = p.batch_id
+        AND jc_sf.job_id = err.job_id
+        AND err.created_at >= jc_sf.created_at - INTERVAL '15 minutes'
+        AND err.created_at <= jc_sf.created_at + INTERVAL '7 days'
+    )
+  )
+)`)
+
 export async function getDailyStatus(): Promise<DayStatus[]> {
   const rows = await sql<Array<{
     day: Date | string
@@ -74,7 +106,7 @@ export async function getDailyStatus(): Promise<DayStatus[]> {
     FROM paired p
     LEFT JOIN email_scrapes es  ON es.run_id  = p.gmail_id
     LEFT JOIN job_content   jc  ON jc.run_id  = p.batch_id
-    LEFT JOIN job_event_log jel ON jel.run_id = p.batch_id
+    LEFT JOIN job_event_log jel ON ${JEL_ON_BATCH_SQL}
     WHERE p.started_at > NOW() - INTERVAL '90 days'
     GROUP BY date_trunc('day', p.started_at AT TIME ZONE 'UTC')::date
     ORDER BY 1 ASC
@@ -167,14 +199,14 @@ export async function getRecentRuns(limit = 20): Promise<RunDetail[]> {
           '[]'::json
         )
         FROM job_event_log err
-        WHERE err.run_id = p.batch_id
+        WHERE ${ERR_ON_BATCH_SQL}
           AND err.event_type IN ('sf_scrape_fields_error', 'sf_mapping_pull_failed')
         LIMIT 10
       ) AS sf_error_details
     FROM paired p
     LEFT JOIN email_scrapes es  ON es.run_id  = p.gmail_id
     LEFT JOIN job_content   jc  ON jc.run_id  = p.batch_id
-    LEFT JOIN job_event_log jel ON jel.run_id = p.batch_id
+    LEFT JOIN job_event_log jel ON ${JEL_ON_BATCH_SQL}
     GROUP BY p.gmail_id, p.batch_id, p.started_at, p.gmail_finished,
              p.batch_started, p.batch_finished
     ORDER BY p.started_at DESC
@@ -273,7 +305,7 @@ export async function getRunsForJobId(jobId: string): Promise<RunDetail[]> {
           '[]'::json
         )
         FROM job_event_log err
-        WHERE err.run_id = p.batch_id
+        WHERE ${ERR_ON_BATCH_SQL}
           AND err.job_id = ${jobId}
           AND err.event_type IN ('sf_scrape_fields_error', 'sf_mapping_pull_failed')
         LIMIT 10
@@ -281,7 +313,7 @@ export async function getRunsForJobId(jobId: string): Promise<RunDetail[]> {
     FROM paired p
     LEFT JOIN email_scrapes es  ON es.run_id  = p.gmail_id
     LEFT JOIN job_content   jc  ON jc.run_id  = p.batch_id AND jc.job_id = ${jobId}
-    LEFT JOIN job_event_log jel ON jel.run_id = p.batch_id AND jel.job_id = ${jobId}
+    LEFT JOIN job_event_log jel ON jel.job_id = ${jobId} AND ${JEL_ON_BATCH_SQL}
     WHERE jc.id IS NOT NULL
     GROUP BY p.gmail_id, p.batch_id, p.started_at, p.gmail_finished,
              p.batch_started, p.batch_finished
@@ -449,6 +481,14 @@ async function fetchValidationSqlRows(
             AND jel.created_at >= (jc.created_at - interval '15 minutes')
             AND jel.created_at <= (jc.created_at + interval '7 days')
           )
+          OR (
+            jel.event_type IN (
+              'sf_scrape_fields_patched',
+              'sf_scrape_fields_skip',
+              'sf_scrape_fields_error',
+              'sf_sync_skipped_no_mapping'
+            )
+          )
         )
     ) ev_this ON true
     LEFT JOIN LATERAL (
@@ -553,15 +593,9 @@ export async function getValidationData(runId: number, jobId?: string) {
     // Family B: Supabase mapping field update audit (prev/next)
     const mappingUpdateEvents = eventsThisRun.filter(e => e.eventType === 'sf_ids_update')
 
-    // Family C: Salesforce PATCH of "scrape-sync" fields (client-visible field diffs)
-    const salesforceFieldEvents = eventsThisRun.filter(e =>
-      [
-        'sf_sync_skipped_no_mapping',
-        'sf_scrape_fields_skip',
-        'sf_scrape_fields_error',
-        'sf_scrape_fields_patched',
-      ].includes(e.eventType)
-    )
+    // Family C: Salesforce PATCH of "scrape-sync" fields (client-visible field diffs).
+    // Include matching rows from events_history when strict run_id anchoring dropped them.
+    const salesforceFieldEvents = mergeSalesforceFieldSyncEvents(eventsThisRun, eventsHistory)
 
     const jobCreatedEvents = eventsThisRun.filter(e => e.eventType === 'job_created_in_salesforce')
     const jobCreatedSorted = [...jobCreatedEvents].sort(
@@ -627,7 +661,7 @@ export async function getValidationData(runId: number, jobId?: string) {
         createdAt: e.createdAt,
         sfJobId: e.payload?.sf_job_id,
         fieldsChanged: e.payload?.fields_changed || [],
-        fieldsCompared: e.payload.fields_compared || [],
+        fieldsCompared: e.payload?.fields_compared || [],
         prev: e.payload?.prev || {},
         next: e.payload?.next || {},
         auditOnly: true,
