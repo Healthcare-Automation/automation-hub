@@ -429,11 +429,26 @@ async function fetchValidationSqlRows(
       ) AS events
       FROM job_event_log jel
       WHERE jel.job_id = jc.job_id
-        AND jel.run_id IS NOT NULL
         AND (
-          (jc.run_id IS NOT NULL AND jel.run_id = jc.run_id)
-          OR (es.run_id IS NOT NULL AND jel.run_id = es.run_id)
-          OR jel.run_id = ${runId}
+          (
+            jel.run_id IS NOT NULL
+            AND (
+              (jc.run_id IS NOT NULL AND jel.run_id = jc.run_id)
+              OR (es.run_id IS NOT NULL AND jel.run_id = es.run_id)
+              OR jel.run_id = ${runId}
+            )
+          )
+          OR (
+            jel.run_id IS NULL
+            AND jel.event_type IN (
+              'sf_scrape_fields_patched',
+              'sf_scrape_fields_skip',
+              'sf_scrape_fields_error',
+              'sf_sync_skipped_no_mapping'
+            )
+            AND jel.created_at >= (jc.created_at - interval '15 minutes')
+            AND jel.created_at <= (jc.created_at + interval '7 days')
+          )
         )
     ) ev_this ON true
     LEFT JOIN LATERAL (

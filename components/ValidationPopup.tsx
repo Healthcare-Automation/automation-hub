@@ -192,7 +192,6 @@ function fmtVal(v: any) {
 
 /** Job__c layout (Overview → dates/schedule → insight → …); description last. Unknown __c fields sort before description. */
 const SF_VALIDATION_FIELD_ORDER: string[] = [
-  'Name',
   'Job_Account__c',
   'Job_Worksite_Location_1__c',
   'Job_Worksite_1_Address__c',
@@ -202,9 +201,12 @@ const SF_VALIDATION_FIELD_ORDER: string[] = [
   'test_status__c',
   'test_posted_date__c',
   'Job_Status__c',
+  'Job_Job_Source__c',
   'Position_Type_DJC__c',
   'Specialty_DJC__c',
+  'Job_Specialty__c',
   'Occupation_DJC__c',
+  'Job_Position_Type__c',
   'Job_City__c',
   'Job_State__c',
   'Job_Ranking__c',
@@ -220,6 +222,8 @@ const SF_VALIDATION_FIELD_ORDER: string[] = [
   'Standard_Schedule_Hours__c',
   'Job_Provider_Start_Date__c',
   'Job_Provider_End_Date__c',
+  'Job_Client_Job_Description__c',
+  'roster_only__c',
   'Insight__c',
   'Job_Types_of_Cases__c',
   'Job_Support_Staff__c',
@@ -274,7 +278,7 @@ function explainMissingSfFieldSyncEvents(job: ValidationJobDetail): string {
     )
   }
   return (
-    'Still no Salesforce field-sync log lines despite a stored sf_job_id. Check Modal logs for this link_batch run, or whether this job_content row predates sf_field sync logging.'
+    'No Salesforce field-sync events are attached to this row for the selected run. Often the PATCH was logged with run_id NULL or a different link_batch id than job_content.run_id — check job_event_log for this job_id, or Modal logs for the scrape run.'
   )
 }
 
