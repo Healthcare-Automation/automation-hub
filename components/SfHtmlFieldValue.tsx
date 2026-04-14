@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type RefObject, type UIEventHandler } from 'react'
 import DOMPurify from 'dompurify'
 import { cn } from '@/lib/utils'
 import { SF_JOB_DESCRIPTION_FIELD } from '@/lib/sfJobDescriptionField'
@@ -33,10 +33,15 @@ function SfHtmlFieldValue({
   field,
   value,
   tone = 'muted',
+  htmlScrollContainerRef,
+  onHtmlScrollContainerScroll,
 }: {
   field: string
   value: unknown
   tone?: Tone
+  /** Ref on the scrollable HTML (or raw) preview box — for paired sync scrolling */
+  htmlScrollContainerRef?: RefObject<HTMLDivElement | null>
+  onHtmlScrollContainerScroll?: UIEventHandler<HTMLDivElement>
 }) {
   const str = value === null || value === undefined ? '' : String(value)
   const showHtml =
@@ -63,13 +68,19 @@ function SfHtmlFieldValue({
     )
     if (!sanitized) {
       return (
-        <div className={cn(shellClass, 'font-mono text-[11px] opacity-90 whitespace-pre-wrap break-words')}>
+        <div
+          ref={htmlScrollContainerRef}
+          onScroll={onHtmlScrollContainerScroll}
+          className={cn(shellClass, 'font-mono text-[11px] opacity-90 whitespace-pre-wrap break-words')}
+        >
           {str.length > 8000 ? `${str.slice(0, 8000)}…` : str}
         </div>
       )
     }
     return (
       <div
+        ref={htmlScrollContainerRef}
+        onScroll={onHtmlScrollContainerScroll}
         className={cn(shellClass, 'sf-jd-html')}
         dangerouslySetInnerHTML={{ __html: sanitized }}
       />
