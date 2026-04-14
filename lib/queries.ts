@@ -1,5 +1,4 @@
 import sql from './db'
-import { buildExpectedSfJobName, jobNameLocationFallbackFromSfNext } from './sfJobName'
 import type { DayStatus, RunDetail, WeeklySummary } from './types'
 import { getDayStatusKind } from './utils'
 
@@ -700,21 +699,6 @@ export async function getValidationData(runId: number, jobId?: string) {
       !['id', 'created_at', 'updated_at'].includes(key)
     )
 
-    const jobNameLocationFallback = jobNameLocationFallbackFromSfNext(
-      salesforceFieldPatches[0]?.next as Record<string, unknown> | undefined,
-    )
-    const expectedJobName = buildExpectedSfJobName(
-      {
-        city: row.city,
-        state: row.state,
-        posting_org: row.posting_org,
-        practice_value: row.practice_value,
-        location_line: row.location_line,
-        status: row.status,
-      },
-      jobNameLocationFallback,
-    )
-
     // Build comprehensive automation audit data
     return {
       id: String(row.id),
@@ -726,7 +710,6 @@ export async function getValidationData(runId: number, jobId?: string) {
       emailActionOrChange: row.email_action_or_change ?? null,
       emailCreatedAt: row.email_created_at ? toISOString(row.email_created_at) : null,
       scrapeChangeSummary: row.scrape_change_summary ?? null,
-      expectedJobName,
       kimedicsLink: row.kimedics_link || '',
       sfJobId: row.sf_job_id,
       status,

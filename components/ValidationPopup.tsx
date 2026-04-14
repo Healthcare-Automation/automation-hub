@@ -17,8 +17,6 @@ interface ValidationJobDetail {
   emailCreatedAt?: string | null
   /** Derived from scraped job_content diff — more accurate than email subject for “what changed”. */
   scrapeChangeSummary?: string | null
-  /** Same rules as Python ``build_salesforce_job_name`` (Kimedics row → expected ``Name``). */
-  expectedJobName?: string
   kimedicsLink: string
   sfJobId: string | null
   status: 'success' | 'failed' | 'partial'
@@ -1176,19 +1174,7 @@ function JobCard({ job }: { job: ValidationJobDetail }) {
             <StatusBadge status={job.status} />
             <span className="text-xs text-zinc-500">JobContent: {job.id}</span>
           </div>
-          {job.expectedJobName ? (
-            <div className="rounded-lg border border-zinc-600/40 bg-zinc-800/40 px-3 py-2.5">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 mb-1">
-                Expected Job Name (automation)
-              </p>
-              <p className="text-sm text-zinc-100 font-medium leading-snug">{job.expectedJobName}</p>
-              <p className="text-[10px] text-zinc-500 mt-1">
-                From Kimedics city/state/practice/posting org — compare to Salesforce{' '}
-                <span className="font-mono text-zinc-400">Name</span> in field sync below.
-              </p>
-            </div>
-          ) : null}
-          {jc && (
+                   {jc && (
             <div className="rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-2.5">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-violet-300">
