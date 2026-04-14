@@ -19,3 +19,38 @@ body {
 * {
   box-sizing: border-box;
 }
+
+/* Salesforce Job_Client_Job_Description__c HTML preview (ValidationPopup) */
+.sf-jd-html p {
+  margin: 0.35em 0;
+}
+.sf-jd-html p:first-child {
+  margin-top: 0;
+}
+.sf-jd-html p:last-child {
+  margin-bottom: 0;
+}
+.sf-jd-html ul,
+.sf-jd-html ol {
+  margin: 0.35em 0;
+  padding-left: 1.25rem;
+}
+.sf-jd-html ul {
+  list-style-type: disc;
+}
+.sf-jd-html ol {
+  list-style-type: decimal;
+}
+.sf-jd-html li {
+  margin: 0.15em 0;
+}
+.sf-jd-html strong {
+  font-weight: 600;
+}
+.sf-jd-html a {
+  color: #7dd3fc;
+  text-decoration: underline;
+}
+.sf-jd-html a:hover {
+  color: #bae6fd;
+}

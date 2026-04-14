@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
+import { SF_JOB_DESCRIPTION_FIELD } from '@/lib/sfJobDescriptionField'
+import { valueToComparableString, sfFieldValuesEquivalent } from '@/lib/sfFieldDiffUtils'
+import { SfFieldCompared } from '@/components/SfFieldCompared'
 
 interface ValidationJobDetail {
   id: string
@@ -14,6 +17,8 @@ interface ValidationJobDetail {
   emailCreatedAt?: string | null
   /** Derived from scraped job_content diff — more accurate than email subject for “what changed”. */
   scrapeChangeSummary?: string | null
+  /** Same rules as Python ``build_salesforce_job_name`` (Kimedics row → expected ``Name``). */
+  expectedJobName?: string
   kimedicsLink: string
   sfJobId: string | null
   status: 'success' | 'failed' | 'partial'
@@ -222,13 +227,11 @@ const SF_VALIDATION_FIELD_ORDER: string[] = [
   'Job_Support_Staff__c',
 ]
 
-const SF_DESC_FIELD = 'Job_Client_Job_Description__c'
-
 function sortSfValidationFields(fields: string[]): string[] {
   const known = new Map(SF_VALIDATION_FIELD_ORDER.map((f, i) => [f, i]))
   const maxKnown = SF_VALIDATION_FIELD_ORDER.length
   const rank = (f: string) => {
-    if (f === SF_DESC_FIELD) return maxKnown + 2
+    if (f === SF_JOB_DESCRIPTION_FIELD) return maxKnown + 2
     const i = known.get(f)
     if (i !== undefined) return i
     return maxKnown + 1
@@ -249,10 +252,9 @@ function sfSyncDisplayedFields(payload: Record<string, any> | undefined): string
   return sortSfValidationFields(payload.fields_changed ?? [])
 }
 
-function sfValuesMatchDisplay(a: unknown, b: unknown): boolean {
-  const sa = fmtVal(a)
-  const sb = fmtVal(b)
-  return sa === sb
+function sfValuesMatchDisplay(a: unknown, b: unknown, field?: string): boolean {
+  if (!field) return valueToComparableString(a) === valueToComparableString(b)
+  return sfFieldValuesEquivalent(a, b, field)
 }
 
 /**
@@ -610,16 +612,12 @@ function Timeline({ job }: { job: ValidationJobDetail }) {
                               ).map((field: string) => (
                                   <div key={field} className="bg-emerald-500/5 border border-emerald-500/10 rounded p-2">
                                     <div className="text-[10px] font-semibold text-emerald-400 mb-1">{field}</div>
-                                    <div className="grid grid-cols-2 gap-2 text-[11px]">
-                                      <div>
-                                        <span className="text-zinc-500">Before: </span>
-                                        <span className="font-mono text-zinc-300">{fmtVal(it.event?.payload?.prev?.[field])}</span>
-                                      </div>
-                                      <div>
-                                        <span className="text-zinc-500">After: </span>
-                                        <span className="font-mono text-emerald-200">{fmtVal(it.event?.payload?.next?.[field])}</span>
-                                      </div>
-                                    </div>
+                                    <SfFieldCompared
+                                      field={field}
+                                      prev={it.event?.payload?.prev?.[field]}
+                                      next={it.event?.payload?.next?.[field]}
+                                      afterTone="emerald"
+                                    />
                                   </div>
                                 ))}
                             </div>
@@ -642,7 +640,7 @@ function Timeline({ job }: { job: ValidationJobDetail }) {
                               <div className="mt-3 space-y-2">
                                 {list.map((field: string) => {
                                   const didPatch = patched.has(field)
-                                  const matched = sfValuesMatchDisplay(p.prev?.[field], p.next?.[field])
+                                  const matched = sfValuesMatchDisplay(p.prev?.[field], p.next?.[field], field)
                                   return (
                                     <div
                                       key={field}
@@ -668,16 +666,7 @@ function Timeline({ job }: { job: ValidationJobDetail }) {
                                           {didPatch ? 'updated in SF' : matched ? 'unchanged' : 'review'}
                                         </span>
                                       </div>
-                                      <div className="grid grid-cols-2 gap-2 text-[11px]">
-                                        <div>
-                                          <span className="text-zinc-500">Before: </span>
-                                          <span className="font-mono text-zinc-300">{fmtVal(p.prev?.[field])}</span>
-                                        </div>
-                                        <div>
-                                          <span className="text-zinc-500">After: </span>
-                                          <span className="font-mono text-emerald-200">{fmtVal(p.next?.[field])}</span>
-                                        </div>
-                                      </div>
+                                      <SfFieldCompared field={field} prev={p.prev?.[field]} next={p.next?.[field]} afterTone="emerald" />
                                     </div>
                                   )
                                 })}
@@ -702,16 +691,14 @@ function Timeline({ job }: { job: ValidationJobDetail }) {
                               {sfSyncDisplayedFields(it.event.payload).map((field: string) => (
                                 <div key={field} className="bg-zinc-800/40 border border-zinc-700/40 rounded p-2">
                                   <div className="text-[10px] font-semibold text-blue-300 mb-1">{field}</div>
-                                  <div className="grid grid-cols-2 gap-2 text-[11px]">
-                                    <div>
-                                      <span className="text-zinc-500">Salesforce: </span>
-                                      <span className="font-mono text-zinc-300">{fmtVal(it.event?.payload?.prev?.[field])}</span>
-                                    </div>
-                                    <div>
-                                      <span className="text-zinc-500">Desired: </span>
-                                      <span className="font-mono text-blue-200">{fmtVal(it.event?.payload?.next?.[field])}</span>
-                                    </div>
-                                  </div>
+                                  <SfFieldCompared
+                                    field={field}
+                                    prev={it.event?.payload?.prev?.[field]}
+                                    next={it.event?.payload?.next?.[field]}
+                                    afterTone="blue"
+                                    beforeLabel="Salesforce: "
+                                    afterLabel="Desired: "
+                                  />
                                 </div>
                               ))}
                             </div>
@@ -880,16 +867,12 @@ function SalesforceMappingSection({ job }: { job: ValidationJobDetail }) {
                 {changedFields.map((field) => (
                   <div key={field} className="bg-emerald-500/5 border border-emerald-500/10 rounded p-2">
                     <div className="text-[10px] font-semibold text-emerald-400 mb-1">{field}</div>
-                    <div className="grid grid-cols-2 gap-2 text-[11px]">
-                      <div>
-                        <span className="text-zinc-500">Before: </span>
-                        <span className="font-mono text-zinc-400">{job.mappingResolution?.prev?.[field] ?? 'null'}</span>
-                      </div>
-                      <div>
-                        <span className="text-zinc-500">After: </span>
-                        <span className="font-mono text-emerald-300">{job.mappingResolution?.next?.[field] ?? 'null'}</span>
-                      </div>
-                    </div>
+                    <SfFieldCompared
+                      field={field}
+                      prev={job.mappingResolution?.prev?.[field] ?? null}
+                      next={job.mappingResolution?.next?.[field] ?? null}
+                      afterTone="emerald"
+                    />
                   </div>
                 ))}
               </div>
@@ -1077,7 +1060,7 @@ function SalesforceFieldUpdatesSection({ job }: { job: ValidationJobDetail }) {
                     <div className="space-y-2 pt-2">
                       {fieldsOrdered.map(field => {
                         const didPatch = !isAudit && patchedSet.has(field)
-                        const matched = sfValuesMatchDisplay(patch.prev?.[field], patch.next?.[field])
+                        const matched = sfValuesMatchDisplay(patch.prev?.[field], patch.next?.[field], field)
                         const badgeLabel = isAudit ? 'matched SF' : didPatch ? 'updated in SF' : matched ? 'unchanged' : 'review'
                         const badgeClass = didPatch
                           ? 'bg-emerald-500/20 text-emerald-300'
@@ -1102,18 +1085,14 @@ function SalesforceFieldUpdatesSection({ job }: { job: ValidationJobDetail }) {
                                 {badgeLabel}
                               </span>
                             </div>
-                            <div className="grid grid-cols-2 gap-2 text-[11px]">
-                              <div>
-                                <span className="text-zinc-500">{isAudit ? 'Salesforce: ' : 'Before: '}</span>
-                                <span className="font-mono text-zinc-300">{fmtVal(patch.prev?.[field])}</span>
-                              </div>
-                              <div>
-                                <span className="text-zinc-500">{isAudit ? 'Desired: ' : 'After: '}</span>
-                                <span className={cn('font-mono', isAudit ? 'text-blue-200' : 'text-emerald-300')}>
-                                  {fmtVal(patch.next?.[field])}
-                                </span>
-                              </div>
-                            </div>
+                            <SfFieldCompared
+                              field={field}
+                              prev={patch.prev?.[field]}
+                              next={patch.next?.[field]}
+                              afterTone={isAudit ? 'blue' : 'emerald'}
+                              beforeLabel={isAudit ? 'Salesforce: ' : 'Before: '}
+                              afterLabel={isAudit ? 'Desired: ' : 'After: '}
+                            />
                           </div>
                         )
                       })}
@@ -1197,6 +1176,18 @@ function JobCard({ job }: { job: ValidationJobDetail }) {
             <StatusBadge status={job.status} />
             <span className="text-xs text-zinc-500">JobContent: {job.id}</span>
           </div>
+          {job.expectedJobName ? (
+            <div className="rounded-lg border border-zinc-600/40 bg-zinc-800/40 px-3 py-2.5">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 mb-1">
+                Expected Job Name (automation)
+              </p>
+              <p className="text-sm text-zinc-100 font-medium leading-snug">{job.expectedJobName}</p>
+              <p className="text-[10px] text-zinc-500 mt-1">
+                From Kimedics city/state/practice/posting org — compare to Salesforce{' '}
+                <span className="font-mono text-zinc-400">Name</span> in field sync below.
+              </p>
+            </div>
+          ) : null}
           {jc && (
             <div className="rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-2.5">
               <div className="flex flex-wrap items-center gap-2">
