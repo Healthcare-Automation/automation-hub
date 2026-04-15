@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import { mergeTimelineEvents } from '@/lib/mergeSalesforceFieldEvents'
+import { humanizeMappingLogEventTitle, humanizeMappingSource } from '@/lib/mappingLabels'
 import { SF_JOB_DESCRIPTION_FIELD } from '@/lib/sfJobDescriptionField'
 import { valueToComparableString, sfFieldValuesEquivalent } from '@/lib/sfFieldDiffUtils'
 import { SfFieldCompared } from '@/components/SfFieldCompared'
@@ -347,12 +348,17 @@ function buildTimeline(job: ValidationJobDetail): TimelineItem[] {
     if (type === 'sf_ids_update') {
       const fields = (e.payload?.fields_changed ?? []).filter((f: string) => f !== 'sf_worksite_account_id')
       const status = e.payload?.mapping_status
+      const src = e.payload?.source as string | undefined
+      const method = humanizeMappingSource(src)
+      const detail = e.payload?.mapping_detail ? String(e.payload.mapping_detail) : ''
       return {
         key: `ev_${e.id ?? ts}_${type}`,
         ts,
         kind: 'mapping' as const,
-        title: 'Mapping',
-        subtitle: [practice ? `Practice: ${practice}` : null, status ? String(status) : null].filter(Boolean).join(' · '),
+        title: `Mapped via ${method}`,
+        subtitle: [practice ? `Practice: ${practice}` : null, status ? String(status) : null, detail || null]
+          .filter(Boolean)
+          .join(' · '),
         event: e,
         fields,
       }
@@ -361,12 +367,17 @@ function buildTimeline(job: ValidationJobDetail): TimelineItem[] {
       const msg = e.payload?.error || e.payload?.reason || e.payload?.message || type
       const isErr = type === 'sf_mapping_pull_failed'
       const kind: TimelineKind = isErr ? 'error' : (type === 'sf_mapping_skipped' ? 'skip' : 'info')
+      const ambSrc = e.payload?.source as string | undefined
+      const ambExtra =
+        type === 'mapping_ambiguous' && ambSrc
+          ? ` · ${humanizeMappingSource(ambSrc)}`
+          : ''
       return {
         key: `ev_${e.id ?? ts}_${type}`,
         ts,
         kind,
-        title: type.replaceAll('_', ' '),
-        subtitle: String(msg),
+        title: humanizeMappingLogEventTitle(type),
+        subtitle: `${String(msg)}${ambExtra}`,
         event: e,
       }
     }
@@ -601,8 +612,15 @@ function Timeline({ job }: { job: ValidationJobDetail }) {
                       {it.event?.eventType === 'sf_ids_update' && (
                         <div className={cn('mt-2 rounded-lg p-3', s.bg)}>
                           <div className="text-xs text-zinc-300">
-                            <span className="text-zinc-500">Source:</span>{' '}
-                            <span className="font-mono text-emerald-200">{it.event?.payload?.source ?? '—'}</span>
+                            <span className="text-zinc-500">Method:</span>{' '}
+                            <span className="text-emerald-200 font-medium">
+                              {humanizeMappingSource(it.event?.payload?.source as string | undefined)}
+                            </span>
+                            {it.event?.payload?.source ? (
+                              <span className="text-zinc-600 font-mono text-[10px] ml-1">
+                                ({String(it.event.payload.source)})
+                              </span>
+                            ) : null}
                             {it.event?.payload?.mapping_detail ? (
                               <span className="text-zinc-600"> · {String(it.event.payload.mapping_detail)}</span>
                             ) : null}
@@ -845,8 +863,15 @@ function SalesforceMappingSection({ job }: { job: ValidationJobDetail }) {
               <span className="text-zinc-500">Practice:</span>{' '}
               <span className="text-emerald-200 font-medium">{practice || '—'}</span>
               <span className="text-zinc-600"> · </span>
-              <span className="text-zinc-500">Source:</span>{' '}
-              <span className="text-emerald-300 font-mono">{job.mappingResolution?.source}</span>
+              <span className="text-zinc-500">Mapped via:</span>{' '}
+              <span className="text-emerald-200 font-medium">
+                {humanizeMappingSource(job.mappingResolution?.source)}
+              </span>
+              {job.mappingResolution?.source ? (
+                <span className="text-zinc-600 font-mono text-[10px] ml-1">
+                  ({job.mappingResolution.source})
+                </span>
+              ) : null}
             </div>
           ) : (
             <div className="space-y-2 text-xs">
@@ -854,9 +879,14 @@ function SalesforceMappingSection({ job }: { job: ValidationJobDetail }) {
                 <span className="text-zinc-500">Practice:</span>
                 <span className="text-emerald-200 font-medium">{practice || '—'}</span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-zinc-500">Source:</span>
-                <span className="text-emerald-300 font-mono">{job.mappingResolution?.source}</span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-zinc-500">Mapped via:</span>
+                <span className="text-emerald-200 font-medium">
+                  {humanizeMappingSource(job.mappingResolution?.source)}
+                </span>
+                {job.mappingResolution?.source ? (
+                  <span className="text-zinc-600 font-mono text-[10px]">({job.mappingResolution.source})</span>
+                ) : null}
               </div>
               {job.mappingResolution?.detail && (
                 <div className="flex items-center gap-2">
@@ -896,8 +926,11 @@ function SalesforceMappingSection({ job }: { job: ValidationJobDetail }) {
           <div className="space-y-2">
             {job.mappingIssues?.map((issue, i) => (
               <div key={i} className="text-xs">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-[10px] px-2 py-1 rounded bg-red-500/20 text-red-300">{issue.type}</span>
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  <span className="text-[10px] px-2 py-1 rounded bg-red-500/20 text-red-300">
+                    {humanizeMappingLogEventTitle(issue.type)}
+                  </span>
+                  <span className="text-[10px] text-zinc-600 font-mono">{issue.type}</span>
                 </div>
                 <p className="text-red-300 leading-relaxed">{issue.message}</p>
               </div>
