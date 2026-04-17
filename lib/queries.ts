@@ -150,7 +150,7 @@ export async function getDailyStatus(): Promise<DayStatus[]> {
   })
 }
 
-export async function getRecentRuns(limit = 20): Promise<RunDetail[]> {
+export async function getRecentRuns(limit = 20, offset = 0): Promise<RunDetail[]> {
   const rows = await sql<Array<{
     gmail_id:           number | string
     batch_id:           number | string | null
@@ -211,8 +211,115 @@ export async function getRecentRuns(limit = 20): Promise<RunDetail[]> {
              p.batch_started, p.batch_finished
     ORDER BY p.started_at DESC
     LIMIT ${limit}
+    OFFSET ${offset}
   `
 
+  return rows.map(row => {
+    const startedAt  = toISOString(row.started_at)
+    const gmailFinished = row.gmail_finished ? toISOString(row.gmail_finished) : null
+    const batchFinished = row.batch_finished ? toISOString(row.batch_finished) : null
+    const finishedAt = batchFinished ?? gmailFinished
+
+    const gmailDurationSeconds = row.gmail_secs != null ? Math.round(Number(row.gmail_secs)) : null
+    const batchDurationSeconds = row.batch_secs != null ? Math.round(Number(row.batch_secs)) : null
+    const durationSeconds      = row.total_secs != null ? Math.round(Number(row.total_secs)) : null
+
+    let status: RunDetail['status'] = 'running'
+    if (gmailFinished && (row.batch_id === null || batchFinished)) {
+      status = 'completed'
+    } else {
+      const ageMs = Date.now() - new Date(startedAt).getTime()
+      if (ageMs > 60 * 60 * 1000) status = 'error'
+    }
+
+    let sfErrorDetails: import('./types').SFErrorDetail[] = []
+    try {
+      const raw = row.sf_error_details
+      sfErrorDetails = Array.isArray(raw) ? raw : (typeof raw === 'string' ? JSON.parse(raw) : [])
+    } catch { sfErrorDetails = [] }
+
+    return {
+      id:                   Number(row.gmail_id),
+      batchId:              row.batch_id != null ? Number(row.batch_id) : null,
+      startedAt,
+      finishedAt,
+      gmailDurationSeconds,
+      batchDurationSeconds,
+      durationSeconds,
+      emailCount:           Number(row.email_count),
+      jobCount:             Number(row.job_count),
+      sfPatchCount:         Number(row.sf_patch_count),
+      sfJobsCreatedCount:   Number(row.sf_jobs_created_count ?? 0),
+      sfErrorCount:         Number(row.sf_error_count),
+      status,
+      sfErrorDetails,
+    }
+  })
+}
+
+export async function getAllRuns(): Promise<RunDetail[]> {
+  const rows = await sql<Array<{
+    gmail_id:           number | string
+    batch_id:           number | string | null
+    started_at:         Date | string
+    gmail_finished:     Date | string | null
+    batch_finished:     Date | string | null
+    gmail_secs:         string | number | null
+    batch_secs:         string | number | null
+    total_secs:         string | number | null
+    email_count:        string | number
+    job_count:          string | number
+    sf_patch_count:     string | number
+    sf_jobs_created_count: string | number
+    sf_error_count:     string | number
+    sf_error_details:   unknown
+  }>>`
+    WITH ${sql.unsafe(PAIRED_CTE)}
+    SELECT
+      p.gmail_id,
+      p.batch_id,
+      p.started_at,
+      p.gmail_finished,
+      p.batch_finished,
+      EXTRACT(EPOCH FROM (p.gmail_finished  - p.started_at))    AS gmail_secs,
+      EXTRACT(EPOCH FROM (p.batch_finished  - p.batch_started)) AS batch_secs,
+      EXTRACT(EPOCH FROM (
+        COALESCE(p.batch_finished, p.gmail_finished) - p.started_at
+      )) AS total_secs,
+      count(DISTINCT es.id)  AS email_count,
+      count(DISTINCT jc.id)  AS job_count,
+      count(DISTINCT jel.id) FILTER (WHERE jel.event_type = 'sf_scrape_fields_patched') AS sf_patch_count,
+      count(DISTINCT jel.job_id) FILTER (WHERE jel.event_type = 'job_created_in_salesforce') AS sf_jobs_created_count,
+      count(DISTINCT jel.id) FILTER (WHERE jel.event_type IN ('sf_scrape_fields_error', 'sf_mapping_pull_failed')) AS sf_error_count,
+      (
+        SELECT COALESCE(
+          json_agg(json_build_object(
+            'jobId',     err.job_id,
+            'eventType', err.event_type,
+            'error',     COALESCE(
+                           err.payload->>'error',
+                           err.payload->>'detail',
+                           err.payload->>'message',
+                           'Salesforce sync failed'
+                         )
+          ) ORDER BY err.created_at),
+          '[]'::json
+        )
+        FROM job_event_log err
+        WHERE ${ERR_ON_BATCH_SQL}
+          AND err.event_type IN ('sf_scrape_fields_error', 'sf_mapping_pull_failed')
+        LIMIT 10
+      ) AS sf_error_details
+    FROM paired p
+    LEFT JOIN email_scrapes es  ON es.run_id  = p.gmail_id
+    LEFT JOIN job_content   jc  ON jc.run_id  = p.batch_id
+    LEFT JOIN job_event_log jel ON ${JEL_ON_BATCH_SQL}
+    GROUP BY p.gmail_id, p.batch_id, p.started_at, p.gmail_finished,
+             p.batch_started, p.batch_finished
+    ORDER BY p.started_at DESC
+  `
+
+  // Same mapping logic as getRecentRuns
   return rows.map(row => {
     const startedAt  = toISOString(row.started_at)
     const gmailFinished = row.gmail_finished ? toISOString(row.gmail_finished) : null
@@ -480,14 +587,6 @@ async function fetchValidationSqlRows(
             )
             AND jel.created_at >= (jc.created_at - interval '15 minutes')
             AND jel.created_at <= (jc.created_at + interval '7 days')
-          )
-          OR (
-            jel.event_type IN (
-              'sf_scrape_fields_patched',
-              'sf_scrape_fields_skip',
-              'sf_scrape_fields_error',
-              'sf_sync_skipped_no_mapping'
-            )
           )
         )
     ) ev_this ON true

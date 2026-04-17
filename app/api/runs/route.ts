@@ -12,8 +12,10 @@ export async function GET(request: NextRequest) {
     }
 
     const limit = request.nextUrl.searchParams.get('limit')
+    const offset = request.nextUrl.searchParams.get('offset')
     const n = limit ? Number(limit) : 20
-    const runs = await getRecentRuns(Number.isFinite(n) ? n : 20)
+    const o = offset ? Number(offset) : 0
+    const runs = await getRecentRuns(Number.isFinite(n) ? n : 20, Number.isFinite(o) ? o : 0)
     return NextResponse.json({ runs })
   } catch (error) {
     console.error('Failed to fetch runs:', error)

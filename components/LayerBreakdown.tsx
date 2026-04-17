@@ -159,10 +159,25 @@ function SfPushCell({ run }: { run: RunDetail }) {
       </span>
       {created > 0 ? (
         <span
-          className="text-[9px] font-semibold text-violet-400 leading-tight truncate max-w-full"
+          className={cn(
+            'inline-flex items-center gap-1',
+            'text-[10px] font-semibold leading-tight',
+            'px-1.5 py-0.5 rounded-md border',
+            'bg-violet-500/10 border-violet-500/25 text-violet-300',
+            'shadow-[0_0_0_1px_rgba(139,92,246,0.08)]',
+            'truncate max-w-full'
+          )}
           title={`${created} new Salesforce job record(s) created this run`}
         >
-          +{created} new job{created === 1 ? '' : 's'}
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className="opacity-90">
+            <path
+              d="M12 5v14M5 12h14"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+            />
+          </svg>
+          {created} new job{created === 1 ? '' : 's'}
         </span>
       ) : null}
     </span>
@@ -174,16 +189,22 @@ interface Props {
 }
 
 const COLS = 'grid-cols-[3rem_4.5rem_3.5rem_1fr_1fr_1fr] gap-x-2'
+const PAGE_SIZE = 20
 
 export default function LayerBreakdown({ runs }: Props) {
   const [selectedRunId, setSelectedRunId] = useState<number | null>(null)
+  const [lastOpenedRunId, setLastOpenedRunId] = useState<number | null>(null)
   const [jobIdFilter, setJobIdFilter] = useState('')
   const [activeJobId, setActiveJobId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [filteredRuns, setFilteredRuns] = useState<RunDetail[] | null>(null)
+  const [pageOffset, setPageOffset] = useState(0)
+  const [pageRuns, setPageRuns] = useState<RunDetail[]>(runs)
+  const [paging, setPaging] = useState(false)
+  const [hasOlder, setHasOlder] = useState(runs.length === PAGE_SIZE)
 
-  const displayedRuns = filteredRuns ?? runs
+  const displayedRuns = filteredRuns ?? pageRuns
 
   const canSearch = useMemo(() => jobIdFilter.trim().length > 0, [jobIdFilter])
 
@@ -193,8 +214,21 @@ export default function LayerBreakdown({ runs }: Props) {
       setFilteredRuns(null)
       setActiveJobId(null)
       setError(null)
+      // Restore paged runs view
+      setPageOffset(0)
+      setPageRuns(runs)
+      setHasOlder(runs.length === PAGE_SIZE)
     }
   }, [jobIdFilter])
+
+  useEffect(() => {
+    // If server-provided initial runs change (e.g. refresh), keep page 0 in sync.
+    if (filteredRuns === null && pageOffset === 0) {
+      setPageRuns(runs)
+      setHasOlder(runs.length === PAGE_SIZE)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [runs])
 
   const applyFilter = async () => {
     const jobId = jobIdFilter.trim()
@@ -213,6 +247,26 @@ export default function LayerBreakdown({ runs }: Props) {
       setActiveJobId(jobId)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchPage = async (nextOffset: number) => {
+    setPaging(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/runs?limit=${PAGE_SIZE}&offset=${nextOffset}`)
+      if (!res.ok) throw new Error('Failed to fetch runs')
+      const data = await res.json()
+      const nextRuns: RunDetail[] = data.runs || []
+      setPageRuns(nextRuns)
+      setPageOffset(nextOffset)
+      setHasOlder(nextRuns.length === PAGE_SIZE)
+      setLastOpenedRunId(null)
+      setSelectedRunId(null)
+    } catch {
+      setError('Failed to load run history')
+    } finally {
+      setPaging(false)
     }
   }
 
@@ -298,11 +352,15 @@ export default function LayerBreakdown({ runs }: Props) {
       {displayedRuns.map((run) => (
         <div
           key={run.id}
-          onClick={() => setSelectedRunId(run.id)}
+          onClick={() => {
+            setSelectedRunId(run.id)
+            setLastOpenedRunId(run.id)
+          }}
           className={cn(
             'grid px-3 py-2.5 rounded-lg text-sm items-center cursor-pointer',
             'hover:bg-zinc-700/30 hover:border-zinc-600 transition-all duration-200 group',
             'border border-transparent relative',
+            lastOpenedRunId === run.id && 'bg-zinc-700/30 border-zinc-600',
             COLS,
           )}
         >
@@ -344,6 +402,47 @@ export default function LayerBreakdown({ runs }: Props) {
           </div>
         </div>
       ))}
+
+      {/* Pagination (unfiltered only) */}
+      {filteredRuns === null && (
+        <div className="px-3 pt-2 flex items-center justify-between">
+          <button
+            onClick={() => fetchPage(Math.max(0, pageOffset - PAGE_SIZE))}
+            disabled={paging || pageOffset === 0}
+            className={cn(
+              'px-2.5 py-1.5 rounded-lg text-[11px] font-medium border transition-colors inline-flex items-center gap-1.5',
+              pageOffset === 0 || paging
+                ? 'border-zinc-800 text-zinc-600 cursor-not-allowed'
+                : 'border-zinc-700/60 text-zinc-200 hover:bg-zinc-700/30'
+            )}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+            Previous
+          </button>
+
+          <span className="text-[11px] text-zinc-600 tabular-nums">
+            Page {Math.floor(pageOffset / PAGE_SIZE) + 1}
+          </span>
+
+          <button
+            onClick={() => fetchPage(pageOffset + PAGE_SIZE)}
+            disabled={paging || !hasOlder}
+            className={cn(
+              'px-2.5 py-1.5 rounded-lg text-[11px] font-medium border transition-colors inline-flex items-center gap-1.5',
+              !hasOlder || paging
+                ? 'border-zinc-800 text-zinc-600 cursor-not-allowed'
+                : 'border-zinc-700/60 text-zinc-200 hover:bg-zinc-700/30'
+            )}
+          >
+            Next
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 18l6-6-6-6" />
+            </svg>
+          </button>
+        </div>
+      )}
 
       <ValidationPopup
         runId={selectedRunId || 0}

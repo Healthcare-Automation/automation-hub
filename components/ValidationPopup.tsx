@@ -320,6 +320,21 @@ function buildTimeline(job: ValidationJobDetail): TimelineItem[] {
   const practice = job.kimedicsData?.practice || job.kimedicsData?.practice_value
   const evs = mergeTimelineEvents(job.eventsThisRun ?? [], job.eventsHistory ?? [])
 
+  // When multiple SF PATCH events happen within the same run for a single job, label them as
+  // "pass 1/2" etc so it's obvious they belong to the same run but are distinct writes.
+  const sfPatched = evs
+    .filter(e => e.eventType === 'sf_scrape_fields_patched')
+    .slice()
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+  const sfPatchedIndex: Record<string, { idx: number; total: number }> = {}
+  if (sfPatched.length > 1) {
+    const total = sfPatched.length
+    sfPatched.forEach((e, i) => {
+      const k = String(e.id ?? e.createdAt)
+      sfPatchedIndex[k] = { idx: i + 1, total }
+    })
+  }
+
   const subj = (job.emailSubject ?? '').toLowerCase()
   const aoc = (job.emailActionOrChange ?? '').toLowerCase()
   const isNewJobPost = aoc === 'new' || subj.includes('new job post')
@@ -401,6 +416,8 @@ function buildTimeline(job: ValidationJobDetail): TimelineItem[] {
       const sfJobId = e.payload?.sf_job_id
       const fields = sfSyncDisplayedFields(e.payload)
       const nUpdated = Array.isArray(e.payload?.fields_changed) ? e.payload.fields_changed.length : 0
+      const pass = sfPatchedIndex[String(e.id ?? ts)]
+      const passLabel = pass ? ` (pass ${pass.idx}/${pass.total})` : ''
       const sub =
         fields.length > 0
           ? `${sfJobId ? `Record ${sfJobId}` : 'Record'} · ${nUpdated} field${nUpdated !== 1 ? 's' : ''} updated in Salesforce · ${fields.length} compared · ${fields.slice(0, 2).join(', ')}${fields.length > 2 ? ` +${fields.length - 2} more` : ''}`
@@ -409,7 +426,7 @@ function buildTimeline(job: ValidationJobDetail): TimelineItem[] {
         key: `ev_${e.id ?? ts}_${type}`,
         ts,
         kind: 'sf' as const,
-        title: 'Salesforce field update',
+        title: `Salesforce field update${passLabel}`,
         subtitle: sub,
         event: e,
       }

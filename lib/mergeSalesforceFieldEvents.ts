@@ -30,9 +30,23 @@ export function mergeSalesforceFieldSyncEvents(
 ): JobLogEvent[] {
   const fromRun = thisRun.filter(e => isSfFieldSyncType(e.eventType))
   const ids = new Set(fromRun.map(e => e.id).filter((x): x is number => x != null && x !== 0))
+
+  // Constrain history merges to the same time window as "this run".
+  // This prevents the ValidationPopup from showing SF field-sync events from unrelated runs.
+  const times = fromRun
+    .map(e => new Date(e.createdAt).getTime())
+    .filter(t => Number.isFinite(t) && t > 0)
+  const minT = times.length ? Math.min(...times) : 0
+  const maxT = times.length ? Math.max(...times) : 0
+  const slackMs = 15 * 60 * 1000
+
   const extra = history.filter(e => {
     if (!isSfFieldSyncType(e.eventType)) return false
     if (e.id != null && e.id !== 0 && ids.has(e.id)) return false
+    if (minT && maxT) {
+      const t = new Date(e.createdAt).getTime()
+      if (!Number.isFinite(t) || t < (minT - slackMs) || t > (maxT + slackMs)) return false
+    }
     return true
   })
   return [...fromRun, ...extra]
