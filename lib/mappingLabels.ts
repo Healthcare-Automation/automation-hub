@@ -23,6 +23,9 @@ const LOG_EVENT_TITLES: Record<string, string> = {
   mapping_ai_match: 'Mapping: AI match',
   sf_mapping_skipped: 'Mapping: Salesforce pull skipped',
   sf_mapping_pull_failed: 'Mapping: Salesforce pull failed',
+  sf_scrape_fields_recovered: 'Salesforce push recovered',
+  sf_field_quarantined: 'Field quarantined (parser fix needed)',
+  sf_push_unhandled_error: 'Salesforce push: unhandled error',
 }
 
 export function humanizeMappingSource(source: string | null | undefined): string {

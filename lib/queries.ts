@@ -23,6 +23,16 @@ function toISOString(val: unknown): string {
   return String(val)
 }
 
+function parseQuarantinedFields(raw: unknown): string[] {
+  try {
+    const v = Array.isArray(raw) ? raw : (typeof raw === 'string' ? JSON.parse(raw) : [])
+    if (!Array.isArray(v)) return []
+    return v.filter((x): x is string => typeof x === 'string' && x.length > 0)
+  } catch {
+    return []
+  }
+}
+
 // Pair each gmail run with its next link_batch that starts within 15 minutes of gmail start.
 // Must stay aligned with scrape_gmail_modal._pair_runs (Gmail + Playwright + DB in one Modal run).
 const PAIRED_CTE = `
@@ -89,6 +99,8 @@ export async function getDailyStatus(): Promise<DayStatus[]> {
     sf_patches: string | number
     sf_jobs_created: string | number
     sf_errors: string | number
+    sf_recovered: string | number
+    sf_quarantined: string | number
   }>>`
     WITH ${sql.unsafe(PAIRED_CTE)}
     SELECT
@@ -102,7 +114,17 @@ export async function getDailyStatus(): Promise<DayStatus[]> {
       count(DISTINCT jc.id)  AS jobs_scraped,
       count(DISTINCT jel.id) FILTER (WHERE jel.event_type = 'sf_scrape_fields_patched')                           AS sf_patches,
       count(DISTINCT jel.job_id) FILTER (WHERE jel.event_type = 'job_created_in_salesforce')                       AS sf_jobs_created,
-      count(DISTINCT jel.id) FILTER (WHERE jel.event_type IN ('sf_scrape_fields_error','sf_mapping_pull_failed')) AS sf_errors
+      count(DISTINCT jel.id) FILTER (
+        WHERE jel.event_type IN ('sf_scrape_fields_error','sf_mapping_pull_failed')
+          AND NOT EXISTS (
+            SELECT 1 FROM job_event_log ok
+            WHERE ok.job_id = jel.job_id
+              AND ok.event_type IN ('sf_scrape_fields_patched','sf_scrape_fields_recovered')
+              AND ok.created_at >= jel.created_at
+          )
+      ) AS sf_errors,
+      count(DISTINCT jel.id) FILTER (WHERE jel.event_type = 'sf_scrape_fields_recovered') AS sf_recovered,
+      count(DISTINCT jel.id) FILTER (WHERE jel.event_type = 'sf_field_quarantined')       AS sf_quarantined
     FROM paired p
     LEFT JOIN email_scrapes es  ON es.run_id  = p.gmail_id
     LEFT JOIN job_content   jc  ON jc.run_id  = p.batch_id
@@ -129,6 +151,8 @@ export async function getDailyStatus(): Promise<DayStatus[]> {
         sfPatches: 0,
         sfJobsCreated: 0,
         sfErrors: 0,
+        sfRecovered: 0,
+        sfQuarantined: 0,
         status: 'no_data' as const,
       }
     }
@@ -145,6 +169,8 @@ export async function getDailyStatus(): Promise<DayStatus[]> {
       sfPatches: Number(row.sf_patches),
       sfJobsCreated,
       sfErrors,
+      sfRecovered: Number(row.sf_recovered ?? 0),
+      sfQuarantined: Number(row.sf_quarantined ?? 0),
       status: getDayStatusKind({ totalRuns, completedRuns, emailsScraped: Number(row.emails_scraped), sfErrors }),
     }
   })
@@ -165,6 +191,9 @@ export async function getRecentRuns(limit = 20, offset = 0): Promise<RunDetail[]
     sf_patch_count:     string | number
     sf_jobs_created_count: string | number
     sf_error_count:     string | number
+    sf_recovered_count: string | number
+    sf_quarantined_count: string | number
+    sf_quarantined_fields: unknown
     sf_error_details:   unknown
   }>>`
     WITH ${sql.unsafe(PAIRED_CTE)}
@@ -183,7 +212,32 @@ export async function getRecentRuns(limit = 20, offset = 0): Promise<RunDetail[]
       count(DISTINCT jc.id)  AS job_count,
       count(DISTINCT jel.id) FILTER (WHERE jel.event_type = 'sf_scrape_fields_patched') AS sf_patch_count,
       count(DISTINCT jel.job_id) FILTER (WHERE jel.event_type = 'job_created_in_salesforce') AS sf_jobs_created_count,
-      count(DISTINCT jel.id) FILTER (WHERE jel.event_type IN ('sf_scrape_fields_error', 'sf_mapping_pull_failed')) AS sf_error_count,
+      count(DISTINCT jel.id) FILTER (
+        WHERE jel.event_type IN ('sf_scrape_fields_error', 'sf_mapping_pull_failed')
+          AND NOT EXISTS (
+            SELECT 1 FROM job_event_log ok
+            WHERE ok.job_id = jel.job_id
+              AND ok.event_type IN ('sf_scrape_fields_patched','sf_scrape_fields_recovered')
+              AND ok.created_at >= jel.created_at
+          )
+      ) AS sf_error_count,
+      count(DISTINCT jel.id) FILTER (WHERE jel.event_type = 'sf_scrape_fields_recovered') AS sf_recovered_count,
+      count(DISTINCT jel.id) FILTER (WHERE jel.event_type = 'sf_field_quarantined')       AS sf_quarantined_count,
+      (
+        SELECT COALESCE(json_agg(DISTINCT q.payload->>'field'), '[]'::json)
+        FROM job_event_log q
+        WHERE q.event_type = 'sf_field_quarantined'
+          AND (
+            q.run_id = p.batch_id
+            OR (q.run_id IS NULL AND EXISTS (
+              SELECT 1 FROM job_content jc_q
+              WHERE jc_q.run_id = p.batch_id
+                AND jc_q.job_id = q.job_id
+                AND q.created_at >= jc_q.created_at - INTERVAL '15 minutes'
+                AND q.created_at <= jc_q.created_at + INTERVAL '7 days'
+            ))
+          )
+      ) AS sf_quarantined_fields,
       (
         SELECT COALESCE(
           json_agg(json_build_object(
@@ -201,6 +255,12 @@ export async function getRecentRuns(limit = 20, offset = 0): Promise<RunDetail[]
         FROM job_event_log err
         WHERE ${ERR_ON_BATCH_SQL}
           AND err.event_type IN ('sf_scrape_fields_error', 'sf_mapping_pull_failed')
+          AND NOT EXISTS (
+            SELECT 1 FROM job_event_log ok
+            WHERE ok.job_id = err.job_id
+              AND ok.event_type IN ('sf_scrape_fields_patched','sf_scrape_fields_recovered')
+              AND ok.created_at >= err.created_at
+          )
         LIMIT 10
       ) AS sf_error_details
     FROM paired p
@@ -251,6 +311,9 @@ export async function getRecentRuns(limit = 20, offset = 0): Promise<RunDetail[]
       sfPatchCount:         Number(row.sf_patch_count),
       sfJobsCreatedCount:   Number(row.sf_jobs_created_count ?? 0),
       sfErrorCount:         Number(row.sf_error_count),
+      sfRecoveredCount:     Number(row.sf_recovered_count ?? 0),
+      sfQuarantinedCount:   Number(row.sf_quarantined_count ?? 0),
+      sfQuarantinedFields:  parseQuarantinedFields(row.sf_quarantined_fields),
       status,
       sfErrorDetails,
     }
@@ -272,6 +335,9 @@ export async function getAllRuns(): Promise<RunDetail[]> {
     sf_patch_count:     string | number
     sf_jobs_created_count: string | number
     sf_error_count:     string | number
+    sf_recovered_count: string | number
+    sf_quarantined_count: string | number
+    sf_quarantined_fields: unknown
     sf_error_details:   unknown
   }>>`
     WITH ${sql.unsafe(PAIRED_CTE)}
@@ -290,7 +356,32 @@ export async function getAllRuns(): Promise<RunDetail[]> {
       count(DISTINCT jc.id)  AS job_count,
       count(DISTINCT jel.id) FILTER (WHERE jel.event_type = 'sf_scrape_fields_patched') AS sf_patch_count,
       count(DISTINCT jel.job_id) FILTER (WHERE jel.event_type = 'job_created_in_salesforce') AS sf_jobs_created_count,
-      count(DISTINCT jel.id) FILTER (WHERE jel.event_type IN ('sf_scrape_fields_error', 'sf_mapping_pull_failed')) AS sf_error_count,
+      count(DISTINCT jel.id) FILTER (
+        WHERE jel.event_type IN ('sf_scrape_fields_error', 'sf_mapping_pull_failed')
+          AND NOT EXISTS (
+            SELECT 1 FROM job_event_log ok
+            WHERE ok.job_id = jel.job_id
+              AND ok.event_type IN ('sf_scrape_fields_patched','sf_scrape_fields_recovered')
+              AND ok.created_at >= jel.created_at
+          )
+      ) AS sf_error_count,
+      count(DISTINCT jel.id) FILTER (WHERE jel.event_type = 'sf_scrape_fields_recovered') AS sf_recovered_count,
+      count(DISTINCT jel.id) FILTER (WHERE jel.event_type = 'sf_field_quarantined')       AS sf_quarantined_count,
+      (
+        SELECT COALESCE(json_agg(DISTINCT q.payload->>'field'), '[]'::json)
+        FROM job_event_log q
+        WHERE q.event_type = 'sf_field_quarantined'
+          AND (
+            q.run_id = p.batch_id
+            OR (q.run_id IS NULL AND EXISTS (
+              SELECT 1 FROM job_content jc_q
+              WHERE jc_q.run_id = p.batch_id
+                AND jc_q.job_id = q.job_id
+                AND q.created_at >= jc_q.created_at - INTERVAL '15 minutes'
+                AND q.created_at <= jc_q.created_at + INTERVAL '7 days'
+            ))
+          )
+      ) AS sf_quarantined_fields,
       (
         SELECT COALESCE(
           json_agg(json_build_object(
@@ -308,6 +399,12 @@ export async function getAllRuns(): Promise<RunDetail[]> {
         FROM job_event_log err
         WHERE ${ERR_ON_BATCH_SQL}
           AND err.event_type IN ('sf_scrape_fields_error', 'sf_mapping_pull_failed')
+          AND NOT EXISTS (
+            SELECT 1 FROM job_event_log ok
+            WHERE ok.job_id = err.job_id
+              AND ok.event_type IN ('sf_scrape_fields_patched','sf_scrape_fields_recovered')
+              AND ok.created_at >= err.created_at
+          )
         LIMIT 10
       ) AS sf_error_details
     FROM paired p
@@ -357,6 +454,9 @@ export async function getAllRuns(): Promise<RunDetail[]> {
       sfPatchCount:         Number(row.sf_patch_count),
       sfJobsCreatedCount:   Number(row.sf_jobs_created_count ?? 0),
       sfErrorCount:         Number(row.sf_error_count),
+      sfRecoveredCount:     Number(row.sf_recovered_count ?? 0),
+      sfQuarantinedCount:   Number(row.sf_quarantined_count ?? 0),
+      sfQuarantinedFields:  parseQuarantinedFields(row.sf_quarantined_fields),
       status,
       sfErrorDetails,
     }
@@ -378,6 +478,9 @@ export async function getRunsForJobId(jobId: string): Promise<RunDetail[]> {
     sf_patch_count:     string | number
     sf_jobs_created_count: string | number
     sf_error_count:     string | number
+    sf_recovered_count: string | number
+    sf_quarantined_count: string | number
+    sf_quarantined_fields: unknown
     sf_error_details:   unknown
   }>>`
     WITH ${sql.unsafe(PAIRED_CTE)}
@@ -396,7 +499,32 @@ export async function getRunsForJobId(jobId: string): Promise<RunDetail[]> {
       count(DISTINCT jc.id)  AS job_count,
       count(DISTINCT jel.id) FILTER (WHERE jel.event_type = 'sf_scrape_fields_patched') AS sf_patch_count,
       count(DISTINCT jel.job_id) FILTER (WHERE jel.event_type = 'job_created_in_salesforce') AS sf_jobs_created_count,
-      count(DISTINCT jel.id) FILTER (WHERE jel.event_type IN ('sf_scrape_fields_error', 'sf_mapping_pull_failed')) AS sf_error_count,
+      count(DISTINCT jel.id) FILTER (
+        WHERE jel.event_type IN ('sf_scrape_fields_error', 'sf_mapping_pull_failed')
+          AND NOT EXISTS (
+            SELECT 1 FROM job_event_log ok
+            WHERE ok.job_id = jel.job_id
+              AND ok.event_type IN ('sf_scrape_fields_patched','sf_scrape_fields_recovered')
+              AND ok.created_at >= jel.created_at
+          )
+      ) AS sf_error_count,
+      count(DISTINCT jel.id) FILTER (WHERE jel.event_type = 'sf_scrape_fields_recovered') AS sf_recovered_count,
+      count(DISTINCT jel.id) FILTER (WHERE jel.event_type = 'sf_field_quarantined')       AS sf_quarantined_count,
+      (
+        SELECT COALESCE(json_agg(DISTINCT q.payload->>'field'), '[]'::json)
+        FROM job_event_log q
+        WHERE q.event_type = 'sf_field_quarantined'
+          AND (
+            q.run_id = p.batch_id
+            OR (q.run_id IS NULL AND EXISTS (
+              SELECT 1 FROM job_content jc_q
+              WHERE jc_q.run_id = p.batch_id
+                AND jc_q.job_id = q.job_id
+                AND q.created_at >= jc_q.created_at - INTERVAL '15 minutes'
+                AND q.created_at <= jc_q.created_at + INTERVAL '7 days'
+            ))
+          )
+      ) AS sf_quarantined_fields,
       (
         SELECT COALESCE(
           json_agg(json_build_object(
@@ -465,6 +593,9 @@ export async function getRunsForJobId(jobId: string): Promise<RunDetail[]> {
       sfPatchCount:         Number(row.sf_patch_count),
       sfJobsCreatedCount:   Number(row.sf_jobs_created_count ?? 0),
       sfErrorCount:         Number(row.sf_error_count),
+      sfRecoveredCount:     Number(row.sf_recovered_count ?? 0),
+      sfQuarantinedCount:   Number(row.sf_quarantined_count ?? 0),
+      sfQuarantinedFields:  parseQuarantinedFields(row.sf_quarantined_fields),
       status,
       sfErrorDetails,
     }
@@ -583,7 +714,10 @@ async function fetchValidationSqlRows(
               'sf_scrape_fields_patched',
               'sf_scrape_fields_skip',
               'sf_scrape_fields_error',
-              'sf_sync_skipped_no_mapping'
+              'sf_sync_skipped_no_mapping',
+              'sf_scrape_fields_recovered',
+              'sf_field_quarantined',
+              'sf_push_unhandled_error'
             )
             AND jel.created_at >= (jc.created_at - interval '15 minutes')
             AND jel.created_at <= (jc.created_at + interval '7 days')
@@ -615,6 +749,7 @@ async function fetchValidationSqlRows(
             'worksite_created','worksite_create_failed',
             'sf_sync_skipped_no_mapping','sf_scrape_fields_skip',
             'sf_scrape_fields_error','sf_scrape_fields_patched',
+            'sf_scrape_fields_recovered','sf_field_quarantined','sf_push_unhandled_error',
             'job_current_sf_ids_changed','job_current_upsert'
           )
         ORDER BY jel.created_at DESC
@@ -904,6 +1039,12 @@ export async function getWeeklySummary(): Promise<WeeklySummary> {
             SELECT 1 FROM job_event_log e
             WHERE e.run_id = paired.batch_id
               AND e.event_type IN ('sf_scrape_fields_error', 'sf_mapping_pull_failed')
+              AND NOT EXISTS (
+                SELECT 1 FROM job_event_log ok
+                WHERE ok.job_id = e.job_id
+                  AND ok.event_type IN ('sf_scrape_fields_patched','sf_scrape_fields_recovered')
+                  AND ok.created_at >= e.created_at
+              )
           )
       ) AS completed
     FROM paired

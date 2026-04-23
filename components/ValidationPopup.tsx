@@ -152,7 +152,7 @@ function formatTime(ts: string) {
   })
 }
 
-type TimelineKind = 'mapping' | 'sf' | 'skip' | 'error' | 'info' | 'new'
+type TimelineKind = 'mapping' | 'sf' | 'skip' | 'error' | 'info' | 'new' | 'recovered' | 'quarantined'
 
 type TimelineItem = {
   key: string
@@ -172,6 +172,10 @@ function kindStyles(kind: TimelineKind) {
       return { dot: 'bg-emerald-400', border: 'border-emerald-500/20', bg: 'bg-emerald-500/10', text: 'text-emerald-300' }
     case 'sf':
       return { dot: 'bg-emerald-400', border: 'border-emerald-500/20', bg: 'bg-emerald-500/10', text: 'text-emerald-300' }
+    case 'recovered':
+      return { dot: 'bg-teal-400', border: 'border-teal-500/30', bg: 'bg-teal-500/10', text: 'text-teal-200' }
+    case 'quarantined':
+      return { dot: 'bg-amber-300', border: 'border-amber-500/25', bg: 'bg-amber-500/10', text: 'text-amber-200' }
     case 'skip':
       return { dot: 'bg-blue-400', border: 'border-blue-500/20', bg: 'bg-blue-500/10', text: 'text-blue-300' }
     case 'error':
@@ -439,6 +443,47 @@ function buildTimeline(job: ValidationJobDetail): TimelineItem[] {
         kind: 'error' as const,
         title: 'Salesforce field update error',
         subtitle: String(msg),
+        event: e,
+      }
+    }
+    if (type === 'sf_scrape_fields_recovered') {
+      const action = String(e.payload?.action ?? 'recovered')
+      const invocation = e.payload?.invocation === 'manual_cli'
+        ? 'manual'
+        : e.payload?.invocation === 'manual_admin_ui'
+          ? 'admin UI'
+          : 'auto'
+      const pushed = Array.isArray(e.payload?.fields_pushed) ? e.payload.fields_pushed.length : 0
+      const offending: string[] = Array.isArray(e.payload?.offending_fields) ? e.payload.offending_fields : []
+      return {
+        key: `ev_${e.id ?? ts}_${type}`,
+        ts,
+        kind: 'recovered' as const,
+        title: `Salesforce push recovered (${invocation} · ${action})`,
+        subtitle: `${pushed} field${pushed !== 1 ? 's' : ''} landed in Salesforce`
+          + (offending.length ? ` · offending: ${offending.join(', ')}` : ''),
+        event: e,
+      }
+    }
+    if (type === 'sf_field_quarantined') {
+      const bad = String(e.payload?.bad_value ?? '')
+      const snippet = bad.length > 80 ? `${bad.slice(0, 80)}…` : bad
+      return {
+        key: `ev_${e.id ?? ts}_${type}`,
+        ts,
+        kind: 'quarantined' as const,
+        title: `Field quarantined: ${e.payload?.field ?? '(unknown)'}`,
+        subtitle: `Bad value: ${snippet} · heuristic: ${e.payload?.heuristic_fired ?? 'n/a'}`,
+        event: e,
+      }
+    }
+    if (type === 'sf_push_unhandled_error') {
+      return {
+        key: `ev_${e.id ?? ts}_${type}`,
+        ts,
+        kind: 'error' as const,
+        title: 'Salesforce push: unhandled error class',
+        subtitle: String(e.payload?.error ?? 'Unknown error'),
         event: e,
       }
     }

@@ -9,7 +9,12 @@ export interface DayStatus {
   sfPatches: number
   /** New job records created by automation that day (``job_created_in_salesforce``). */
   sfJobsCreated: number
+  /** SF push errors that do NOT have a subsequent patched/recovered event for the same job. */
   sfErrors: number
+  /** Successful push-recovery events (``sf_scrape_fields_recovered``). */
+  sfRecovered: number
+  /** Fields dropped from payload by recovery (``sf_field_quarantined``). */
+  sfQuarantined: number
   status: DayStatusKind
 }
 
@@ -37,7 +42,14 @@ export interface RunDetail {
   sfPatchCount: number
   /** Distinct Kimedics job_id values that received a new job record in this link_batch run (``job_created_in_salesforce``). */
   sfJobsCreatedCount: number
+  /** SF push errors on this run that do NOT have a subsequent patched/recovered event. */
   sfErrorCount: number
+  /** Successful push-recovery events on this run. */
+  sfRecoveredCount: number
+  /** Fields dropped from payload by recovery on this run. */
+  sfQuarantinedCount: number
+  /** API names of fields quarantined in this run (for tooltip). */
+  sfQuarantinedFields: string[]
   status: 'completed' | 'running' | 'error'
   sfErrorDetails: SFErrorDetail[]
 }

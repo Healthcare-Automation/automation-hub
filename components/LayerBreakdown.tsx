@@ -142,12 +142,50 @@ function LayerCell({
   )
 }
 
+function RecoveryBadge({ count }: { count: number }) {
+  if (!count) return null
+  return (
+    <span
+      className="ml-1.5 text-emerald-400 text-[10px] font-medium inline-flex items-center gap-0.5 whitespace-nowrap"
+      title={`${count} previously-failed push${count === 1 ? '' : 'es'} was automatically recovered on this run`}
+    >
+      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M23 4v6h-6" />
+        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+      </svg>
+      {count}
+    </span>
+  )
+}
+
+function QuarantineBadge({ count, fields }: { count: number; fields: string[] }) {
+  if (!count) return null
+  const title = fields.length
+    ? `Fields dropped from payload (need parser fix): ${fields.join(', ')}`
+    : `${count} field${count === 1 ? '' : 's'} dropped from payload (parser fix needed)`
+  return (
+    <span
+      className="ml-1.5 text-amber-300 text-[10px] font-medium inline-flex items-center gap-0.5 whitespace-nowrap"
+      title={title}
+    >
+      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <line x1="12" y1="8" x2="12" y2="12" />
+        <line x1="12" y1="16" x2="12.01" y2="16" />
+      </svg>
+      {count}
+    </span>
+  )
+}
+
 function SfPushCell({ run }: { run: RunDetail }) {
   const patch = run.sfPatchCount
   const created = run.sfJobsCreatedCount
   const errs = run.sfErrorDetails
+  const recovered = run.sfRecoveredCount ?? 0
+  const quarantined = run.sfQuarantinedCount ?? 0
   const hasLine =
-    patch > 0 || created > 0 || errs.length > 0
+    patch > 0 || created > 0 || errs.length > 0 || recovered > 0 || quarantined > 0
   if (!hasLine) {
     return <span className="text-zinc-600 tabular-nums">—</span>
   }
@@ -156,6 +194,8 @@ function SfPushCell({ run }: { run: RunDetail }) {
       <span className="inline-flex items-center">
         <span className={cn(patch > 0 ? 'text-zinc-200' : 'text-zinc-600')}>{patch}</span>
         <SFErrorBadge errors={errs} />
+        <RecoveryBadge count={recovered} />
+        <QuarantineBadge count={quarantined} fields={run.sfQuarantinedFields ?? []} />
       </span>
       {created > 0 ? (
         <span

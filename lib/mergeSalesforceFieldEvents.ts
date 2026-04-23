@@ -9,6 +9,9 @@ export const SF_FIELD_SYNC_EVENT_TYPES = [
   'sf_scrape_fields_skip',
   'sf_scrape_fields_error',
   'sf_scrape_fields_patched',
+  'sf_scrape_fields_recovered',
+  'sf_field_quarantined',
+  'sf_push_unhandled_error',
 ] as const
 
 export type JobLogEvent = {
