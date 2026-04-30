@@ -194,6 +194,7 @@ export async function getRecentRuns(limit = 20, offset = 0): Promise<RunDetail[]
     sf_recovered_count: string | number
     sf_quarantined_count: string | number
     sf_quarantined_fields: unknown
+    ext_job_id_swap_count: string | number
     sf_error_details:   unknown
   }>>`
     WITH ${sql.unsafe(PAIRED_CTE)}
@@ -223,6 +224,13 @@ export async function getRecentRuns(limit = 20, offset = 0): Promise<RunDetail[]
       ) AS sf_error_count,
       count(DISTINCT jel.id) FILTER (WHERE jel.event_type = 'sf_scrape_fields_recovered') AS sf_recovered_count,
       count(DISTINCT jel.id) FILTER (WHERE jel.event_type = 'sf_field_quarantined')       AS sf_quarantined_count,
+      count(DISTINCT jel.payload->>'sf_job_id') FILTER (
+        WHERE jel.event_type = 'sf_scrape_fields_patched'
+          AND jel.payload->'fields_changed' ? 'External_Job_ID__c'
+          AND COALESCE(jel.payload->'prev'->>'External_Job_ID__c', '') <> ''
+          AND COALESCE(jel.payload->'prev'->>'External_Job_ID__c', '')
+              <> COALESCE(jel.payload->'next'->>'External_Job_ID__c', '')
+      ) AS ext_job_id_swap_count,
       (
         SELECT COALESCE(json_agg(DISTINCT q.payload->>'field'), '[]'::json)
         FROM job_event_log q
@@ -314,6 +322,7 @@ export async function getRecentRuns(limit = 20, offset = 0): Promise<RunDetail[]
       sfRecoveredCount:     Number(row.sf_recovered_count ?? 0),
       sfQuarantinedCount:   Number(row.sf_quarantined_count ?? 0),
       sfQuarantinedFields:  parseQuarantinedFields(row.sf_quarantined_fields),
+      extJobIdSwapCount:    Number(row.ext_job_id_swap_count ?? 0),
       status,
       sfErrorDetails,
     }
@@ -338,6 +347,7 @@ export async function getAllRuns(): Promise<RunDetail[]> {
     sf_recovered_count: string | number
     sf_quarantined_count: string | number
     sf_quarantined_fields: unknown
+    ext_job_id_swap_count: string | number
     sf_error_details:   unknown
   }>>`
     WITH ${sql.unsafe(PAIRED_CTE)}
@@ -367,6 +377,13 @@ export async function getAllRuns(): Promise<RunDetail[]> {
       ) AS sf_error_count,
       count(DISTINCT jel.id) FILTER (WHERE jel.event_type = 'sf_scrape_fields_recovered') AS sf_recovered_count,
       count(DISTINCT jel.id) FILTER (WHERE jel.event_type = 'sf_field_quarantined')       AS sf_quarantined_count,
+      count(DISTINCT jel.payload->>'sf_job_id') FILTER (
+        WHERE jel.event_type = 'sf_scrape_fields_patched'
+          AND jel.payload->'fields_changed' ? 'External_Job_ID__c'
+          AND COALESCE(jel.payload->'prev'->>'External_Job_ID__c', '') <> ''
+          AND COALESCE(jel.payload->'prev'->>'External_Job_ID__c', '')
+              <> COALESCE(jel.payload->'next'->>'External_Job_ID__c', '')
+      ) AS ext_job_id_swap_count,
       (
         SELECT COALESCE(json_agg(DISTINCT q.payload->>'field'), '[]'::json)
         FROM job_event_log q
@@ -457,6 +474,7 @@ export async function getAllRuns(): Promise<RunDetail[]> {
       sfRecoveredCount:     Number(row.sf_recovered_count ?? 0),
       sfQuarantinedCount:   Number(row.sf_quarantined_count ?? 0),
       sfQuarantinedFields:  parseQuarantinedFields(row.sf_quarantined_fields),
+      extJobIdSwapCount:    Number(row.ext_job_id_swap_count ?? 0),
       status,
       sfErrorDetails,
     }
@@ -481,6 +499,7 @@ export async function getRunsForJobId(jobId: string): Promise<RunDetail[]> {
     sf_recovered_count: string | number
     sf_quarantined_count: string | number
     sf_quarantined_fields: unknown
+    ext_job_id_swap_count: string | number
     sf_error_details:   unknown
   }>>`
     WITH ${sql.unsafe(PAIRED_CTE)}
@@ -510,6 +529,13 @@ export async function getRunsForJobId(jobId: string): Promise<RunDetail[]> {
       ) AS sf_error_count,
       count(DISTINCT jel.id) FILTER (WHERE jel.event_type = 'sf_scrape_fields_recovered') AS sf_recovered_count,
       count(DISTINCT jel.id) FILTER (WHERE jel.event_type = 'sf_field_quarantined')       AS sf_quarantined_count,
+      count(DISTINCT jel.payload->>'sf_job_id') FILTER (
+        WHERE jel.event_type = 'sf_scrape_fields_patched'
+          AND jel.payload->'fields_changed' ? 'External_Job_ID__c'
+          AND COALESCE(jel.payload->'prev'->>'External_Job_ID__c', '') <> ''
+          AND COALESCE(jel.payload->'prev'->>'External_Job_ID__c', '')
+              <> COALESCE(jel.payload->'next'->>'External_Job_ID__c', '')
+      ) AS ext_job_id_swap_count,
       (
         SELECT COALESCE(json_agg(DISTINCT q.payload->>'field'), '[]'::json)
         FROM job_event_log q
@@ -596,6 +622,7 @@ export async function getRunsForJobId(jobId: string): Promise<RunDetail[]> {
       sfRecoveredCount:     Number(row.sf_recovered_count ?? 0),
       sfQuarantinedCount:   Number(row.sf_quarantined_count ?? 0),
       sfQuarantinedFields:  parseQuarantinedFields(row.sf_quarantined_fields),
+      extJobIdSwapCount:    Number(row.ext_job_id_swap_count ?? 0),
       status,
       sfErrorDetails,
     }

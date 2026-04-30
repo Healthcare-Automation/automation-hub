@@ -50,6 +50,8 @@ export interface RunDetail {
   sfQuarantinedCount: number
   /** API names of fields quarantined in this run (for tooltip). */
   sfQuarantinedFields: string[]
+  /** Distinct SF records on this run whose External_Job_ID__c was repointed to a different Kimedics job_id (manual validation cue). */
+  extJobIdSwapCount: number
   status: 'completed' | 'running' | 'error'
   sfErrorDetails: SFErrorDetail[]
 }
