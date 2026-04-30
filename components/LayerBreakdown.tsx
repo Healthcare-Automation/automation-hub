@@ -8,9 +8,13 @@ import ValidationPopup from './ValidationPopup'
 function StatusBadge({
   status,
   sfErrorCount,
+  emailCount,
+  jobCount,
 }: {
   status: RunDetail['status']
   sfErrorCount: number
+  emailCount: number
+  jobCount: number
 }) {
   if (status === 'error') {
     return (
@@ -30,6 +34,21 @@ function StatusBadge({
           <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500" />
         </span>
         Running
+      </span>
+    )
+  }
+  // completed — emails scraped but no jobs produced (popup will be empty)
+  if (emailCount > 0 && jobCount === 0) {
+    return (
+      <span
+        className="inline-flex items-center gap-1 text-zinc-500 text-xs font-medium whitespace-nowrap"
+        title="Emails were scraped but no job content was produced — nothing to inspect in the validation popup"
+      >
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M8 12h8" />
+        </svg>
+        No jobs
       </span>
     )
   }
@@ -181,11 +200,12 @@ function QuarantineBadge({ count, fields }: { count: number; fields: string[] })
 function SfPushCell({ run }: { run: RunDetail }) {
   const patch = run.sfPatchCount
   const created = run.sfJobsCreatedCount
+  const swapped = run.extJobIdSwapCount ?? 0
   const errs = run.sfErrorDetails
   const recovered = run.sfRecoveredCount ?? 0
   const quarantined = run.sfQuarantinedCount ?? 0
   const hasLine =
-    patch > 0 || created > 0 || errs.length > 0 || recovered > 0 || quarantined > 0
+    patch > 0 || created > 0 || swapped > 0 || errs.length > 0 || recovered > 0 || quarantined > 0
   if (!hasLine) {
     return <span className="text-zinc-600 tabular-nums">—</span>
   }
@@ -218,6 +238,30 @@ function SfPushCell({ run }: { run: RunDetail }) {
             />
           </svg>
           {created} new job{created === 1 ? '' : 's'}
+        </span>
+      ) : null}
+      {swapped > 0 ? (
+        <span
+          className={cn(
+            'inline-flex items-center gap-1',
+            'text-[10px] font-semibold leading-tight',
+            'px-1.5 py-0.5 rounded-md border',
+            'bg-amber-500/10 border-amber-500/30 text-amber-300',
+            'shadow-[0_0_0_1px_rgba(245,158,11,0.08)]',
+            'truncate max-w-full'
+          )}
+          title={`${swapped} Salesforce record(s) had External_Job_ID__c repointed to a different Kimedics job_id — manual validation recommended`}
+        >
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className="opacity-90">
+            <path
+              d="M7 4 3 8l4 4M3 8h13M17 20l4-4-4-4M21 16H8"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          {swapped} ID swap{swapped === 1 ? '' : 's'}
         </span>
       ) : null}
     </span>
@@ -412,7 +456,12 @@ export default function LayerBreakdown({ runs }: Props) {
             )}
           </span>
 
-          <StatusBadge status={run.status} sfErrorCount={run.sfErrorCount} />
+          <StatusBadge
+            status={run.status}
+            sfErrorCount={run.sfErrorCount}
+            emailCount={run.emailCount}
+            jobCount={run.jobCount}
+          />
 
           {/* Started + duration */}
           <span className="text-zinc-400 text-xs leading-tight group-hover:text-zinc-300 transition-colors">
