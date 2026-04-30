@@ -127,7 +127,7 @@ export async function getDailyStatus(): Promise<DayStatus[]> {
       count(DISTINCT jel.id) FILTER (WHERE jel.event_type = 'sf_field_quarantined')       AS sf_quarantined
     FROM paired p
     LEFT JOIN email_scrapes es  ON es.run_id  = p.gmail_id
-    LEFT JOIN job_content   jc  ON jc.run_id  = p.batch_id
+    LEFT JOIN job_content   jc  ON jc.email_scrape_id = es.id
     LEFT JOIN job_event_log jel ON ${JEL_ON_BATCH_SQL}
     WHERE p.started_at > NOW() - INTERVAL '90 days'
     GROUP BY date_trunc('day', p.started_at AT TIME ZONE 'UTC')::date
@@ -265,7 +265,7 @@ export async function getRecentRuns(limit = 20, offset = 0): Promise<RunDetail[]
       ) AS sf_error_details
     FROM paired p
     LEFT JOIN email_scrapes es  ON es.run_id  = p.gmail_id
-    LEFT JOIN job_content   jc  ON jc.run_id  = p.batch_id
+    LEFT JOIN job_content   jc  ON jc.email_scrape_id = es.id
     LEFT JOIN job_event_log jel ON ${JEL_ON_BATCH_SQL}
     GROUP BY p.gmail_id, p.batch_id, p.started_at, p.gmail_finished,
              p.batch_started, p.batch_finished
@@ -409,7 +409,7 @@ export async function getAllRuns(): Promise<RunDetail[]> {
       ) AS sf_error_details
     FROM paired p
     LEFT JOIN email_scrapes es  ON es.run_id  = p.gmail_id
-    LEFT JOIN job_content   jc  ON jc.run_id  = p.batch_id
+    LEFT JOIN job_content   jc  ON jc.email_scrape_id = es.id
     LEFT JOIN job_event_log jel ON ${JEL_ON_BATCH_SQL}
     GROUP BY p.gmail_id, p.batch_id, p.started_at, p.gmail_finished,
              p.batch_started, p.batch_finished
