@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getRecentRuns, getRunsForJobId } from '@/lib/queries'
+import { getRecentRuns, searchRuns } from '@/lib/queries'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
     const jobId = request.nextUrl.searchParams.get('jobId')
-    if (jobId) {
-      const runs = await getRunsForJobId(jobId)
+    const sfJobId = request.nextUrl.searchParams.get('sfJobId')
+    const practice = request.nextUrl.searchParams.get('practice')
+    if (jobId || sfJobId || practice) {
+      const runs = await searchRuns({
+        jobId: jobId ?? undefined,
+        sfJobId: sfJobId ?? undefined,
+        practice: practice ?? undefined,
+      })
       return NextResponse.json({ runs })
     }
 

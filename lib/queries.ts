@@ -481,7 +481,43 @@ export async function getAllRuns(): Promise<RunDetail[]> {
   })
 }
 
-export async function getRunsForJobId(jobId: string): Promise<RunDetail[]> {
+export type SearchRunsParams = {
+  /** Kimedics job_id — exact match. */
+  jobId?: string
+  /** Salesforce Job__c id — exact match. */
+  sfJobId?: string
+  /** Practice value — case-insensitive partial match (ILIKE %practice%). */
+  practice?: string
+}
+
+export async function searchRuns(params: SearchRunsParams): Promise<RunDetail[]> {
+  const jobId = params.jobId?.trim() || undefined
+  const sfJobId = params.sfJobId?.trim() || undefined
+  const practice = params.practice?.trim() || undefined
+
+  if (!jobId && !sfJobId && !practice) return []
+
+  // Build matching predicate. Two parallel fragments because the err-details
+  // subquery needs an `jc_in`-aliased copy.
+  const jcMatch = jobId
+    ? sql`jc.job_id = ${jobId}`
+    : sfJobId
+      ? sql`jc.sf_job_id = ${sfJobId}`
+      : sql`jc.practice_value ILIKE ${`%${practice}%`}`
+
+  const jcMatchInner = jobId
+    ? sql`jc_in.job_id = ${jobId}`
+    : sfJobId
+      ? sql`jc_in.sf_job_id = ${sfJobId}`
+      : sql`jc_in.practice_value ILIKE ${`%${practice}%`}`
+
+  const matchedJobIdsForRun = sql`
+    SELECT DISTINCT jc_in.job_id
+    FROM job_content jc_in
+    JOIN email_scrapes es_in ON es_in.id = jc_in.email_scrape_id
+    WHERE es_in.run_id = p.gmail_id AND ${jcMatchInner}
+  `
+
   const rows = await sql<Array<{
     gmail_id:           number | string
     batch_id:           number | string | null
@@ -567,14 +603,14 @@ export async function getRunsForJobId(jobId: string): Promise<RunDetail[]> {
         )
         FROM job_event_log err
         WHERE ${ERR_ON_BATCH_SQL}
-          AND err.job_id = ${jobId}
+          AND err.job_id IN (${matchedJobIdsForRun})
           AND err.event_type IN ('sf_scrape_fields_error', 'sf_mapping_pull_failed')
         LIMIT 10
       ) AS sf_error_details
     FROM paired p
-    LEFT JOIN email_scrapes es  ON es.run_id  = p.gmail_id
-    LEFT JOIN job_content   jc  ON jc.run_id  = p.batch_id AND jc.job_id = ${jobId}
-    LEFT JOIN job_event_log jel ON jel.job_id = ${jobId} AND ${JEL_ON_BATCH_SQL}
+    LEFT JOIN email_scrapes es  ON es.run_id = p.gmail_id
+    LEFT JOIN job_content   jc  ON jc.email_scrape_id = es.id AND ${jcMatch}
+    LEFT JOIN job_event_log jel ON jel.job_id = jc.job_id AND ${JEL_ON_BATCH_SQL}
     WHERE jc.id IS NOT NULL
     GROUP BY p.gmail_id, p.batch_id, p.started_at, p.gmail_finished,
              p.batch_started, p.batch_finished

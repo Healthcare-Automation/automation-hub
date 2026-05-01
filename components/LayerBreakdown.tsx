@@ -275,11 +275,27 @@ interface Props {
 const COLS = 'grid-cols-[3rem_4.5rem_3.5rem_1fr_1fr_1fr] gap-x-2'
 const PAGE_SIZE = 20
 
+type SearchMode = 'jobId' | 'sfJobId' | 'practice'
+
+function detectSearchMode(raw: string): SearchMode {
+  const q = raw.trim()
+  if (/^\d{3,7}$/.test(q)) return 'jobId'
+  if (/^a0[A-Za-z0-9]{13,16}$/.test(q)) return 'sfJobId'
+  return 'practice'
+}
+
+const SEARCH_MODE_LABEL: Record<SearchMode, string> = {
+  jobId: 'Kimedics job_id (exact)',
+  sfJobId: 'Salesforce Job__c id (exact)',
+  practice: 'Practice value (partial match)',
+}
+
 export default function LayerBreakdown({ runs }: Props) {
   const [selectedRunId, setSelectedRunId] = useState<number | null>(null)
   const [lastOpenedRunId, setLastOpenedRunId] = useState<number | null>(null)
-  const [jobIdFilter, setJobIdFilter] = useState('')
+  const [searchInput, setSearchInput] = useState('')
   const [activeJobId, setActiveJobId] = useState<string | null>(null)
+  const [activeQuery, setActiveQuery] = useState<{ mode: SearchMode; value: string } | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [filteredRuns, setFilteredRuns] = useState<RunDetail[] | null>(null)
@@ -290,20 +306,26 @@ export default function LayerBreakdown({ runs }: Props) {
 
   const displayedRuns = filteredRuns ?? pageRuns
 
-  const canSearch = useMemo(() => jobIdFilter.trim().length > 0, [jobIdFilter])
+  const trimmedInput = searchInput.trim()
+  const canSearch = trimmedInput.length > 0
+  const previewMode: SearchMode | null = useMemo(
+    () => (canSearch ? detectSearchMode(searchInput) : null),
+    [searchInput, canSearch],
+  )
 
   useEffect(() => {
     // If the user clears the input, revert to default recent runs.
-    if (jobIdFilter.trim() === '') {
+    if (trimmedInput === '') {
       setFilteredRuns(null)
       setActiveJobId(null)
+      setActiveQuery(null)
       setError(null)
       // Restore paged runs view
       setPageOffset(0)
       setPageRuns(runs)
       setHasOlder(runs.length === PAGE_SIZE)
     }
-  }, [jobIdFilter])
+  }, [trimmedInput])
 
   useEffect(() => {
     // If server-provided initial runs change (e.g. refresh), keep page 0 in sync.
@@ -315,20 +337,25 @@ export default function LayerBreakdown({ runs }: Props) {
   }, [runs])
 
   const applyFilter = async () => {
-    const jobId = jobIdFilter.trim()
-    if (!jobId) return
+    const value = trimmedInput
+    if (!value) return
+    const mode = detectSearchMode(value)
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(`/api/runs?jobId=${encodeURIComponent(jobId)}`)
+      const param = mode === 'jobId' ? 'jobId' : mode === 'sfJobId' ? 'sfJobId' : 'practice'
+      const res = await fetch(`/api/runs?${param}=${encodeURIComponent(value)}`)
       if (!res.ok) throw new Error('Failed to fetch runs')
       const data = await res.json()
       setFilteredRuns(data.runs || [])
-      setActiveJobId(jobId)
+      // Only the popup-level Kimedics filter makes sense when the user typed a Kimedics id
+      setActiveJobId(mode === 'jobId' ? value : null)
+      setActiveQuery({ mode, value })
     } catch {
-      setError('Failed to load runs for job_id')
+      setError(`Failed to load runs for ${SEARCH_MODE_LABEL[mode]}`)
       setFilteredRuns([])
-      setActiveJobId(jobId)
+      setActiveJobId(mode === 'jobId' ? value : null)
+      setActiveQuery({ mode, value })
     } finally {
       setLoading(false)
     }
@@ -357,7 +384,9 @@ export default function LayerBreakdown({ runs }: Props) {
   if (displayedRuns.length === 0) {
     return (
       <div className="py-10 text-center text-zinc-600 text-sm">
-        {activeJobId ? `No runs found for job_id=${activeJobId}.` : 'No runs found in the database.'}
+        {activeQuery
+          ? `No runs found for ${SEARCH_MODE_LABEL[activeQuery.mode]}: ${activeQuery.value}`
+          : 'No runs found in the database.'}
       </div>
     )
   }
@@ -367,12 +396,12 @@ export default function LayerBreakdown({ runs }: Props) {
       {/* Filter */}
       <div className="px-3 pt-2 pb-1 flex items-center gap-2">
         <input
-          value={jobIdFilter}
-          onChange={(e) => setJobIdFilter(e.target.value)}
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') applyFilter()
           }}
-          placeholder="19596"
+          placeholder="job_id (19596), Salesforce id (a01UP00000…), or practice name"
           className="w-full bg-zinc-900/40 border border-zinc-700/50 rounded-lg px-3 py-2 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-zinc-600/50"
         />
         <button
@@ -389,6 +418,13 @@ export default function LayerBreakdown({ runs }: Props) {
         </button>
       </div>
 
+      {/* Mode hint — show what the input will be searched as before submit */}
+      {previewMode && !activeQuery && (
+        <div className="px-3 pb-1 text-[11px] text-zinc-500">
+          Will search as <span className="text-zinc-300">{SEARCH_MODE_LABEL[previewMode]}</span>
+        </div>
+      )}
+
       {error && (
         <div className="px-3 pb-1 text-[11px] text-red-400">
           {error}
@@ -400,7 +436,10 @@ export default function LayerBreakdown({ runs }: Props) {
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M9 18l6-6-6-6"/>
         </svg>
-        Click any row to view details{activeJobId ? ` (filtered to job_id=${activeJobId})` : ''}
+        Click any row to view details
+        {activeQuery
+          ? ` (filtered by ${SEARCH_MODE_LABEL[activeQuery.mode]}: ${activeQuery.value})`
+          : ''}
       </div>
 
       {/* Header */}
