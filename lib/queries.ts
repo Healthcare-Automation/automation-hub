@@ -490,26 +490,44 @@ export type SearchRunsParams = {
   practice?: string
 }
 
+/** Escape SQL LIKE/ILIKE wildcards so user input is matched literally. */
+function escapeLike(s: string): string {
+  return s.replace(/[\\%_]/g, (c) => '\\' + c)
+}
+
+/** Tokenize a practice query: split on whitespace, drop empties, escape wildcards. */
+function practiceTokens(raw: string): string[] {
+  return raw.split(/\s+/).map((t) => t.trim()).filter(Boolean).map(escapeLike)
+}
+
 export async function searchRuns(params: SearchRunsParams): Promise<RunDetail[]> {
   const jobId = params.jobId?.trim() || undefined
   const sfJobId = params.sfJobId?.trim() || undefined
-  const practice = params.practice?.trim() || undefined
+  const practiceRaw = params.practice?.trim() || undefined
 
-  if (!jobId && !sfJobId && !practice) return []
+  if (!jobId && !sfJobId && !practiceRaw) return []
+
+  const practiceTokensList = practiceRaw ? practiceTokens(practiceRaw) : []
+  // Reject too-broad practice queries to avoid runaway result sets.
+  if (practiceRaw && (practiceTokensList.length === 0 || practiceTokensList.every((t) => t.length < 2))) {
+    return []
+  }
+  const practicePatterns = practiceTokensList.map((t) => `%${t}%`)
 
   // Build matching predicate. Two parallel fragments because the err-details
-  // subquery needs an `jc_in`-aliased copy.
+  // subquery needs an `jc_in`-aliased copy. Practice mode uses ILIKE ALL(array)
+  // so every whitespace-separated token must appear (order-independent).
   const jcMatch = jobId
     ? sql`jc.job_id = ${jobId}`
     : sfJobId
       ? sql`jc.sf_job_id = ${sfJobId}`
-      : sql`jc.practice_value ILIKE ${`%${practice}%`}`
+      : sql`jc.practice_value ILIKE ALL(${practicePatterns})`
 
   const jcMatchInner = jobId
     ? sql`jc_in.job_id = ${jobId}`
     : sfJobId
       ? sql`jc_in.sf_job_id = ${sfJobId}`
-      : sql`jc_in.practice_value ILIKE ${`%${practice}%`}`
+      : sql`jc_in.practice_value ILIKE ALL(${practicePatterns})`
 
   const matchedJobIdsForRun = sql`
     SELECT DISTINCT jc_in.job_id
@@ -706,12 +724,30 @@ function isMissingScrapeChangeSummaryColumnError(err: unknown): boolean {
   return code === '42703'
 }
 
+type ValidationFilters = {
+  jobId?: string
+  sfJobId?: string
+  practice?: string
+}
+
 async function fetchValidationSqlRows(
   runId: number,
-  jobId: string | undefined,
+  filters: ValidationFilters,
   includeScrapeChangeSummary: boolean,
 ): Promise<ValidationSqlRow[]> {
   const summaryCol = includeScrapeChangeSummary ? sql`jc.scrape_change_summary,` : sql``
+
+  const { jobId, sfJobId, practice } = filters
+  const practiceTokensList = practice ? practiceTokens(practice) : []
+  const practicePatterns = practiceTokensList.map((t) => `%${t}%`)
+  // Practice filter only applies if at least one >= 2 char token
+  const practiceUsable = practiceTokensList.length > 0 && practiceTokensList.some((t) => t.length >= 2)
+
+  const jobIdFilter = jobId ? sql`AND jc.job_id = ${jobId}` : sql``
+  const sfJobIdFilter = sfJobId ? sql`AND jc.sf_job_id = ${sfJobId}` : sql``
+  const practiceFilter = practiceUsable
+    ? sql`AND jc.practice_value ILIKE ALL(${practicePatterns})`
+    : sql``
 
   return sql<ValidationSqlRow[]>`
     SELECT
@@ -823,12 +859,14 @@ async function fetchValidationSqlRows(
       jc.run_id = ${runId}
       OR (es.run_id = ${runId} AND jc.email_scrape_id = es.id)
     )
-    ${jobId ? sql`AND jc.job_id = ${jobId}` : sql``}
+    ${jobIdFilter}
+    ${sfJobIdFilter}
+    ${practiceFilter}
     ORDER BY COALESCE(es.created_at, jc.created_at) DESC
   `
 }
 
-export async function getValidationData(runId: number, jobId?: string) {
+export async function getValidationData(runId: number, filters: ValidationFilters = {}) {
   // Get detailed job validation data for a specific run
   console.log('=== getValidationData Debug ===')
   console.log('Querying for runId:', runId)
@@ -838,13 +876,13 @@ export async function getValidationData(runId: number, jobId?: string) {
   // the paired link_batch run. This query tolerates both.
   let rows: ValidationSqlRow[]
   try {
-    rows = await fetchValidationSqlRows(runId, jobId, true)
+    rows = await fetchValidationSqlRows(runId, filters, true)
   } catch (err) {
     if (isMissingScrapeChangeSummaryColumnError(err)) {
       console.warn(
         '[getValidationData] job_content.scrape_change_summary missing; retrying without it. Run proxi_salesforce_automation ensure_tables / migration.',
       )
-      rows = await fetchValidationSqlRows(runId, jobId, false)
+      rows = await fetchValidationSqlRows(runId, filters, false)
     } else {
       throw err
     }

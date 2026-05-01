@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { RunDetail, SFErrorDetail } from '@/lib/types'
 import { cn, formatRelativeTime, formatDuration } from '@/lib/utils'
 import ValidationPopup from './ValidationPopup'
@@ -336,30 +336,58 @@ export default function LayerBreakdown({ runs }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [runs])
 
-  const applyFilter = async () => {
-    const value = trimmedInput
+  const applyFilter = useCallback(async (rawValue: string, opts: { signal?: AbortSignal } = {}) => {
+    const value = rawValue.trim()
     if (!value) return
     const mode = detectSearchMode(value)
+    // For practice mode, require a token of at least 2 chars to avoid runaway queries
+    if (mode === 'practice') {
+      const tokens = value.split(/\s+/).filter((t) => t.length >= 2)
+      if (tokens.length === 0) {
+        setFilteredRuns([])
+        setActiveJobId(null)
+        setActiveQuery({ mode, value })
+        setError(null)
+        return
+      }
+    }
     setLoading(true)
     setError(null)
     try {
       const param = mode === 'jobId' ? 'jobId' : mode === 'sfJobId' ? 'sfJobId' : 'practice'
-      const res = await fetch(`/api/runs?${param}=${encodeURIComponent(value)}`)
+      const res = await fetch(`/api/runs?${param}=${encodeURIComponent(value)}`, { signal: opts.signal })
       if (!res.ok) throw new Error('Failed to fetch runs')
       const data = await res.json()
+      if (opts.signal?.aborted) return
       setFilteredRuns(data.runs || [])
       // Only the popup-level Kimedics filter makes sense when the user typed a Kimedics id
       setActiveJobId(mode === 'jobId' ? value : null)
       setActiveQuery({ mode, value })
-    } catch {
+    } catch (err) {
+      if ((err as any)?.name === 'AbortError') return
       setError(`Failed to load runs for ${SEARCH_MODE_LABEL[mode]}`)
       setFilteredRuns([])
       setActiveJobId(mode === 'jobId' ? value : null)
       setActiveQuery({ mode, value })
     } finally {
-      setLoading(false)
+      if (!opts.signal?.aborted) setLoading(false)
     }
-  }
+  }, [])
+
+  // Live debounced search — fire 300ms after the user stops typing, abort
+  // any in-flight request when input changes again. Empty input is handled by
+  // the cleanup effect above (reverts to the recent-runs view).
+  useEffect(() => {
+    if (trimmedInput === '') return
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => {
+      void applyFilter(trimmedInput, { signal: ctrl.signal })
+    }, 300)
+    return () => {
+      clearTimeout(timer)
+      ctrl.abort()
+    }
+  }, [trimmedInput, applyFilter])
 
   const fetchPage = async (nextOffset: number) => {
     setPaging(true)
@@ -393,35 +421,47 @@ export default function LayerBreakdown({ runs }: Props) {
 
   return (
     <div className="space-y-0.5">
-      {/* Filter */}
+      {/* Filter — searches live as the user types (300ms debounce) */}
       <div className="px-3 pt-2 pb-1 flex items-center gap-2">
-        <input
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') applyFilter()
-          }}
-          placeholder="job_id (19596), Salesforce id (a01UP00000…), or practice name"
-          className="w-full bg-zinc-900/40 border border-zinc-700/50 rounded-lg px-3 py-2 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-zinc-600/50"
-        />
-        <button
-          onClick={applyFilter}
-          disabled={!canSearch || loading}
-          className={cn(
-            'px-3 py-2 rounded-lg text-xs font-medium border transition-colors whitespace-nowrap',
-            canSearch && !loading
-              ? 'border-zinc-600/60 text-zinc-200 hover:bg-zinc-700/30'
-              : 'border-zinc-800 text-zinc-600 cursor-not-allowed'
+        <div className="relative w-full">
+          <input
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="job_id (19596), Salesforce id (a01UP00000…), or practice name"
+            className="w-full bg-zinc-900/40 border border-zinc-700/50 rounded-lg px-3 py-2 pr-8 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-zinc-600/50"
+          />
+          {canSearch && (
+            <button
+              onClick={() => setSearchInput('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-200 p-1"
+              aria-label="Clear search"
+              type="button"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 6 6 18M6 6l12 12" />
+              </svg>
+            </button>
           )}
-        >
-          {loading ? 'Loading…' : 'Search'}
-        </button>
+        </div>
+        {loading && (
+          <span className="text-[11px] text-zinc-500 whitespace-nowrap">Searching…</span>
+        )}
       </div>
 
-      {/* Mode hint — show what the input will be searched as before submit */}
-      {previewMode && !activeQuery && (
+      {/* Mode hint / result count */}
+      {canSearch && (
         <div className="px-3 pb-1 text-[11px] text-zinc-500">
-          Will search as <span className="text-zinc-300">{SEARCH_MODE_LABEL[previewMode]}</span>
+          {activeQuery ? (
+            <>
+              <span className="text-zinc-400">{filteredRuns?.length ?? 0}</span>{' '}
+              run{(filteredRuns?.length ?? 0) === 1 ? '' : 's'} match{' '}
+              <span className="text-zinc-300">{SEARCH_MODE_LABEL[activeQuery.mode]}</span>
+              {': '}
+              <span className="font-mono text-zinc-300">{activeQuery.value}</span>
+            </>
+          ) : previewMode ? (
+            <>Will search as <span className="text-zinc-300">{SEARCH_MODE_LABEL[previewMode]}</span></>
+          ) : null}
         </div>
       )}
 
@@ -437,9 +477,6 @@ export default function LayerBreakdown({ runs }: Props) {
           <path d="M9 18l6-6-6-6"/>
         </svg>
         Click any row to view details
-        {activeQuery
-          ? ` (filtered by ${SEARCH_MODE_LABEL[activeQuery.mode]}: ${activeQuery.value})`
-          : ''}
       </div>
 
       {/* Header */}
@@ -577,6 +614,8 @@ export default function LayerBreakdown({ runs }: Props) {
         isOpen={selectedRunId !== null}
         onClose={() => setSelectedRunId(null)}
         jobId={activeJobId ?? undefined}
+        sfJobId={activeQuery?.mode === 'sfJobId' ? activeQuery.value : undefined}
+        practice={activeQuery?.mode === 'practice' ? activeQuery.value : undefined}
       />
     </div>
   )

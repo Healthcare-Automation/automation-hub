@@ -98,6 +98,10 @@ interface ValidationPopupProps {
   isOpen: boolean
   onClose: () => void
   jobId?: string
+  /** Scope popup contents to jobs whose Salesforce Job__c id equals this. */
+  sfJobId?: string
+  /** Scope popup contents to jobs whose practice_value matches all whitespace-separated tokens (ILIKE). */
+  practice?: string
 }
 
 function StatusBadge({ status }: { status: 'success' | 'failed' | 'partial' }) {
@@ -1348,7 +1352,7 @@ function JobCard({ job }: { job: ValidationJobDetail }) {
   )
 }
 
-export default function ValidationPopup({ runId, isOpen, onClose, jobId }: ValidationPopupProps) {
+export default function ValidationPopup({ runId, isOpen, onClose, jobId, sfJobId, practice }: ValidationPopupProps) {
   const [jobs, setJobs] = useState<ValidationJobDetail[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -1356,7 +1360,11 @@ export default function ValidationPopup({ runId, isOpen, onClose, jobId }: Valid
   useEffect(() => {
     if (!isOpen || !runId) return
 
-    const qs = jobId ? `?jobId=${encodeURIComponent(jobId)}` : ''
+    const params = new URLSearchParams()
+    if (jobId) params.set('jobId', jobId)
+    if (sfJobId) params.set('sfJobId', sfJobId)
+    if (practice) params.set('practice', practice)
+    const qs = params.toString() ? `?${params.toString()}` : ''
     let cancelled = false
     const POLL_MS = 12_000
 
@@ -1399,7 +1407,7 @@ export default function ValidationPopup({ runId, isOpen, onClose, jobId }: Valid
       cancelled = true
       clearInterval(poll)
     }
-  }, [isOpen, runId, jobId])
+  }, [isOpen, runId, jobId, sfJobId, practice])
 
   if (!isOpen) return null
 
