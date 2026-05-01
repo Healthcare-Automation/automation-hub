@@ -20,11 +20,15 @@ export async function POST(req: NextRequest) {
   const endpoint = (process.env.MODAL_RESCRAPE_ENDPOINT_URL || '').trim()
   const token = (process.env.MODAL_RESCRAPE_TOKEN || '').trim()
   if (!endpoint || !token) {
+    const missing = [
+      !endpoint ? 'MODAL_RESCRAPE_ENDPOINT_URL' : null,
+      !token ? 'MODAL_RESCRAPE_TOKEN' : null,
+    ].filter(Boolean)
     return NextResponse.json(
       {
         ok: false,
-        error:
-          'Rescrape endpoint not configured. Set MODAL_RESCRAPE_ENDPOINT_URL and MODAL_RESCRAPE_TOKEN once the proxi_salesforce_automation Modal endpoint is deployed.',
+        error: `Rescrape endpoint not configured. Missing on the server: ${missing.join(', ')}. If you added these on Vercel, you must redeploy (env vars are bound at deploy time) — make sure they're scoped to the Production environment, then redeploy via the Vercel dashboard or push a new commit.`,
+        missing,
       },
       { status: 503 },
     )
