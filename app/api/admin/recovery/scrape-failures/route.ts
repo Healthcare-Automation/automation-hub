@@ -59,12 +59,25 @@ export async function GET(req: NextRequest) {
           AND ok.created_at >= jel.created_at
       )
       AND NOT EXISTS (
-        -- Resolved by a successful re-scrape: a later job_content row exists
-        -- for the same job_id with the critical fields actually populated.
-        -- This is what makes the row drop off the list once Rescrape worked.
+        -- Resolved by a manual rescrape that pulled real content. The event
+        -- itself is the truth signal — checking job_content.created_at fails
+        -- here because process_link_scrape_batch upserts in place and keeps
+        -- the original created_at, so a populated row written *by the
+        -- rescrape* still timestamps before the failure event.
+        SELECT 1 FROM job_event_log rs
+        WHERE rs.job_id = jel.job_id
+          AND rs.event_type = 'manual_rescrape_completed'
+          AND rs.created_at >= jel.created_at
+          AND COALESCE(rs.payload->>'action', '') IN ('re_scraped', 're_scraped_with_warning')
+      )
+      AND NOT EXISTS (
+        -- Defensive: also drop the row if a job_content exists for this
+        -- job_id with both critical fields populated AND it was written/
+        -- touched after the failure (handles the case where a future
+        -- pipeline run updates created_at instead of upserting).
         SELECT 1 FROM job_content jc_ok
         WHERE jc_ok.job_id = jel.job_id
-          AND jc_ok.created_at >= jel.created_at
+          AND jc_ok.created_at > jel.created_at
           AND COALESCE(jc_ok.title_line, '') <> ''
           AND COALESCE(jc_ok.description_full_text, '') <> ''
       )
