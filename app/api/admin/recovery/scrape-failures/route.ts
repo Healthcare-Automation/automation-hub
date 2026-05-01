@@ -52,10 +52,21 @@ export async function GET(req: NextRequest) {
     WHERE jel.event_type IN ('job_create_failed', 'worksite_create_failed')
       AND jel.created_at >= NOW() - (${hours}::text || ' hours')::interval
       AND NOT EXISTS (
+        -- Resolved by SF Job__c creation
         SELECT 1 FROM job_event_log ok
         WHERE ok.job_id = jel.job_id
           AND ok.event_type = 'job_created_in_salesforce'
           AND ok.created_at >= jel.created_at
+      )
+      AND NOT EXISTS (
+        -- Resolved by a successful re-scrape: a later job_content row exists
+        -- for the same job_id with the critical fields actually populated.
+        -- This is what makes the row drop off the list once Rescrape worked.
+        SELECT 1 FROM job_content jc_ok
+        WHERE jc_ok.job_id = jel.job_id
+          AND jc_ok.created_at >= jel.created_at
+          AND COALESCE(jc_ok.title_line, '') <> ''
+          AND COALESCE(jc_ok.description_full_text, '') <> ''
       )
     ORDER BY jel.job_id, jel.created_at DESC
   `
