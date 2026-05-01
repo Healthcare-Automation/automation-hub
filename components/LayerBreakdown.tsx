@@ -409,15 +409,10 @@ export default function LayerBreakdown({ runs }: Props) {
     }
   }
 
-  if (displayedRuns.length === 0) {
-    return (
-      <div className="py-10 text-center text-zinc-600 text-sm">
-        {activeQuery
-          ? `No runs found for ${SEARCH_MODE_LABEL[activeQuery.mode]}: ${activeQuery.value}`
-          : 'No runs found in the database.'}
-      </div>
-    )
-  }
+  const isEmpty = displayedRuns.length === 0
+  const emptyMessage = activeQuery
+    ? `No runs found for ${SEARCH_MODE_LABEL[activeQuery.mode]}: ${activeQuery.value}`
+    : 'No runs found in the database.'
 
   return (
     <div className="space-y-0.5">
@@ -509,7 +504,13 @@ export default function LayerBreakdown({ runs }: Props) {
         </span>
       </div>
 
-      {displayedRuns.map((run) => (
+      {isEmpty && (
+        <div className="py-10 text-center text-zinc-600 text-sm">
+          {emptyMessage}
+        </div>
+      )}
+
+      {!isEmpty && displayedRuns.map((run) => (
         <div
           key={run.id}
           onClick={() => {
