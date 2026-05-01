@@ -233,9 +233,9 @@ export default function AdminRecoveryPage() {
   }
 
   const actionColor = (a: string) => {
-    if (a === 're_parsed' || a === 'transient_retried') return 'text-emerald-300'
-    if (a === 'field_dropped') return 'text-amber-300'
-    if (a === 'quarantined' || a === 'unhandled') return 'text-red-300'
+    if (a === 're_parsed' || a === 'transient_retried' || a === 're_scraped') return 'text-emerald-300'
+    if (a === 'field_dropped' || a === 're_scraped_with_warning') return 'text-amber-300'
+    if (a === 'quarantined' || a === 'unhandled' || a === 'rescrape_parse_failed') return 'text-red-300'
     return 'text-zinc-300'
   }
 
@@ -581,6 +581,7 @@ export default function AdminRecoveryPage() {
                       <td className="py-2 px-3 font-mono text-zinc-200">{h.jobId}</td>
                       <td className="py-2 px-3 text-zinc-400 text-xs">
                         {h.eventType === 'sf_scrape_fields_recovered' && <span className="text-emerald-300">recovered</span>}
+                        {h.eventType === 'manual_rescrape_completed' && <span className="text-sky-300">rescraped</span>}
                         {h.eventType === 'sf_field_quarantined' && <span className="text-amber-300">quarantined</span>}
                         {h.eventType === 'sf_push_unhandled_error' && <span className="text-red-300">unhandled</span>}
                       </td>
