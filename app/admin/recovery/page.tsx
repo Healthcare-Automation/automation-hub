@@ -39,6 +39,18 @@ type HistoryItem = {
   error: string | null
 }
 
+type ScrapeFailureItem = {
+  jobId: string
+  eventType: string
+  runId: number | null
+  reason: string | null
+  detail: string | null
+  errorMessage: string | null
+  practiceValue: string | null
+  kimedicsLink: string | null
+  createdAt: string
+}
+
 const WINDOW_CHOICES = [
   { label: 'Last 3 h', hours: 3 },
   { label: 'Last 24 h', hours: 24 },
@@ -70,6 +82,13 @@ export default function AdminRecoveryPage() {
   const [expanded, setExpanded] = useState<Set<number>>(new Set())
   const [history, setHistory] = useState<HistoryItem[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
+  const [scrapeFailures, setScrapeFailures] = useState<ScrapeFailureItem[]>([])
+  const [scrapeFailuresLoading, setScrapeFailuresLoading] = useState(false)
+  const [scrapeFailuresError, setScrapeFailuresError] = useState<string | null>(null)
+  const [rescrapeJobIdInput, setRescrapeJobIdInput] = useState('')
+  const [rescraping, setRescraping] = useState(false)
+  const [rescrapeError, setRescrapeError] = useState<string | null>(null)
+  const [rescrapeStatus, setRescrapeStatus] = useState<string | null>(null)
 
   const loadList = useCallback(async () => {
     setLoading(true)
@@ -117,6 +136,59 @@ export default function AdminRecoveryPage() {
   useEffect(() => {
     loadHistory()
   }, [loadHistory])
+
+  const loadScrapeFailures = useCallback(async () => {
+    setScrapeFailuresLoading(true)
+    setScrapeFailuresError(null)
+    try {
+      const res = await fetch(`/api/admin/recovery/scrape-failures?hours=${hours}`)
+      if (res.status === 401) {
+        router.replace('/admin/login?next=/admin/recovery')
+        return
+      }
+      const json = await res.json()
+      if (!json.ok) {
+        setScrapeFailuresError(json.error || 'Failed to load scrape failures')
+        setScrapeFailures([])
+        return
+      }
+      setScrapeFailures(json.items || [])
+    } catch (e: any) {
+      setScrapeFailuresError(e?.message || 'Failed to load scrape failures')
+    } finally {
+      setScrapeFailuresLoading(false)
+    }
+  }, [hours, router])
+
+  useEffect(() => {
+    loadScrapeFailures()
+  }, [loadScrapeFailures])
+
+  const rescrape = async (jobIds: string[]) => {
+    if (jobIds.length === 0) return
+    setRescraping(true)
+    setRescrapeError(null)
+    setRescrapeStatus(null)
+    try {
+      const res = await fetch('/api/admin/recovery/rescrape', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobIds }),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.ok) {
+        setRescrapeError(json.error || `Rescrape failed (${res.status})`)
+        return
+      }
+      const n = jobIds.length
+      setRescrapeStatus(`Rescrape requested for ${n} job${n === 1 ? '' : 's'}. Results will appear once the scrape completes.`)
+      await loadScrapeFailures()
+    } catch (e: any) {
+      setRescrapeError(e?.message || 'Rescrape failed')
+    } finally {
+      setRescraping(false)
+    }
+  }
 
   const toggleSelect = (jobId: string) => {
     setSelected((prev) => {
@@ -222,6 +294,127 @@ export default function AdminRecoveryPage() {
           >
             Re-push all in window
           </button>
+        </div>
+
+        {/* Stuck-creation — jobs whose SF Job__c never got created (no follow-up `job_created_in_salesforce`) */}
+        <div className="bg-zinc-900/40 border border-zinc-800 rounded-lg overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-800 gap-3">
+            <div>
+              <div className="text-xs text-zinc-300 font-medium">
+                Stuck job creation
+                <span className="ml-2 text-[10px] text-zinc-500 uppercase tracking-wider">job_create_failed / worksite_create_failed</span>
+              </div>
+              <div className="text-[11px] text-zinc-500">
+                {scrapeFailures.length} job{scrapeFailures.length === 1 ? '' : 's'} received an email but never produced a Salesforce Job__c record. Common reasons: empty practice (login wall / page change), worksite creation rejected.
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                value={rescrapeJobIdInput}
+                onChange={(e) => setRescrapeJobIdInput(e.target.value)}
+                placeholder="job_id"
+                className="bg-zinc-950 border border-zinc-800 rounded-md px-2 py-1 text-xs w-32 placeholder:text-zinc-600"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && rescrapeJobIdInput.trim()) {
+                    void rescrape([rescrapeJobIdInput.trim()])
+                    setRescrapeJobIdInput('')
+                  }
+                }}
+              />
+              <button
+                onClick={() => {
+                  const v = rescrapeJobIdInput.trim()
+                  if (v) {
+                    void rescrape([v])
+                    setRescrapeJobIdInput('')
+                  }
+                }}
+                disabled={!rescrapeJobIdInput.trim() || rescraping}
+                className="text-xs bg-zinc-800 hover:bg-zinc-700 disabled:bg-zinc-900 disabled:text-zinc-600 rounded-md px-2.5 py-1"
+              >
+                Rescrape job
+              </button>
+              <button
+                onClick={loadScrapeFailures}
+                disabled={scrapeFailuresLoading}
+                className="text-xs text-zinc-500 hover:text-zinc-300 disabled:text-zinc-700"
+              >
+                {scrapeFailuresLoading ? 'Loading…' : 'Refresh'}
+              </button>
+            </div>
+          </div>
+
+          {scrapeFailuresError && (
+            <p className="px-4 py-2 text-xs text-red-400 border-b border-zinc-800">{scrapeFailuresError}</p>
+          )}
+          {rescrapeError && (
+            <p className="px-4 py-2 text-xs text-red-400 border-b border-zinc-800">{rescrapeError}</p>
+          )}
+          {rescrapeStatus && (
+            <p className="px-4 py-2 text-xs text-emerald-300 border-b border-zinc-800">{rescrapeStatus}</p>
+          )}
+
+          {scrapeFailures.length === 0 ? (
+            <p className="px-4 py-6 text-center text-xs text-zinc-600">
+              {scrapeFailuresLoading ? 'Loading…' : 'No stuck job creations in this window.'}
+            </p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-zinc-500 text-[11px] uppercase tracking-wider">
+                  <th className="text-left py-2 px-3">Job</th>
+                  <th className="text-left py-2 px-3">When</th>
+                  <th className="text-left py-2 px-3">Event</th>
+                  <th className="text-left py-2 px-3">Reason</th>
+                  <th className="text-left py-2 px-3">Kimedics</th>
+                  <th className="text-right py-2 px-3"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {scrapeFailures.map((it) => (
+                  <tr key={`${it.jobId}-${it.createdAt}`} className="border-t border-zinc-800 hover:bg-zinc-900/40">
+                    <td className="py-2 px-3 font-mono text-zinc-200 whitespace-nowrap">
+                      {it.jobId}
+                      {it.runId != null && (
+                        <span className="block text-[10px] text-zinc-600">run #{it.runId}</span>
+                      )}
+                    </td>
+                    <td className="py-2 px-3 text-zinc-400 text-xs whitespace-nowrap">{fmt(it.createdAt)}</td>
+                    <td className="py-2 px-3 text-zinc-400 text-xs">{it.eventType}</td>
+                    <td className="py-2 px-3 text-zinc-400 text-xs">
+                      <span className="line-clamp-2">
+                        {it.reason || it.detail || it.errorMessage || '—'}
+                        {it.practiceValue ? <span className="text-zinc-600"> · practice: {it.practiceValue}</span> : null}
+                      </span>
+                    </td>
+                    <td className="py-2 px-3 text-xs">
+                      {it.kimedicsLink ? (
+                        <a
+                          href={it.kimedicsLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-400 hover:text-blue-300 underline"
+                        >
+                          Open
+                        </a>
+                      ) : (
+                        <span className="text-zinc-600">—</span>
+                      )}
+                    </td>
+                    <td className="py-2 px-3 text-right">
+                      <button
+                        onClick={() => rescrape([it.jobId])}
+                        disabled={rescraping}
+                        className="text-[11px] bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-800 disabled:text-zinc-500 rounded-md px-2.5 py-1 font-medium"
+                      >
+                        Rescrape
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
 
         {listError && <p className="text-sm text-red-400">{listError}</p>}
