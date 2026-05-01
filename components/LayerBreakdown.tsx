@@ -272,7 +272,10 @@ interface Props {
   runs: RunDetail[]
 }
 
-const COLS = 'grid-cols-[3rem_4.5rem_3.5rem_1fr_1fr_1fr] gap-x-2'
+// `min-w-[560px]` (parent has overflow-x-auto on small screens) keeps the
+// columns from collapsing into each other on mobile while preserving the
+// existing layout on desktop.
+const COLS = 'grid-cols-[3rem_4.5rem_3.5rem_1fr_1fr_1fr] gap-x-2 min-w-[560px]'
 const PAGE_SIZE = 20
 
 type SearchMode = 'jobId' | 'sfJobId' | 'practice'
@@ -474,6 +477,9 @@ export default function LayerBreakdown({ runs }: Props) {
         Click any row to view details
       </div>
 
+      {/* Header + rows wrap in an overflow container so narrow viewports
+          scroll horizontally instead of squashing the columns. */}
+      <div className="overflow-x-auto -mx-1 px-1">
       {/* Header */}
       <div
           className={cn(
@@ -568,6 +574,7 @@ export default function LayerBreakdown({ runs }: Props) {
           </div>
         </div>
       ))}
+      </div>
 
       {/* Pagination (unfiltered only) */}
       {filteredRuns === null && (

@@ -1426,7 +1426,7 @@ export default function ValidationPopup({ runId, isOpen, onClose, jobId, sfJobId
     >
       <div className="h-full w-full max-w-4xl bg-zinc-900 border-l border-zinc-700/50 overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-zinc-700/40">
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-zinc-700/40">
           <div>
             <h2 className="text-lg font-semibold text-white">Validation Details</h2>
             <p className="text-sm text-zinc-400">Run #{runId}</p>
@@ -1442,8 +1442,8 @@ export default function ValidationPopup({ runId, isOpen, onClose, jobId, sfJobId
         </div>
 
         {/* Stats Summary */}
-        <div className="p-6 border-b border-zinc-700/40">
-          <div className="grid grid-cols-4 gap-4">
+        <div className="p-4 sm:p-6 border-b border-zinc-700/40">
+          <div className="grid grid-cols-4 gap-2 sm:gap-4">
             <div className="text-center">
               <div className="text-2xl font-bold text-white">{jobs.length}</div>
               <div className="text-xs text-zinc-500">Total Jobs</div>
@@ -1464,7 +1464,7 @@ export default function ValidationPopup({ runId, isOpen, onClose, jobId, sfJobId
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-auto p-6">
+        <div className="flex-1 overflow-auto p-3 sm:p-6">
           {loading && (
             <div className="flex items-center justify-center py-20">
               <div className="text-zinc-500">Loading validation data...</div>

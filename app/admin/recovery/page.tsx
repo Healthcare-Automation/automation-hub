@@ -240,18 +240,18 @@ export default function AdminRecoveryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 p-6 md:p-10">
-      <div className="max-w-6xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-semibold">Admin · Push recovery</h1>
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 p-3 sm:p-6 md:p-10">
+      <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-lg sm:text-xl font-semibold">Admin · Push recovery</h1>
             <p className="text-xs text-zinc-500 mt-1">
               Replay unresolved Salesforce push errors. The automation already retries every 10 min; use this page for manual catch-up or when you need fuller control over the window.
             </p>
           </div>
           <button
             onClick={logout}
-            className="text-xs text-zinc-400 hover:text-zinc-200 border border-zinc-800 rounded px-2.5 py-1"
+            className="text-xs text-zinc-400 hover:text-zinc-200 border border-zinc-800 rounded px-2.5 py-1 shrink-0"
           >
             Sign out
           </button>
@@ -298,8 +298,8 @@ export default function AdminRecoveryPage() {
 
         {/* Stuck-creation — jobs whose SF Job__c never got created (no follow-up `job_created_in_salesforce`) */}
         <div className="bg-zinc-900/40 border border-zinc-800 rounded-lg overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-800 gap-3">
-            <div>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between px-3 sm:px-4 py-2 border-b border-zinc-800 gap-3">
+            <div className="min-w-0">
               <div className="text-xs text-zinc-300 font-medium">
                 Stuck job creation
                 <span className="ml-2 text-[10px] text-zinc-500 uppercase tracking-wider">job_create_failed / worksite_create_failed</span>
@@ -308,12 +308,12 @@ export default function AdminRecoveryPage() {
                 {scrapeFailures.length} job{scrapeFailures.length === 1 ? '' : 's'} received an email but never produced a Salesforce Job__c record. Common reasons: empty practice (login wall / page change), worksite creation rejected.
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
               <input
                 value={rescrapeJobIdInput}
                 onChange={(e) => setRescrapeJobIdInput(e.target.value)}
                 placeholder="job_id"
-                className="bg-zinc-950 border border-zinc-800 rounded-md px-2 py-1 text-xs w-32 placeholder:text-zinc-600"
+                className="bg-zinc-950 border border-zinc-800 rounded-md px-2 py-1 text-xs flex-1 min-w-0 md:flex-initial md:w-32 placeholder:text-zinc-600"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && rescrapeJobIdInput.trim()) {
                     void rescrape([rescrapeJobIdInput.trim()])
@@ -330,7 +330,7 @@ export default function AdminRecoveryPage() {
                   }
                 }}
                 disabled={!rescrapeJobIdInput.trim() || rescraping}
-                className="text-xs bg-zinc-800 hover:bg-zinc-700 disabled:bg-zinc-900 disabled:text-zinc-600 rounded-md px-2.5 py-1"
+                className="text-xs bg-zinc-800 hover:bg-zinc-700 disabled:bg-zinc-900 disabled:text-zinc-600 rounded-md px-2.5 py-1 whitespace-nowrap"
               >
                 Rescrape job
               </button>
@@ -359,7 +359,7 @@ export default function AdminRecoveryPage() {
               {scrapeFailuresLoading ? 'Loading…' : 'No stuck job creations in this window.'}
             </p>
           ) : (
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto"><table className="w-full text-sm min-w-[640px]">
               <thead>
                 <tr className="text-zinc-500 text-[11px] uppercase tracking-wider">
                   <th className="text-left py-2 px-3">Job</th>
@@ -413,7 +413,7 @@ export default function AdminRecoveryPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></div>
           )}
         </div>
 
@@ -429,7 +429,7 @@ export default function AdminRecoveryPage() {
               <button onClick={clearSel} disabled={!selected.size} className="hover:text-zinc-200">Clear</button>
             </div>
           </div>
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto"><table className="w-full text-sm min-w-[640px]">
             <thead>
               <tr className="text-zinc-500 text-[11px] uppercase tracking-wider">
                 <th className="w-8 py-2 px-3"></th>
@@ -491,7 +491,7 @@ export default function AdminRecoveryPage() {
                 )
               })}
             </tbody>
-          </table>
+          </table></div>
         </div>
 
         {runError && <p className="text-sm text-red-400">{runError}</p>}
@@ -501,7 +501,7 @@ export default function AdminRecoveryPage() {
             <div className="px-4 py-2 border-b border-zinc-800 text-xs text-zinc-400">
               Recovery results ({results.length})
             </div>
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto"><table className="w-full text-sm min-w-[640px]">
               <thead>
                 <tr className="text-zinc-500 text-[11px] uppercase tracking-wider">
                   <th className="text-left py-2 px-3">Job</th>
@@ -524,7 +524,7 @@ export default function AdminRecoveryPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></div>
           </div>
         )}
 
@@ -546,7 +546,7 @@ export default function AdminRecoveryPage() {
               No manual pushes yet. Re-runs via the admin UI or the CLI will show here, most recent first.
             </p>
           ) : (
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto"><table className="w-full text-sm min-w-[640px]">
               <thead>
                 <tr className="text-zinc-500 text-[11px] uppercase tracking-wider">
                   <th className="text-left py-2 px-3">When</th>
@@ -596,7 +596,7 @@ export default function AdminRecoveryPage() {
                   )
                 })}
               </tbody>
-            </table>
+            </table></div>
           )}
         </div>
       </div>
