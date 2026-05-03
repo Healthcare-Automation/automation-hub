@@ -10,17 +10,37 @@ function StatusBadge({
   sfErrorCount,
   emailCount,
   jobCount,
+  unresolvedFailedJobCount,
 }: {
   status: RunDetail['status']
   sfErrorCount: number
   emailCount: number
   jobCount: number
+  unresolvedFailedJobCount: number
 }) {
   if (status === 'error') {
     return (
       <span className="inline-flex items-center gap-1 text-red-400 text-xs font-medium whitespace-nowrap">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
           <path d="M18 6 6 18M6 6l12 12" />
+        </svg>
+        Failed
+      </span>
+    )
+  }
+  // Unresolved Salesforce-creation failure inside this run — surface as red so
+  // the row visibly disagrees with "Successful" until the failure is recovered
+  // (rescrape, manual SF create, or a later populated job_content row).
+  if (unresolvedFailedJobCount > 0) {
+    return (
+      <span
+        className="inline-flex items-center gap-1 text-red-400 text-xs font-medium whitespace-nowrap"
+        title={`${unresolvedFailedJobCount} job${unresolvedFailedJobCount === 1 ? '' : 's'} in this run failed to create a Salesforce Job__c record and have not been recovered yet`}
+      >
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+          <line x1="12" y1="9" x2="12" y2="13" />
+          <line x1="12" y1="17" x2="12.01" y2="17" />
         </svg>
         Failed
       </span>
@@ -201,11 +221,12 @@ function SfPushCell({ run }: { run: RunDetail }) {
   const patch = run.sfPatchCount
   const created = run.sfJobsCreatedCount
   const swapped = run.extJobIdSwapCount ?? 0
+  const failed = run.unresolvedFailedJobCount ?? 0
   const errs = run.sfErrorDetails
   const recovered = run.sfRecoveredCount ?? 0
   const quarantined = run.sfQuarantinedCount ?? 0
   const hasLine =
-    patch > 0 || created > 0 || swapped > 0 || errs.length > 0 || recovered > 0 || quarantined > 0
+    patch > 0 || created > 0 || swapped > 0 || failed > 0 || errs.length > 0 || recovered > 0 || quarantined > 0
   if (!hasLine) {
     return <span className="text-zinc-600 tabular-nums">—</span>
   }
@@ -238,6 +259,30 @@ function SfPushCell({ run }: { run: RunDetail }) {
             />
           </svg>
           {created} new job{created === 1 ? '' : 's'}
+        </span>
+      ) : null}
+      {failed > 0 ? (
+        <span
+          className={cn(
+            'inline-flex items-center gap-1',
+            'text-[10px] font-semibold leading-tight',
+            'px-1.5 py-0.5 rounded-md border',
+            'bg-red-500/10 border-red-500/30 text-red-300',
+            'shadow-[0_0_0_1px_rgba(239,68,68,0.08)]',
+            'truncate max-w-full'
+          )}
+          title={`${failed} job${failed === 1 ? '' : 's'} in this run never produced a Salesforce Job__c (job_create_failed / worksite_create_failed) and haven't been recovered yet — see the admin recovery page to rescrape`}
+        >
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className="opacity-90">
+            <path
+              d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          {failed} failed
         </span>
       ) : null}
       {swapped > 0 ? (
@@ -544,6 +589,7 @@ export default function LayerBreakdown({ runs }: Props) {
             sfErrorCount={run.sfErrorCount}
             emailCount={run.emailCount}
             jobCount={run.jobCount}
+            unresolvedFailedJobCount={run.unresolvedFailedJobCount}
           />
 
           {/* Started + duration */}

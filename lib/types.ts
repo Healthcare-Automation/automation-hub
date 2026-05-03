@@ -52,6 +52,14 @@ export interface RunDetail {
   sfQuarantinedFields: string[]
   /** Distinct SF records on this run whose External_Job_ID__c was repointed to a different Kimedics job_id (manual validation cue). */
   extJobIdSwapCount: number
+  /**
+   * Distinct jobs in this run with an unresolved ``job_create_failed`` /
+   * ``worksite_create_failed`` event — i.e. jobs that received an email but
+   * never produced a Salesforce Job__c record AND haven't been recovered by a
+   * successful rescrape or a later populated ``job_content``. Same resolution
+   * rules as the admin "Stuck job creation" list.
+   */
+  unresolvedFailedJobCount: number
   status: 'completed' | 'running' | 'error'
   sfErrorDetails: SFErrorDetail[]
 }
