@@ -195,6 +195,7 @@ export async function getRecentRuns(limit = 20, offset = 0): Promise<RunDetail[]
     sf_quarantined_count: string | number
     sf_quarantined_fields: unknown
     ext_job_id_swap_count: string | number
+    unresolved_failed_job_count: string | number
     sf_error_details:   unknown
   }>>`
     WITH ${sql.unsafe(PAIRED_CTE)}
@@ -231,6 +232,29 @@ export async function getRecentRuns(limit = 20, offset = 0): Promise<RunDetail[]
           AND COALESCE(jel.payload->'prev'->>'External_Job_ID__c', '')
               <> COALESCE(jel.payload->'next'->>'External_Job_ID__c', '')
       ) AS ext_job_id_swap_count,
+      count(DISTINCT jel.job_id) FILTER (
+        WHERE jel.event_type IN ('job_create_failed', 'worksite_create_failed')
+          AND NOT EXISTS (
+            SELECT 1 FROM job_event_log ok
+            WHERE ok.job_id = jel.job_id
+              AND ok.event_type = 'job_created_in_salesforce'
+              AND ok.created_at >= jel.created_at
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM job_event_log rs
+            WHERE rs.job_id = jel.job_id
+              AND rs.event_type = 'manual_rescrape_completed'
+              AND rs.created_at >= jel.created_at
+              AND COALESCE(rs.payload->>'action', '') IN ('re_scraped', 're_scraped_with_warning')
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM job_content jc_ok2
+            WHERE jc_ok2.job_id = jel.job_id
+              AND jc_ok2.created_at > jel.created_at
+              AND COALESCE(jc_ok2.title_line, '') <> ''
+              AND COALESCE(jc_ok2.description_full_text, '') <> ''
+          )
+      ) AS unresolved_failed_job_count,
       (
         SELECT COALESCE(json_agg(DISTINCT q.payload->>'field'), '[]'::json)
         FROM job_event_log q
@@ -323,6 +347,7 @@ export async function getRecentRuns(limit = 20, offset = 0): Promise<RunDetail[]
       sfQuarantinedCount:   Number(row.sf_quarantined_count ?? 0),
       sfQuarantinedFields:  parseQuarantinedFields(row.sf_quarantined_fields),
       extJobIdSwapCount:    Number(row.ext_job_id_swap_count ?? 0),
+      unresolvedFailedJobCount: Number(row.unresolved_failed_job_count ?? 0),
       status,
       sfErrorDetails,
     }
@@ -348,6 +373,7 @@ export async function getAllRuns(): Promise<RunDetail[]> {
     sf_quarantined_count: string | number
     sf_quarantined_fields: unknown
     ext_job_id_swap_count: string | number
+    unresolved_failed_job_count: string | number
     sf_error_details:   unknown
   }>>`
     WITH ${sql.unsafe(PAIRED_CTE)}
@@ -384,6 +410,29 @@ export async function getAllRuns(): Promise<RunDetail[]> {
           AND COALESCE(jel.payload->'prev'->>'External_Job_ID__c', '')
               <> COALESCE(jel.payload->'next'->>'External_Job_ID__c', '')
       ) AS ext_job_id_swap_count,
+      count(DISTINCT jel.job_id) FILTER (
+        WHERE jel.event_type IN ('job_create_failed', 'worksite_create_failed')
+          AND NOT EXISTS (
+            SELECT 1 FROM job_event_log ok
+            WHERE ok.job_id = jel.job_id
+              AND ok.event_type = 'job_created_in_salesforce'
+              AND ok.created_at >= jel.created_at
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM job_event_log rs
+            WHERE rs.job_id = jel.job_id
+              AND rs.event_type = 'manual_rescrape_completed'
+              AND rs.created_at >= jel.created_at
+              AND COALESCE(rs.payload->>'action', '') IN ('re_scraped', 're_scraped_with_warning')
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM job_content jc_ok2
+            WHERE jc_ok2.job_id = jel.job_id
+              AND jc_ok2.created_at > jel.created_at
+              AND COALESCE(jc_ok2.title_line, '') <> ''
+              AND COALESCE(jc_ok2.description_full_text, '') <> ''
+          )
+      ) AS unresolved_failed_job_count,
       (
         SELECT COALESCE(json_agg(DISTINCT q.payload->>'field'), '[]'::json)
         FROM job_event_log q
@@ -475,6 +524,7 @@ export async function getAllRuns(): Promise<RunDetail[]> {
       sfQuarantinedCount:   Number(row.sf_quarantined_count ?? 0),
       sfQuarantinedFields:  parseQuarantinedFields(row.sf_quarantined_fields),
       extJobIdSwapCount:    Number(row.ext_job_id_swap_count ?? 0),
+      unresolvedFailedJobCount: Number(row.unresolved_failed_job_count ?? 0),
       status,
       sfErrorDetails,
     }
@@ -554,6 +604,7 @@ export async function searchRuns(params: SearchRunsParams): Promise<RunDetail[]>
     sf_quarantined_count: string | number
     sf_quarantined_fields: unknown
     ext_job_id_swap_count: string | number
+    unresolved_failed_job_count: string | number
     sf_error_details:   unknown
   }>>`
     WITH ${sql.unsafe(PAIRED_CTE)}
@@ -590,6 +641,29 @@ export async function searchRuns(params: SearchRunsParams): Promise<RunDetail[]>
           AND COALESCE(jel.payload->'prev'->>'External_Job_ID__c', '')
               <> COALESCE(jel.payload->'next'->>'External_Job_ID__c', '')
       ) AS ext_job_id_swap_count,
+      count(DISTINCT jel.job_id) FILTER (
+        WHERE jel.event_type IN ('job_create_failed', 'worksite_create_failed')
+          AND NOT EXISTS (
+            SELECT 1 FROM job_event_log ok
+            WHERE ok.job_id = jel.job_id
+              AND ok.event_type = 'job_created_in_salesforce'
+              AND ok.created_at >= jel.created_at
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM job_event_log rs
+            WHERE rs.job_id = jel.job_id
+              AND rs.event_type = 'manual_rescrape_completed'
+              AND rs.created_at >= jel.created_at
+              AND COALESCE(rs.payload->>'action', '') IN ('re_scraped', 're_scraped_with_warning')
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM job_content jc_ok2
+            WHERE jc_ok2.job_id = jel.job_id
+              AND jc_ok2.created_at > jel.created_at
+              AND COALESCE(jc_ok2.title_line, '') <> ''
+              AND COALESCE(jc_ok2.description_full_text, '') <> ''
+          )
+      ) AS unresolved_failed_job_count,
       (
         SELECT COALESCE(json_agg(DISTINCT q.payload->>'field'), '[]'::json)
         FROM job_event_log q
@@ -677,6 +751,7 @@ export async function searchRuns(params: SearchRunsParams): Promise<RunDetail[]>
       sfQuarantinedCount:   Number(row.sf_quarantined_count ?? 0),
       sfQuarantinedFields:  parseQuarantinedFields(row.sf_quarantined_fields),
       extJobIdSwapCount:    Number(row.ext_job_id_swap_count ?? 0),
+      unresolvedFailedJobCount: Number(row.unresolved_failed_job_count ?? 0),
       status,
       sfErrorDetails,
     }
