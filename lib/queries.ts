@@ -243,7 +243,7 @@ export async function getRecentRuns(limit = 20, offset = 0): Promise<RunDetail[]
           AND NOT EXISTS (
             SELECT 1 FROM job_event_log rs
             WHERE rs.job_id = jel.job_id
-              AND rs.event_type = 'manual_rescrape_completed'
+              AND rs.event_type IN ('manual_rescrape_completed', 'auto_retry_completed')
               AND rs.created_at >= jel.created_at
               AND COALESCE(rs.payload->>'action', '') IN ('re_scraped', 're_scraped_with_warning')
           )
@@ -421,7 +421,7 @@ export async function getAllRuns(): Promise<RunDetail[]> {
           AND NOT EXISTS (
             SELECT 1 FROM job_event_log rs
             WHERE rs.job_id = jel.job_id
-              AND rs.event_type = 'manual_rescrape_completed'
+              AND rs.event_type IN ('manual_rescrape_completed', 'auto_retry_completed')
               AND rs.created_at >= jel.created_at
               AND COALESCE(rs.payload->>'action', '') IN ('re_scraped', 're_scraped_with_warning')
           )
@@ -652,7 +652,7 @@ export async function searchRuns(params: SearchRunsParams): Promise<RunDetail[]>
           AND NOT EXISTS (
             SELECT 1 FROM job_event_log rs
             WHERE rs.job_id = jel.job_id
-              AND rs.event_type = 'manual_rescrape_completed'
+              AND rs.event_type IN ('manual_rescrape_completed', 'auto_retry_completed')
               AND rs.created_at >= jel.created_at
               AND COALESCE(rs.payload->>'action', '') IN ('re_scraped', 're_scraped_with_warning')
           )

@@ -574,7 +574,9 @@ export default function AdminRecoveryPage() {
                       ? `CLI${h.invoker ? ` · ${h.invoker.replace(/^cli:/, '')}` : ''}`
                       : h.invocation === 'manual_admin_ui'
                         ? 'Admin UI'
-                        : (h.invocation || '—')
+                        : h.invocation === 'auto_retry'
+                          ? 'Auto retry'
+                          : (h.invocation || '—')
                   return (
                     <tr key={h.id} className="border-t border-zinc-800">
                       <td className="py-2 px-3 text-zinc-400 text-xs whitespace-nowrap">{fmt(h.createdAt)}</td>
@@ -582,6 +584,7 @@ export default function AdminRecoveryPage() {
                       <td className="py-2 px-3 text-zinc-400 text-xs">
                         {h.eventType === 'sf_scrape_fields_recovered' && <span className="text-emerald-300">recovered</span>}
                         {h.eventType === 'manual_rescrape_completed' && <span className="text-sky-300">rescraped</span>}
+                        {h.eventType === 'auto_retry_completed' && <span className="text-cyan-300">auto retry</span>}
                         {h.eventType === 'sf_field_quarantined' && <span className="text-amber-300">quarantined</span>}
                         {h.eventType === 'sf_push_unhandled_error' && <span className="text-red-300">unhandled</span>}
                       </td>
