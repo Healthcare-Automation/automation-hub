@@ -33,16 +33,18 @@ export async function GET(req: NextRequest) {
         'sf_scrape_fields_recovered',
         'sf_field_quarantined',
         'sf_push_unhandled_error',
-        'manual_rescrape_completed'
+        'manual_rescrape_completed',
+        'auto_retry_completed'
       )
-      AND payload->>'invocation' IN ('manual_cli', 'manual_admin_ui')
+      AND payload->>'invocation' IN ('manual_cli', 'manual_admin_ui', 'auto_retry')
     ORDER BY created_at DESC,
              CASE event_type
                WHEN 'sf_scrape_fields_recovered' THEN 0
                WHEN 'manual_rescrape_completed'  THEN 1
-               WHEN 'sf_field_quarantined'       THEN 2
-               WHEN 'sf_push_unhandled_error'    THEN 3
-               ELSE 4
+               WHEN 'auto_retry_completed'       THEN 2
+               WHEN 'sf_field_quarantined'       THEN 3
+               WHEN 'sf_push_unhandled_error'    THEN 4
+               ELSE 5
              END,
              id DESC
     LIMIT ${limit}

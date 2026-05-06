@@ -59,14 +59,14 @@ export async function GET(req: NextRequest) {
           AND ok.created_at >= jel.created_at
       )
       AND NOT EXISTS (
-        -- Resolved by a manual rescrape that pulled real content. The event
-        -- itself is the truth signal — checking job_content.created_at fails
-        -- here because process_link_scrape_batch upserts in place and keeps
-        -- the original created_at, so a populated row written *by the
-        -- rescrape* still timestamps before the failure event.
+        -- Resolved by a manual rescrape OR an auto-retry that pulled real
+        -- content. The event itself is the truth signal — checking
+        -- job_content.created_at fails here because process_link_scrape_batch
+        -- upserts in place and keeps the original created_at, so a populated
+        -- row written *by the rescrape* still timestamps before the failure.
         SELECT 1 FROM job_event_log rs
         WHERE rs.job_id = jel.job_id
-          AND rs.event_type = 'manual_rescrape_completed'
+          AND rs.event_type IN ('manual_rescrape_completed', 'auto_retry_completed')
           AND rs.created_at >= jel.created_at
           AND COALESCE(rs.payload->>'action', '') IN ('re_scraped', 're_scraped_with_warning')
       )
