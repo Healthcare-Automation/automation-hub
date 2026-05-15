@@ -373,16 +373,48 @@ export default function LayerBreakdown({ runs }: Props) {
   const [paging, setPaging] = useState(false)
   const [hasOlder, setHasOlder] = useState(runs.length === PAGE_SIZE)
   const [facets, setFacets] = useState<Set<string>>(new Set())
+  // When ANY facet is selected we have to evaluate the predicate against the
+  // *whole* run history, not just the 20 rows currently rendered on this page.
+  // Fetch up to N runs into ``allRuns`` (lazy — only the first time a facet
+  // toggles on) and use that as the candidate set; pageRuns is the fallback.
+  const [allRuns, setAllRuns] = useState<RunDetail[] | null>(null)
+  const [allRunsLoading, setAllRunsLoading] = useState(false)
+  const [allRunsError, setAllRunsError] = useState<string | null>(null)
 
-  // Apply the SF-push facet filter on top of whatever the search returned (or
-  // the default paged view). Empty facets ⇒ show everything.
-  const preFacetRuns = filteredRuns ?? pageRuns
+  // Apply the SF-push facet filter. When facets are active, base on the full
+  // history (allRuns); when off, use whatever the search/page returned.
+  const facetCandidatePool: RunDetail[] = facets.size > 0
+    ? (allRuns ?? filteredRuns ?? pageRuns)
+    : (filteredRuns ?? pageRuns)
   const displayedRuns = useMemo(() => {
-    if (facets.size === 0) return preFacetRuns
+    if (facets.size === 0) return filteredRuns ?? pageRuns
     const active = SF_FACETS.filter(f => facets.has(f.key))
-    return preFacetRuns.filter(r => active.some(f => f.match(r)))
-  }, [preFacetRuns, facets])
-  const hiddenByFacets = preFacetRuns.length - displayedRuns.length
+    return facetCandidatePool.filter(r => active.some(f => f.match(r)))
+  }, [facetCandidatePool, facets, filteredRuns, pageRuns])
+  const hiddenByFacets = facetCandidatePool.length - displayedRuns.length
+
+  // Lazy-fetch the full run history the first time any facet is toggled on.
+  useEffect(() => {
+    if (facets.size === 0) return
+    if (allRuns !== null) return  // already cached for this session
+    let cancelled = false
+    setAllRunsLoading(true)
+    setAllRunsError(null)
+    ;(async () => {
+      try {
+        const res = await fetch(`/api/runs?limit=2000`)
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const data = await res.json()
+        if (!cancelled) setAllRuns((data.runs as RunDetail[]) || [])
+      } catch (e: any) {
+        if (!cancelled) setAllRunsError(e?.message || 'Failed to load full history')
+      } finally {
+        if (!cancelled) setAllRunsLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [facets.size > 0])
 
   const trimmedInput = searchInput.trim()
   const canSearch = trimmedInput.length > 0
@@ -488,7 +520,7 @@ export default function LayerBreakdown({ runs }: Props) {
   }
 
   const isEmpty = displayedRuns.length === 0
-  const emptyMessage = facets.size > 0 && preFacetRuns.length > 0
+  const emptyMessage = facets.size > 0 && facetCandidatePool.length > 0
     ? `No runs match the active filter${facets.size === 1 ? '' : 's'}. Clear them above or pick a different signal.`
     : activeQuery
       ? `No runs found for ${SEARCH_MODE_LABEL[activeQuery.mode]}: ${activeQuery.value}`
@@ -546,13 +578,20 @@ export default function LayerBreakdown({ runs }: Props) {
         </div>
       )}
 
-      {/* SF-push facet filter — click any pill to filter the run list to
-          rows matching that signal. Multiple pills are OR'd. */}
+      {/* SF-push facet filter — click any pill to filter ALL runs to rows
+          matching that signal (not just the current page). Multiple pills
+          are OR'd. The full-history fetch happens lazily the first time
+          any pill toggles on. */}
       <div className="px-3 pt-1 pb-2 flex flex-wrap items-center gap-1.5">
         <span className="text-[10px] uppercase tracking-widest text-zinc-500 mr-1">Filter</span>
         {SF_FACETS.map(f => {
           const active = facets.has(f.key)
-          const count = preFacetRuns.filter(f.match).length
+          // Count over the candidate pool that the filter will actually run
+          // against: full history when any facet is on, current page when not.
+          const countPool: RunDetail[] = facets.size > 0
+            ? (allRuns ?? filteredRuns ?? pageRuns)
+            : (filteredRuns ?? pageRuns)
+          const count = countPool.filter(f.match).length
           const toneActive: Record<string, string> = {
             red:     'bg-red-500/15 border-red-500/40 text-red-300',
             amber:   'bg-amber-500/15 border-amber-500/40 text-amber-300',
@@ -609,9 +648,12 @@ export default function LayerBreakdown({ runs }: Props) {
         Click any row to view details
         {facets.size > 0 && (
           <span className="text-zinc-400">
-            · showing <span className="text-zinc-200">{displayedRuns.length}</span> of {preFacetRuns.length}
-            ({hiddenByFacets} hidden by filter{hiddenByFacets === 1 ? '' : 's'})
+            · <span className="text-zinc-200">{displayedRuns.length}</span> of {facetCandidatePool.length}
+            {allRunsLoading ? ' (loading full history…)' : ` across all runs`}
           </span>
+        )}
+        {allRunsError && (
+          <span className="text-red-400">· couldn't load full history: {allRunsError}</span>
         )}
       </div>
 
@@ -716,7 +758,7 @@ export default function LayerBreakdown({ runs }: Props) {
       </div>
 
       {/* Pagination (unfiltered only) */}
-      {filteredRuns === null && (
+      {filteredRuns === null && facets.size === 0 && (
         <div className="px-3 pt-2 flex items-center justify-between">
           <button
             onClick={() => fetchPage(Math.max(0, pageOffset - PAGE_SIZE))}
