@@ -373,30 +373,17 @@ export default function LayerBreakdown({ runs }: Props) {
   const [paging, setPaging] = useState(false)
   const [hasOlder, setHasOlder] = useState(runs.length === PAGE_SIZE)
   const [facets, setFacets] = useState<Set<string>>(new Set())
-  // When ANY facet is selected we have to evaluate the predicate against the
-  // *whole* run history, not just the 20 rows currently rendered on this page.
-  // Fetch up to N runs into ``allRuns`` (lazy — only the first time a facet
-  // toggles on) and use that as the candidate set; pageRuns is the fallback.
+  // Full run history (up to N) — fetched once on mount in the background.
+  // Used as the source of truth for both per-pill counts and the facet filter
+  // so they are GLOBAL from page load, not lazy on first click.
   const [allRuns, setAllRuns] = useState<RunDetail[] | null>(null)
   const [allRunsLoading, setAllRunsLoading] = useState(false)
   const [allRunsError, setAllRunsError] = useState<string | null>(null)
 
-  // Apply the SF-push facet filter. When facets are active, base on the full
-  // history (allRuns); when off, use whatever the search/page returned.
-  const facetCandidatePool: RunDetail[] = facets.size > 0
-    ? (allRuns ?? filteredRuns ?? pageRuns)
-    : (filteredRuns ?? pageRuns)
-  const displayedRuns = useMemo(() => {
-    if (facets.size === 0) return filteredRuns ?? pageRuns
-    const active = SF_FACETS.filter(f => facets.has(f.key))
-    return facetCandidatePool.filter(r => active.some(f => f.match(r)))
-  }, [facetCandidatePool, facets, filteredRuns, pageRuns])
-  const hiddenByFacets = facetCandidatePool.length - displayedRuns.length
-
-  // Lazy-fetch the full run history the first time any facet is toggled on.
+  // Fire the full-history fetch on mount. Background — does not block initial
+  // paint (page already has the first 20 via SSR). Subsequent re-renders re-use
+  // the cached value.
   useEffect(() => {
-    if (facets.size === 0) return
-    if (allRuns !== null) return  // already cached for this session
     let cancelled = false
     setAllRunsLoading(true)
     setAllRunsError(null)
@@ -413,8 +400,19 @@ export default function LayerBreakdown({ runs }: Props) {
       }
     })()
     return () => { cancelled = true }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [facets.size > 0])
+  }, [])
+
+  // Apply the SF-push facet filter. Once ``allRuns`` has loaded the filter
+  // operates over the entire history; before it loads we fall back to the
+  // current page so pills still work on the visible data.
+  const facetCandidatePool: RunDetail[] = facets.size > 0
+    ? (allRuns ?? filteredRuns ?? pageRuns)
+    : (filteredRuns ?? pageRuns)
+  const displayedRuns = useMemo(() => {
+    if (facets.size === 0) return filteredRuns ?? pageRuns
+    const active = SF_FACETS.filter(f => facets.has(f.key))
+    return facetCandidatePool.filter(r => active.some(f => f.match(r)))
+  }, [facetCandidatePool, facets, filteredRuns, pageRuns])
 
   const trimmedInput = searchInput.trim()
   const canSearch = trimmedInput.length > 0
@@ -578,19 +576,18 @@ export default function LayerBreakdown({ runs }: Props) {
         </div>
       )}
 
-      {/* SF-push facet filter — click any pill to filter ALL runs to rows
-          matching that signal (not just the current page). Multiple pills
-          are OR'd. The full-history fetch happens lazily the first time
-          any pill toggles on. */}
+      {/* SF-push facet filter — click any pill to filter ALL runs (full
+          history fetched on mount) to rows matching that signal. Multiple
+          pills are OR'd. Counts shown next to each pill are global. */}
       <div className="px-3 pt-1 pb-2 flex flex-wrap items-center gap-1.5">
         <span className="text-[10px] uppercase tracking-widest text-zinc-500 mr-1">Filter</span>
         {SF_FACETS.map(f => {
           const active = facets.has(f.key)
-          // Count over the candidate pool that the filter will actually run
-          // against: full history when any facet is on, current page when not.
-          const countPool: RunDetail[] = facets.size > 0
-            ? (allRuns ?? filteredRuns ?? pageRuns)
-            : (filteredRuns ?? pageRuns)
+          // Counts always derive from the full history once it has loaded,
+          // so the number next to a pill represents the ENTIRE dataset (not
+          // the current 20-row page). Until the fetch completes, fall back
+          // to the current page so the bar still renders meaningfully.
+          const countPool: RunDetail[] = allRuns ?? filteredRuns ?? pageRuns
           const count = countPool.filter(f.match).length
           const toneActive: Record<string, string> = {
             red:     'bg-red-500/15 border-red-500/40 text-red-300',
@@ -640,16 +637,18 @@ export default function LayerBreakdown({ runs }: Props) {
         )}
       </div>
 
-      {/* Instruction text + active-filter status */}
+      {/* Instruction text + filter status */}
       <div className="px-3 py-1 text-xs text-zinc-500 flex items-center gap-1.5 flex-wrap">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M9 18l6-6-6-6"/>
         </svg>
         Click any row to view details
-        {facets.size > 0 && (
+        {allRunsLoading && (
+          <span className="text-zinc-500">· loading full history for filters…</span>
+        )}
+        {facets.size > 0 && !allRunsLoading && (
           <span className="text-zinc-400">
-            · <span className="text-zinc-200">{displayedRuns.length}</span> of {facetCandidatePool.length}
-            {allRunsLoading ? ' (loading full history…)' : ` across all runs`}
+            · <span className="text-zinc-200">{displayedRuns.length}</span> matching across all {facetCandidatePool.length} runs
           </span>
         )}
         {allRunsError && (
