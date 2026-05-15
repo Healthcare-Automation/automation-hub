@@ -338,6 +338,27 @@ const SEARCH_MODE_LABEL: Record<SearchMode, string> = {
   practice: 'Practice value (partial match)',
 }
 
+// SF-push facets the operator can toggle on the run list. Each entry maps a
+// short pill label to a predicate on RunDetail; rows pass when they match
+// ANY selected facet (multi-select OR-of-filters). This is a client-side
+// filter on top of whatever is already loaded — it does not refetch.
+const SF_FACETS: ReadonlyArray<{
+  key: string
+  label: string
+  tone: 'red' | 'amber' | 'violet' | 'cyan' | 'emerald' | 'slate'
+  match: (r: RunDetail) => boolean
+  tooltip: string
+}> = [
+  { key: 'failed',      label: 'Failed',       tone: 'red',     match: r => (r.unresolvedFailedJobCount ?? 0) > 0, tooltip: 'Jobs in this run whose SF Job__c creation failed and has not been recovered' },
+  { key: 'sf-error',    label: 'SF Error',     tone: 'red',     match: r => (r.sfErrorCount ?? 0) > 0,             tooltip: 'Unresolved Salesforce push errors on this run' },
+  { key: 'quarantined', label: 'Field dropped', tone: 'amber',  match: r => (r.sfQuarantinedCount ?? 0) > 0,        tooltip: 'Field(s) dropped by SF on this run (e.g. value too long, picklist mismatch)' },
+  { key: 'recovered',   label: 'Recovered',    tone: 'cyan',    match: r => (r.sfRecoveredCount ?? 0) > 0,         tooltip: 'SF push errors that were auto-recovered on this run' },
+  { key: 'id-swap',     label: 'ID swap',      tone: 'amber',   match: r => (r.extJobIdSwapCount ?? 0) > 0,        tooltip: 'External_Job_ID__c was repointed on an existing SF record' },
+  { key: 'new-job',     label: 'New SF job',   tone: 'violet',  match: r => (r.sfJobsCreatedCount ?? 0) > 0,        tooltip: 'New Salesforce Job__c records created by Proxi on this run' },
+  { key: 'no-jobs',     label: 'No jobs',      tone: 'slate',   match: r => r.emailCount > 0 && r.jobCount === 0,   tooltip: 'Emails scraped but no job_content produced' },
+  { key: 'patched',     label: 'Field patches', tone: 'emerald',match: r => (r.sfPatchCount ?? 0) > 0,             tooltip: 'Salesforce field patches landed on this run' },
+] as const
+
 export default function LayerBreakdown({ runs }: Props) {
   const [selectedRunId, setSelectedRunId] = useState<number | null>(null)
   const [lastOpenedRunId, setLastOpenedRunId] = useState<number | null>(null)
@@ -351,8 +372,17 @@ export default function LayerBreakdown({ runs }: Props) {
   const [pageRuns, setPageRuns] = useState<RunDetail[]>(runs)
   const [paging, setPaging] = useState(false)
   const [hasOlder, setHasOlder] = useState(runs.length === PAGE_SIZE)
+  const [facets, setFacets] = useState<Set<string>>(new Set())
 
-  const displayedRuns = filteredRuns ?? pageRuns
+  // Apply the SF-push facet filter on top of whatever the search returned (or
+  // the default paged view). Empty facets ⇒ show everything.
+  const preFacetRuns = filteredRuns ?? pageRuns
+  const displayedRuns = useMemo(() => {
+    if (facets.size === 0) return preFacetRuns
+    const active = SF_FACETS.filter(f => facets.has(f.key))
+    return preFacetRuns.filter(r => active.some(f => f.match(r)))
+  }, [preFacetRuns, facets])
+  const hiddenByFacets = preFacetRuns.length - displayedRuns.length
 
   const trimmedInput = searchInput.trim()
   const canSearch = trimmedInput.length > 0
@@ -458,9 +488,11 @@ export default function LayerBreakdown({ runs }: Props) {
   }
 
   const isEmpty = displayedRuns.length === 0
-  const emptyMessage = activeQuery
-    ? `No runs found for ${SEARCH_MODE_LABEL[activeQuery.mode]}: ${activeQuery.value}`
-    : 'No runs found in the database.'
+  const emptyMessage = facets.size > 0 && preFacetRuns.length > 0
+    ? `No runs match the active filter${facets.size === 1 ? '' : 's'}. Clear them above or pick a different signal.`
+    : activeQuery
+      ? `No runs found for ${SEARCH_MODE_LABEL[activeQuery.mode]}: ${activeQuery.value}`
+      : 'No runs found in the database.'
 
   return (
     <div className="space-y-0.5">
@@ -514,12 +546,73 @@ export default function LayerBreakdown({ runs }: Props) {
         </div>
       )}
 
-      {/* Instruction text */}
-      <div className="px-3 py-1 text-xs text-zinc-500 flex items-center gap-1.5">
+      {/* SF-push facet filter — click any pill to filter the run list to
+          rows matching that signal. Multiple pills are OR'd. */}
+      <div className="px-3 pt-1 pb-2 flex flex-wrap items-center gap-1.5">
+        <span className="text-[10px] uppercase tracking-widest text-zinc-500 mr-1">Filter</span>
+        {SF_FACETS.map(f => {
+          const active = facets.has(f.key)
+          const count = preFacetRuns.filter(f.match).length
+          const toneActive: Record<string, string> = {
+            red:     'bg-red-500/15 border-red-500/40 text-red-300',
+            amber:   'bg-amber-500/15 border-amber-500/40 text-amber-300',
+            violet:  'bg-violet-500/15 border-violet-500/40 text-violet-300',
+            cyan:    'bg-cyan-500/15 border-cyan-500/40 text-cyan-300',
+            emerald: 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300',
+            slate:   'bg-zinc-500/20 border-zinc-500/40 text-zinc-300',
+          }
+          return (
+            <button
+              key={f.key}
+              type="button"
+              onClick={() => setFacets(prev => {
+                const next = new Set(prev)
+                if (next.has(f.key)) next.delete(f.key)
+                else next.add(f.key)
+                return next
+              })}
+              disabled={!active && count === 0}
+              title={f.tooltip}
+              className={cn(
+                'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border transition-colors',
+                active
+                  ? toneActive[f.tone]
+                  : count > 0
+                    ? 'border-zinc-700/60 text-zinc-400 hover:text-zinc-200 hover:border-zinc-500'
+                    : 'border-zinc-800 text-zinc-700 cursor-not-allowed',
+              )}
+            >
+              {f.label}
+              <span className={cn(
+                'text-[10px] tabular-nums',
+                active ? 'opacity-90' : 'opacity-70',
+              )}>{count}</span>
+            </button>
+          )
+        })}
+        {facets.size > 0 && (
+          <button
+            type="button"
+            onClick={() => setFacets(new Set())}
+            className="text-[11px] text-zinc-500 hover:text-zinc-200 underline underline-offset-2"
+          >
+            Clear filters
+          </button>
+        )}
+      </div>
+
+      {/* Instruction text + active-filter status */}
+      <div className="px-3 py-1 text-xs text-zinc-500 flex items-center gap-1.5 flex-wrap">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M9 18l6-6-6-6"/>
         </svg>
         Click any row to view details
+        {facets.size > 0 && (
+          <span className="text-zinc-400">
+            · showing <span className="text-zinc-200">{displayedRuns.length}</span> of {preFacetRuns.length}
+            ({hiddenByFacets} hidden by filter{hiddenByFacets === 1 ? '' : 's'})
+          </span>
+        )}
       </div>
 
       {/* Header + rows wrap in an overflow container so narrow viewports
