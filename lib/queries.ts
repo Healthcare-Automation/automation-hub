@@ -46,7 +46,20 @@ const PAIRED_CTE = `
       b.finished_at  AS batch_finished
     FROM scrape_runs g
     LEFT JOIN LATERAL (
-      SELECT id, started_at, finished_at
+      -- COALESCE finished_at with the latest committed event timestamp for
+      -- the same run_id. If process_link_scrape_batch crashed before
+      -- log_run_finish ran (a one-off bug we patched on 2026-05-20), the
+      -- stamp is NULL even though job_content / events landed cleanly. Using
+      -- MAX(event timestamp) as a fallback prevents the UI from showing
+      -- those orphan rows as Failed.
+      SELECT
+        b2.id,
+        b2.started_at,
+        COALESCE(
+          b2.finished_at,
+          (SELECT MAX(jel2.created_at) FROM job_event_log jel2 WHERE jel2.run_id = b2.id),
+          (SELECT MAX(jc2.created_at)  FROM job_content    jc2 WHERE jc2.run_id  = b2.id)
+        ) AS finished_at
       FROM scrape_runs b2
       WHERE b2.run_type = 'link_batch'
         AND b2.started_at > g.started_at
