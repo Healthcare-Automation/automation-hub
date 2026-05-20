@@ -158,12 +158,13 @@ function StatusBadge({ status, reason }: { status: 'success' | 'failed' | 'parti
 function derivePartialReason(job: ValidationJobDetail): string | null {
   if (job.status !== 'partial') return null
 
-  // 1) Auto-created Job__c — the most common "partial" cause.
-  if (job.salesforceJobCreated) {
-    return 'Auto-created new Job__c (no existing match)'
-  }
+  // Order of priority: real errors first (most actionable), then mapping
+  // issues, then auto-create as a context note. An auto-create on its own no
+  // longer triggers Partial (queries.ts treats mapping_no_match + the create
+  // as a resolved transition) — but if the row is Partial alongside a create
+  // it means a real downstream error fired, which the operator needs to see.
 
-  // 2) Salesforce push errors win priority — they block downstream work.
+  // 1) Salesforce push errors win priority — they block downstream work.
   const sf = job.salesforceIssues || []
   const sfPushErr = sf.find(s => /duplicate|push|400|reject|invalid|required|unknown/i.test(s.message || s.type || ''))
   if (sfPushErr) {
@@ -174,14 +175,15 @@ function derivePartialReason(job: ValidationJobDetail): string | null {
     return m.length > 70 ? m.slice(0, 70) + '…' : m
   }
 
-  // 3) Mapping issues.
+  // 2) Mapping issues that are NOT transient (mapping_no_match is filtered
+  // out upstream when the auto-create resolved it, so anything left is real).
   const m = job.mappingIssues || []
-  if (m.some(x => x.type === 'mapping_no_match')) return 'No Salesforce mapping found'
   if (m.some(x => x.type === 'mapping_ambiguous')) return 'Ambiguous mapping (multiple SF candidates)'
   if (m.some(x => x.type === 'sf_mapping_pull_failed')) return 'Salesforce mapping pull failed'
   if (m.some(x => x.type === 'sf_mapping_skipped')) return 'SF mapping skipped'
+  if (m.some(x => x.type === 'mapping_no_match')) return 'No Salesforce mapping found and could not auto-create'
 
-  // 4) Specific quarantine-style events from this run.
+  // 3) Specific quarantine-style events from this run.
   const ev = job.eventsThisRun || []
   if (ev.some(e => e.eventType === 'mapping_blocked_no_practice_value')) {
     return 'Blocked: empty practice_value (would create duplicate)'
@@ -193,7 +195,7 @@ function derivePartialReason(job: ValidationJobDetail): string | null {
     return 'Field quarantined (SF rejected one or more fields)'
   }
 
-  // 5) Generic fallback: surface first error message.
+  // 4) Generic fallback: surface first error message.
   const first = (job.errors || []).find(Boolean)
   if (first) return first.length > 80 ? first.slice(0, 80) + '…' : first
   return 'Resolved with warnings'
