@@ -155,7 +155,7 @@ function StatusBadge({ status, reason }: { status: 'success' | 'failed' | 'parti
  * One-line summary of why a JobContent ended up Partial. Picks the most
  * operator-actionable event in the run; falls back to the first issue message.
  */
-function derivePartialReason(job: ValidationJob): string | null {
+function derivePartialReason(job: ValidationJobDetail): string | null {
   if (job.status !== 'partial') return null
 
   // 1) Auto-created Job__c — the most common "partial" cause.
@@ -211,7 +211,7 @@ function derivePartialReason(job: ValidationJob): string | null {
  */
 function isFreshCreatePatch(
   patch: { sfJobId?: string | null },
-  jobCreated: ValidationJob['salesforceJobCreated'],
+  jobCreated: ValidationJobDetail['salesforceJobCreated'],
 ): boolean {
   if (!jobCreated || !jobCreated.sfJobId) return false
   return patch.sfJobId === jobCreated.sfJobId
