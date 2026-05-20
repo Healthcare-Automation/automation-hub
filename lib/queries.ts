@@ -1082,9 +1082,18 @@ export async function getValidationData(runId: number, filters: ValidationFilter
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     )
 
-    // Extract skip/error reasons by family
+    // Extract skip/error reasons by family.
+    //
+    // `mapping_no_match` and `sf_sync_skipped_no_mapping` are TRANSITIONAL states,
+    // not failures: the resolver couldn't find an existing SF record at first, so
+    // either the create-new-job flow ran (success) or the row still has no
+    // sf_job_id (already counted as `failed` below). When a Job__c was eventually
+    // auto-created in this run, those two events were resolved by the create and
+    // should not pull the status into Partial.
+    const autoCreateResolved = Boolean(salesforceJobCreated) || Boolean(row.sf_job_id)
     const mappingIssues = mappingEvents
       .filter(e => ['sf_mapping_skipped', 'sf_mapping_pull_failed', 'mapping_no_match', 'mapping_ambiguous'].includes(e.eventType))
+      .filter(e => !(autoCreateResolved && e.eventType === 'mapping_no_match'))
       .map(e => ({
         type: e.eventType,
         message: e.payload?.error || e.payload?.reason || e.eventType,
@@ -1093,6 +1102,7 @@ export async function getValidationData(runId: number, filters: ValidationFilter
 
     const salesforceIssues = salesforceFieldEvents
       .filter(e => ['sf_sync_skipped_no_mapping', 'sf_scrape_fields_skip', 'sf_scrape_fields_error'].includes(e.eventType))
+      .filter(e => !(autoCreateResolved && e.eventType === 'sf_sync_skipped_no_mapping'))
       .reduce((acc, e) => {
         const key = `${e.eventType}_${e.payload?.reason || 'unknown'}`
         const existing = acc.find(item => item.key === key)
