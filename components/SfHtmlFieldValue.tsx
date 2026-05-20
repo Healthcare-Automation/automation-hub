@@ -21,12 +21,13 @@ function sanitizeSfJobHtml(raw: string): string {
   return DOMPurify.sanitize(raw, { USE_PROFILES: { html: true } })
 }
 
-type Tone = 'muted' | 'emerald' | 'blue'
+type Tone = 'muted' | 'emerald' | 'blue' | 'violet'
 
 const tonePlain: Record<Tone, string> = {
   muted: 'text-zinc-300',
   emerald: 'text-emerald-200',
   blue: 'text-blue-200',
+  violet: 'text-violet-200',
 }
 
 function SfHtmlFieldValue({

@@ -104,7 +104,7 @@ interface ValidationPopupProps {
   practice?: string
 }
 
-function StatusBadge({ status }: { status: 'success' | 'failed' | 'partial' }) {
+function StatusBadge({ status, reason }: { status: 'success' | 'failed' | 'partial'; reason?: string | null }) {
   const styles = {
     success: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
     failed: 'text-red-400 bg-red-500/10 border-red-500/20',
@@ -138,11 +138,83 @@ function StatusBadge({ status }: { status: 'success' | 'failed' | 'partial' }) {
   }
 
   return (
-    <span className={cn('inline-flex items-center gap-1.5 px-2 py-1 rounded-md border text-xs font-medium', styles[status])}>
+    <span
+      className={cn('inline-flex items-center gap-1.5 px-2 py-1 rounded-md border text-xs font-medium', styles[status])}
+      title={reason || undefined}
+    >
       {icons[status]}
       {labels[status]}
+      {reason ? (
+        <span className="ml-1 text-[10px] font-normal text-zinc-400 normal-case">· {reason}</span>
+      ) : null}
     </span>
   )
+}
+
+/**
+ * One-line summary of why a JobContent ended up Partial. Picks the most
+ * operator-actionable event in the run; falls back to the first issue message.
+ */
+function derivePartialReason(job: ValidationJobDetail): string | null {
+  if (job.status !== 'partial') return null
+
+  // 1) Auto-created Job__c — the most common "partial" cause.
+  if (job.salesforceJobCreated) {
+    return 'Auto-created new Job__c (no existing match)'
+  }
+
+  // 2) Salesforce push errors win priority — they block downstream work.
+  const sf = job.salesforceIssues || []
+  const sfPushErr = sf.find(s => /duplicate|push|400|reject|invalid|required|unknown/i.test(s.message || s.type || ''))
+  if (sfPushErr) {
+    const m = String(sfPushErr.message || sfPushErr.type)
+    if (/duplicate/i.test(m)) return 'SF rejected: duplicate value (unique field collision)'
+    if (/required/i.test(m)) return 'SF rejected: required field missing'
+    if (/invalid|picklist/i.test(m)) return 'SF rejected: invalid value'
+    return m.length > 70 ? m.slice(0, 70) + '…' : m
+  }
+
+  // 3) Mapping issues.
+  const m = job.mappingIssues || []
+  if (m.some(x => x.type === 'mapping_no_match')) return 'No Salesforce mapping found'
+  if (m.some(x => x.type === 'mapping_ambiguous')) return 'Ambiguous mapping (multiple SF candidates)'
+  if (m.some(x => x.type === 'sf_mapping_pull_failed')) return 'Salesforce mapping pull failed'
+  if (m.some(x => x.type === 'sf_mapping_skipped')) return 'SF mapping skipped'
+
+  // 4) Specific quarantine-style events from this run.
+  const ev = job.eventsThisRun || []
+  if (ev.some(e => e.eventType === 'mapping_blocked_no_practice_value')) {
+    return 'Blocked: empty practice_value (would create duplicate)'
+  }
+  if (ev.some(e => e.eventType === 'scrape_silent_failure')) {
+    return 'Silent scrape failure (empty job_content row)'
+  }
+  if (ev.some(e => e.eventType === 'sf_field_quarantined')) {
+    return 'Field quarantined (SF rejected one or more fields)'
+  }
+
+  // 5) Generic fallback: surface first error message.
+  const first = (job.errors || []).find(Boolean)
+  if (first) return first.length > 80 ? first.slice(0, 80) + '…' : first
+  return 'Resolved with warnings'
+}
+
+/**
+ * Is this Salesforce field-patch event firing on a Job__c we auto-created?
+ *
+ * "prev == next" on such a patch doesn't mean "unchanged" — it means the
+ * value was written by our POST and SF is just echoing it back. We don't
+ * require same-run because later passes (pass 2/2, manual rescrapes,
+ * recovery) still report SF state that was originally set by our create.
+ *
+ * Same record id (and the record was auto-created at any point) is enough.
+ */
+function isFreshCreatePatch(
+  patch: { sfJobId?: string | null },
+  jobCreated: ValidationJobDetail['salesforceJobCreated'],
+): boolean {
+  if (!jobCreated || !jobCreated.sfJobId) return false
+  return patch.sfJobId === jobCreated.sfJobId
 }
 
 function formatTime(ts: string) {
@@ -1101,26 +1173,52 @@ function SalesforceFieldUpdatesSection({ job }: { job: ValidationJobDetail }) {
             const fieldsOrdered = sortSfValidationFields(fc)
             const patchedSet = new Set(patch.fieldsChanged || [])
             const isAudit = Boolean(patch.auditOnly)
+            const isFreshCreate = !isAudit && isFreshCreatePatch(patch, job.salesforceJobCreated)
+            const setOnCreateCount = isFreshCreate
+              ? Math.max(0, fieldsOrdered.length - patchedSet.size)
+              : 0
             return (
               <div
                 key={`${patch.eventId ?? i}_${isAudit ? 'a' : 'p'}`}
                 className={cn(
                   'rounded-lg mb-2 last:mb-0 border',
-                  isAudit ? 'border-blue-500/25 bg-blue-500/5' : 'border-emerald-500/20 bg-emerald-500/5',
+                  isFreshCreate
+                    ? 'border-violet-500/30 bg-violet-500/5'
+                    : isAudit
+                      ? 'border-blue-500/25 bg-blue-500/5'
+                      : 'border-emerald-500/20 bg-emerald-500/5',
                 )}
               >
                 <button
                   onClick={() => togglePatch(i)}
                   className={cn(
                     'w-full p-3 text-left transition-colors flex items-center justify-between rounded-lg',
-                    isAudit ? 'hover:bg-blue-500/10' : 'hover:bg-emerald-500/10',
+                    isFreshCreate
+                      ? 'hover:bg-violet-500/10'
+                      : isAudit
+                        ? 'hover:bg-blue-500/10'
+                        : 'hover:bg-emerald-500/10',
                   )}
                 >
                   <div className="flex-1 min-w-0">
-                    <div className={cn('text-xs font-medium mb-1', isAudit ? 'text-blue-300' : 'text-emerald-400')}>
-                      Record {patch.sfJobId}
+                    <div
+                      className={cn(
+                        'text-xs font-medium mb-1',
+                        isFreshCreate ? 'text-violet-300' : isAudit ? 'text-blue-300' : 'text-emerald-400',
+                      )}
+                    >
+                      {isFreshCreate ? 'New Salesforce record · ' : 'Record '}
+                      <span className="font-mono">{patch.sfJobId}</span>
                       {isAudit ? (
                         <span className="text-zinc-500 font-normal"> · audit only</span>
+                      ) : isFreshCreate ? (
+                        <span className="text-zinc-500 font-normal">
+                          {' '}
+                          · {setOnCreateCount} field{setOnCreateCount !== 1 ? 's' : ''} set on create
+                          {patch.fieldsChanged.length > 0
+                            ? ` · ${patch.fieldsChanged.length} patched after`
+                            : ''}
+                        </span>
                       ) : (
                         <span className="text-zinc-500 font-normal">
                           {' '}
@@ -1144,7 +1242,7 @@ function SalesforceFieldUpdatesSection({ job }: { job: ValidationJobDetail }) {
                     strokeLinejoin="round"
                     className={cn(
                       'shrink-0 transition-transform',
-                      isAudit ? 'text-blue-400' : 'text-emerald-400',
+                      isFreshCreate ? 'text-violet-400' : isAudit ? 'text-blue-400' : 'text-emerald-400',
                       isExpanded ? 'rotate-90' : '',
                     )}
                   >
@@ -1156,33 +1254,57 @@ function SalesforceFieldUpdatesSection({ job }: { job: ValidationJobDetail }) {
                   <div
                     className={cn(
                       'px-3 pb-3 border-t',
-                      isAudit ? 'border-blue-500/15' : 'border-emerald-500/10',
+                      isFreshCreate ? 'border-violet-500/15' : isAudit ? 'border-blue-500/15' : 'border-emerald-500/10',
                     )}
                   >
+                    {isFreshCreate ? (
+                      <div className="mt-2 rounded-md border border-violet-500/20 bg-violet-500/5 px-3 py-2 text-[11px] leading-relaxed text-violet-200/90">
+                        <span className="font-semibold text-violet-300">Why fields look “unchanged”:</span>{' '}
+                        this PATCH ran <em>after</em> our POST created the record, so Salesforce
+                        already had the values we wrote. Fields marked <span className="font-semibold">set on create</span>{' '}
+                        were established by the create itself; <span className="font-semibold">patched after create</span>{' '}
+                        flags fields the follow-up PATCH actually changed.
+                      </div>
+                    ) : null}
                     <div className="space-y-2 pt-2">
                       {fieldsOrdered.map(field => {
                         const didPatch = !isAudit && patchedSet.has(field)
                         const matched = sfValuesMatchDisplay(patch.prev?.[field], patch.next?.[field], field)
-                        const badgeLabel = isAudit ? 'matched SF' : didPatch ? 'updated in SF' : matched ? 'unchanged' : 'review'
-                        const badgeClass = didPatch
-                          ? 'bg-emerald-500/20 text-emerald-300'
-                          : isAudit || matched
-                            ? 'bg-zinc-700/60 text-zinc-400'
-                            : 'bg-amber-500/15 text-amber-300'
+                        // On a fresh-create patch, a field where prev==next was actually written
+                        // by the POST (the create), not left alone by a no-op patch. Label it
+                        // "set on create" instead of "unchanged" so the diff stops looking empty.
+                        const setOnCreate = isFreshCreate && !didPatch && matched
+                        const patchedAfterCreate = isFreshCreate && didPatch
+                        const badgeLabel = isAudit
+                          ? 'matched SF'
+                          : patchedAfterCreate
+                            ? 'patched after create'
+                            : setOnCreate
+                              ? 'set on create'
+                              : didPatch
+                                ? 'updated in SF'
+                                : matched
+                                  ? 'unchanged'
+                                  : 'review'
+                        const badgeClass = patchedAfterCreate
+                          ? 'bg-violet-500/25 text-violet-200'
+                          : setOnCreate
+                            ? 'bg-violet-500/15 text-violet-300'
+                            : didPatch
+                              ? 'bg-emerald-500/20 text-emerald-300'
+                              : isAudit || matched
+                                ? 'bg-zinc-700/60 text-zinc-400'
+                                : 'bg-amber-500/15 text-amber-300'
+                        const containerClass = patchedAfterCreate || setOnCreate
+                          ? 'bg-violet-500/5 border-violet-500/15'
+                          : didPatch
+                            ? 'bg-emerald-500/5 border-emerald-500/15'
+                            : 'bg-zinc-900/50 border-zinc-700/40'
+                        const labelTone = isFreshCreate ? 'text-violet-300' : isAudit ? 'text-blue-300' : 'text-emerald-400'
                         return (
-                          <div
-                            key={field}
-                            className={cn(
-                              'rounded p-2 border',
-                              didPatch
-                                ? 'bg-emerald-500/5 border-emerald-500/15'
-                                : 'bg-zinc-900/50 border-zinc-700/40',
-                            )}
-                          >
+                          <div key={field} className={cn('rounded p-2 border', containerClass)}>
                             <div className="flex items-center justify-between gap-2 mb-1">
-                              <div className={cn('text-[10px] font-semibold', isAudit ? 'text-blue-300' : 'text-emerald-400')}>
-                                {field}
-                              </div>
+                              <div className={cn('text-[10px] font-semibold', labelTone)}>{field}</div>
                               <span className={cn('text-[9px] px-1.5 py-0.5 rounded shrink-0', badgeClass)}>
                                 {badgeLabel}
                               </span>
@@ -1192,8 +1314,13 @@ function SalesforceFieldUpdatesSection({ job }: { job: ValidationJobDetail }) {
                               prev={patch.prev?.[field]}
                               next={patch.next?.[field]}
                               afterTone={isAudit ? 'blue' : 'emerald'}
-                              beforeLabel={isAudit ? 'Salesforce: ' : 'Before: '}
-                              afterLabel={isAudit ? 'Desired: ' : 'After: '}
+                              beforeLabel={
+                                isAudit ? 'Salesforce: ' : setOnCreate ? 'Created with: ' : 'Before: '
+                              }
+                              afterLabel={
+                                isAudit ? 'Desired: ' : setOnCreate ? '' : 'After: '
+                              }
+                              hideAfter={setOnCreate}
                             />
                           </div>
                         )
@@ -1274,8 +1401,8 @@ function JobCard({ job }: { job: ValidationJobDetail }) {
     <div className="border border-zinc-700/40 rounded-xl p-4 space-y-4">
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-2 min-w-0 flex-1">
-          <div className="flex items-center gap-3">
-            <StatusBadge status={job.status} />
+          <div className="flex items-center gap-3 flex-wrap">
+            <StatusBadge status={job.status} reason={derivePartialReason(job)} />
             <span className="text-xs text-zinc-500">JobContent: {job.id}</span>
           </div>
                    {jc && (

@@ -234,6 +234,7 @@ export function SfFieldCompared({
   afterTone = 'emerald',
   beforeLabel = 'Before: ',
   afterLabel = 'After: ',
+  hideAfter = false,
 }: {
   field: string
   prev: unknown
@@ -241,9 +242,32 @@ export function SfFieldCompared({
   afterTone?: AfterTone
   beforeLabel?: string
   afterLabel?: string
+  /**
+   * Single-column render. Used when prev == next is meaningful on its own
+   * (e.g. "set on create" — the value was written by the POST and there's
+   * no before/after to compare against).
+   */
+  hideAfter?: boolean
 }) {
   const emptyPrev = isEmptyValue(prev)
   const emptyNext = isEmptyValue(next)
+
+  if (hideAfter) {
+    // Show just one side. Prefer `prev` if present (that's what SF currently has
+    // after the create); otherwise fall back to `next`.
+    const valueToShow = !emptyPrev ? prev : next
+    const empty = isEmptyValue(valueToShow)
+    return (
+      <div className="text-[11px]">
+        <span className="text-zinc-500">{beforeLabel}</span>
+        {empty ? (
+          <span className="text-zinc-500">—</span>
+        ) : (
+          <SfHtmlFieldValue field={field} value={valueToShow} tone="violet" />
+        )}
+      </div>
+    )
+  }
 
   const rawEqual = valueToComparableString(prev) === valueToComparableString(next)
   const auditEquivalent =
