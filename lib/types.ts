@@ -42,6 +42,8 @@ export interface RunDetail {
   sfPatchCount: number
   /** Distinct Kimedics job_id values that received a new job record in this link_batch run (``job_created_in_salesforce``). */
   sfJobsCreatedCount: number
+  /** Distinct worksite accounts created in Salesforce during this link_batch run (``worksite_created``). */
+  worksitesCreatedCount: number
   /** SF push errors on this run that do NOT have a subsequent patched/recovered event. */
   sfErrorCount: number
   /** Successful push-recovery events on this run. */

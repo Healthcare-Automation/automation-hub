@@ -190,6 +190,7 @@ export async function getRecentRuns(limit = 20, offset = 0): Promise<RunDetail[]
     job_count:          string | number
     sf_patch_count:     string | number
     sf_jobs_created_count: string | number
+    sf_worksites_created_count: string | number
     sf_error_count:     string | number
     sf_recovered_count: string | number
     sf_quarantined_count: string | number
@@ -214,6 +215,7 @@ export async function getRecentRuns(limit = 20, offset = 0): Promise<RunDetail[]
       count(DISTINCT jc.id)  AS job_count,
       count(DISTINCT jel.id) FILTER (WHERE jel.event_type = 'sf_scrape_fields_patched') AS sf_patch_count,
       count(DISTINCT jel.job_id) FILTER (WHERE jel.event_type = 'job_created_in_salesforce') AS sf_jobs_created_count,
+      count(DISTINCT jel.job_id) FILTER (WHERE jel.event_type = 'worksite_created')           AS sf_worksites_created_count,
       count(DISTINCT jel.id) FILTER (
         WHERE jel.event_type IN ('sf_scrape_fields_error', 'sf_mapping_pull_failed')
           AND NOT EXISTS (
@@ -342,6 +344,7 @@ export async function getRecentRuns(limit = 20, offset = 0): Promise<RunDetail[]
       jobCount:             Number(row.job_count),
       sfPatchCount:         Number(row.sf_patch_count),
       sfJobsCreatedCount:   Number(row.sf_jobs_created_count ?? 0),
+      worksitesCreatedCount: Number(row.sf_worksites_created_count ?? 0),
       sfErrorCount:         Number(row.sf_error_count),
       sfRecoveredCount:     Number(row.sf_recovered_count ?? 0),
       sfQuarantinedCount:   Number(row.sf_quarantined_count ?? 0),
@@ -368,6 +371,7 @@ export async function getAllRuns(): Promise<RunDetail[]> {
     job_count:          string | number
     sf_patch_count:     string | number
     sf_jobs_created_count: string | number
+    sf_worksites_created_count: string | number
     sf_error_count:     string | number
     sf_recovered_count: string | number
     sf_quarantined_count: string | number
@@ -392,6 +396,7 @@ export async function getAllRuns(): Promise<RunDetail[]> {
       count(DISTINCT jc.id)  AS job_count,
       count(DISTINCT jel.id) FILTER (WHERE jel.event_type = 'sf_scrape_fields_patched') AS sf_patch_count,
       count(DISTINCT jel.job_id) FILTER (WHERE jel.event_type = 'job_created_in_salesforce') AS sf_jobs_created_count,
+      count(DISTINCT jel.job_id) FILTER (WHERE jel.event_type = 'worksite_created')           AS sf_worksites_created_count,
       count(DISTINCT jel.id) FILTER (
         WHERE jel.event_type IN ('sf_scrape_fields_error', 'sf_mapping_pull_failed')
           AND NOT EXISTS (
@@ -519,6 +524,7 @@ export async function getAllRuns(): Promise<RunDetail[]> {
       jobCount:             Number(row.job_count),
       sfPatchCount:         Number(row.sf_patch_count),
       sfJobsCreatedCount:   Number(row.sf_jobs_created_count ?? 0),
+      worksitesCreatedCount: Number(row.sf_worksites_created_count ?? 0),
       sfErrorCount:         Number(row.sf_error_count),
       sfRecoveredCount:     Number(row.sf_recovered_count ?? 0),
       sfQuarantinedCount:   Number(row.sf_quarantined_count ?? 0),
@@ -599,6 +605,7 @@ export async function searchRuns(params: SearchRunsParams): Promise<RunDetail[]>
     job_count:          string | number
     sf_patch_count:     string | number
     sf_jobs_created_count: string | number
+    sf_worksites_created_count: string | number
     sf_error_count:     string | number
     sf_recovered_count: string | number
     sf_quarantined_count: string | number
@@ -623,6 +630,7 @@ export async function searchRuns(params: SearchRunsParams): Promise<RunDetail[]>
       count(DISTINCT jc.id)  AS job_count,
       count(DISTINCT jel.id) FILTER (WHERE jel.event_type = 'sf_scrape_fields_patched') AS sf_patch_count,
       count(DISTINCT jel.job_id) FILTER (WHERE jel.event_type = 'job_created_in_salesforce') AS sf_jobs_created_count,
+      count(DISTINCT jel.job_id) FILTER (WHERE jel.event_type = 'worksite_created')           AS sf_worksites_created_count,
       count(DISTINCT jel.id) FILTER (
         WHERE jel.event_type IN ('sf_scrape_fields_error', 'sf_mapping_pull_failed')
           AND NOT EXISTS (
@@ -746,6 +754,7 @@ export async function searchRuns(params: SearchRunsParams): Promise<RunDetail[]>
       jobCount:             Number(row.job_count),
       sfPatchCount:         Number(row.sf_patch_count),
       sfJobsCreatedCount:   Number(row.sf_jobs_created_count ?? 0),
+      worksitesCreatedCount: Number(row.sf_worksites_created_count ?? 0),
       sfErrorCount:         Number(row.sf_error_count),
       sfRecoveredCount:     Number(row.sf_recovered_count ?? 0),
       sfQuarantinedCount:   Number(row.sf_quarantined_count ?? 0),
