@@ -323,6 +323,20 @@ interface Props {
 const COLS = 'grid-cols-[3rem_4.5rem_3.5rem_1fr_1fr_1fr] gap-x-2 min-w-[560px]'
 const PAGE_SIZE = 20
 
+type PageItem = number | 'ellipsis'
+
+function buildPageWindow(current: number, total: number): PageItem[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  const items: PageItem[] = [1]
+  const start = Math.max(2, current - 2)
+  const end = Math.min(total - 1, current + 2)
+  if (start > 2) items.push('ellipsis')
+  for (let p = start; p <= end; p++) items.push(p)
+  if (end < total - 1) items.push('ellipsis')
+  items.push(total)
+  return items
+}
+
 type SearchMode = 'jobId' | 'sfJobId' | 'practice'
 
 function detectSearchMode(raw: string): SearchMode {
@@ -757,45 +771,76 @@ export default function LayerBreakdown({ runs }: Props) {
       </div>
 
       {/* Pagination (unfiltered only) */}
-      {filteredRuns === null && facets.size === 0 && (
-        <div className="px-3 pt-2 flex items-center justify-between">
-          <button
-            onClick={() => fetchPage(Math.max(0, pageOffset - PAGE_SIZE))}
-            disabled={paging || pageOffset === 0}
-            className={cn(
-              'px-2.5 py-1.5 rounded-lg text-[11px] font-medium border transition-colors inline-flex items-center gap-1.5',
-              pageOffset === 0 || paging
-                ? 'border-zinc-800 text-zinc-600 cursor-not-allowed'
-                : 'border-zinc-700/60 text-zinc-200 hover:bg-zinc-700/30'
-            )}
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 18l-6-6 6-6" />
-            </svg>
-            Previous
-          </button>
+      {filteredRuns === null && facets.size === 0 && (() => {
+        const currentPage = Math.floor(pageOffset / PAGE_SIZE) + 1
+        const totalPages = allRuns ? Math.max(1, Math.ceil(allRuns.length / PAGE_SIZE)) : null
+        const atLastPage = totalPages !== null ? currentPage >= totalPages : !hasOlder
+        const pageItems = totalPages !== null ? buildPageWindow(currentPage, totalPages) : []
+        return (
+          <div className="px-3 pt-2 flex items-center justify-between gap-2">
+            <button
+              onClick={() => fetchPage(Math.max(0, pageOffset - PAGE_SIZE))}
+              disabled={paging || pageOffset === 0}
+              className={cn(
+                'px-2.5 py-1.5 rounded-lg text-[11px] font-medium border transition-colors inline-flex items-center gap-1.5',
+                pageOffset === 0 || paging
+                  ? 'border-zinc-800 text-zinc-600 cursor-not-allowed'
+                  : 'border-zinc-700/60 text-zinc-200 hover:bg-zinc-700/30'
+              )}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M15 18l-6-6 6-6" />
+              </svg>
+              Previous
+            </button>
 
-          <span className="text-[11px] text-zinc-600 tabular-nums">
-            Page {Math.floor(pageOffset / PAGE_SIZE) + 1}
-          </span>
-
-          <button
-            onClick={() => fetchPage(pageOffset + PAGE_SIZE)}
-            disabled={paging || !hasOlder}
-            className={cn(
-              'px-2.5 py-1.5 rounded-lg text-[11px] font-medium border transition-colors inline-flex items-center gap-1.5',
-              !hasOlder || paging
-                ? 'border-zinc-800 text-zinc-600 cursor-not-allowed'
-                : 'border-zinc-700/60 text-zinc-200 hover:bg-zinc-700/30'
+            {totalPages !== null ? (
+              <div className="flex items-center gap-1 flex-wrap justify-center">
+                {pageItems.map((item, i) =>
+                  item === 'ellipsis' ? (
+                    <span key={`gap-${i}`} className="text-[11px] text-zinc-600 px-1 select-none">…</span>
+                  ) : (
+                    <button
+                      key={item}
+                      onClick={() => item !== currentPage && fetchPage((item - 1) * PAGE_SIZE)}
+                      disabled={paging || item === currentPage}
+                      aria-current={item === currentPage ? 'page' : undefined}
+                      className={cn(
+                        'min-w-[26px] px-1.5 py-1 rounded-md text-[11px] font-medium border transition-colors tabular-nums',
+                        item === currentPage
+                          ? 'border-zinc-500 bg-zinc-700/40 text-zinc-100 cursor-default'
+                          : 'border-zinc-800 text-zinc-400 hover:border-zinc-700/60 hover:text-zinc-200 hover:bg-zinc-700/30'
+                      )}
+                    >
+                      {item}
+                    </button>
+                  )
+                )}
+              </div>
+            ) : (
+              <span className="text-[11px] text-zinc-600 tabular-nums">
+                Page {currentPage}
+              </span>
             )}
-          >
-            Next
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 18l6-6-6-6" />
-            </svg>
-          </button>
-        </div>
-      )}
+
+            <button
+              onClick={() => fetchPage(pageOffset + PAGE_SIZE)}
+              disabled={paging || atLastPage}
+              className={cn(
+                'px-2.5 py-1.5 rounded-lg text-[11px] font-medium border transition-colors inline-flex items-center gap-1.5',
+                atLastPage || paging
+                  ? 'border-zinc-800 text-zinc-600 cursor-not-allowed'
+                  : 'border-zinc-700/60 text-zinc-200 hover:bg-zinc-700/30'
+              )}
+            >
+              Next
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 18l6-6-6-6" />
+              </svg>
+            </button>
+          </div>
+        )
+      })()}
 
       <ValidationPopup
         runId={selectedRunId || 0}
