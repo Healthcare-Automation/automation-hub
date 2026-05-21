@@ -105,10 +105,20 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       ) jc ON TRUE
       LEFT JOIN email_scrapes es ON es.id = jc.email_scrape_id
       WHERE err.event_type IN (
+              -- Hard SF push / mapping failures
               'sf_scrape_fields_error',
               'sf_mapping_pull_failed',
               'job_create_failed',
-              'worksite_create_failed'
+              'worksite_create_failed',
+              -- Scrape / data-quality failures that block a job from landing
+              'mapping_blocked_no_practice_value',
+              'scrape_silent_failure',
+              -- Partial / unrecognized failures
+              'sf_field_quarantined',
+              'sf_push_unhandled_error',
+              -- Defense-in-depth: should be transient under the current resolver,
+              -- but if the create step never follows, this catches the stall.
+              'mapping_no_match'
             )
         AND err.created_at >= now() - interval '24 hours'
         AND NOT EXISTS (
@@ -119,6 +129,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
               'sf_scrape_fields_patched',
               'sf_scrape_fields_recovered',
               'job_created_in_salesforce',
+              'worksite_created',
+              'sf_ids_update',
+              'mapping_ai_match',
               'manual_rescrape_completed',
               'auto_retry_completed'
             )
@@ -206,6 +219,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
             'sf_scrape_fields_patched',
             'sf_scrape_fields_recovered',
             'job_created_in_salesforce',
+            'worksite_created',
+            'sf_ids_update',
+            'mapping_ai_match',
             'manual_rescrape_completed',
             'auto_retry_completed'
           )
