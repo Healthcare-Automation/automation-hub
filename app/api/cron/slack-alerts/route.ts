@@ -124,6 +124,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       LIMIT ${MAX_ALERTS_PER_TICK}
     `
 
+    if (newFailures.length === MAX_ALERTS_PER_TICK) {
+      console.warn(
+        `[slack-alerts] hit per-tick alert cap (${MAX_ALERTS_PER_TICK}); ` +
+          `additional unresolved failures will be picked up on the next tick`,
+      )
+    }
+
     for (const row of newFailures) {
       // 1. Insert placeholder under unique constraint.
       const inserted = await sql<{ id: string }[]>`
