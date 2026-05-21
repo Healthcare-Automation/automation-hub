@@ -1,0 +1,5 @@
+{
+  "crons": [
+    { "path": "/api/cron/slack-alerts", "schedule": "*/10 * * * *" }
+  ]
+}
