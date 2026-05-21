@@ -5,18 +5,24 @@ import { ADMIN_COOKIE_NAME, verifyAdminCookieValue } from '@/lib/adminAuth'
 /**
  * Surface jobs whose ingestion got stuck before they ever made it into Salesforce.
  *
- * The trigger is `job_create_failed` or `worksite_create_failed` in
- * job_event_log, with no subsequent `job_created_in_salesforce` for the same
- * job_id. These rows do NOT emit `sf_scrape_fields_error` (those only fire
- * after a Job__c record exists), so they're invisible to the existing recovery
- * list — yet they represent jobs we received an email for but never persisted.
+ * Triggers — any of these event types in job_event_log, with no later success marker for the same job_id:
+ *   - `job_create_failed`                — Salesforce rejected the Job__c POST.
+ *   - `worksite_create_failed`           — Salesforce rejected the Worksite__c POST.
+ *   - `mapping_no_match`                 — resolver couldn't find a Salesforce match for this practice.
+ *   - `mapping_review_required`          — resolver bailed because an existing SF Job__c
+ *                                          shares the resolved worksite + city/state.
+ *   - `mapping_ambiguous`                — resolver found multiple matching Salesforce candidates.
+ *
+ * "Success marker" = any of `job_created_in_salesforce`, `sf_ids_update`,
+ * `sf_scrape_fields_patched`, `sf_scrape_fields_recovered`, `mapping_ai_match`,
+ * or a `manual_rescrape_completed` / `auto_retry_completed` with action
+ * `re_scraped`. Any later event of those types means the stuck state was
+ * resolved and the row should drop off the list.
  *
  * Common reasons surfaced in `payload.reason`:
- *   - `no_worksite_account_id`  — practice mapping or scrape came up empty.
- *   - `worksite_create_failed`  — Salesforce rejected the worksite create.
- *
- * We also pull the matching email_scrapes row (via run_id) so the UI can deep
- * link to the Kimedics job page for manual inspection / rescrape.
+ *   - `no_worksite_account_id`                              — practice mapping or scrape came up empty.
+ *   - `worksite_create_failed`                              — Salesforce rejected the worksite create.
+ *   - `existing_job_at_resolved_worksite_with_matching_location` — see resolver punt #1.
  *
  * Query params:
  *   hours — lookback window in hours (default 48, capped at 14d).
@@ -49,37 +55,32 @@ export async function GET(req: NextRequest) {
       jel.payload->>'practice' AS practice_value,
       jel.created_at
     FROM job_event_log jel
-    WHERE jel.event_type IN ('job_create_failed', 'worksite_create_failed')
+    WHERE jel.event_type IN (
+            'job_create_failed',
+            'worksite_create_failed',
+            'mapping_no_match',
+            'mapping_review_required',
+            'mapping_ambiguous'
+          )
       AND jel.created_at >= NOW() - (${hours}::text || ' hours')::interval
       AND NOT EXISTS (
-        -- Resolved by SF Job__c creation
+        -- Resolved by any later success marker for the same job_id.
         SELECT 1 FROM job_event_log ok
         WHERE ok.job_id = jel.job_id
-          AND ok.event_type = 'job_created_in_salesforce'
           AND ok.created_at >= jel.created_at
-      )
-      AND NOT EXISTS (
-        -- Resolved by a manual rescrape OR an auto-retry that pulled real
-        -- content. The event itself is the truth signal — checking
-        -- job_content.created_at fails here because process_link_scrape_batch
-        -- upserts in place and keeps the original created_at, so a populated
-        -- row written *by the rescrape* still timestamps before the failure.
-        SELECT 1 FROM job_event_log rs
-        WHERE rs.job_id = jel.job_id
-          AND rs.event_type IN ('manual_rescrape_completed', 'auto_retry_completed')
-          AND rs.created_at >= jel.created_at
-          AND COALESCE(rs.payload->>'action', '') IN ('re_scraped', 're_scraped_with_warning')
-      )
-      AND NOT EXISTS (
-        -- Defensive: also drop the row if a job_content exists for this
-        -- job_id with both critical fields populated AND it was written/
-        -- touched after the failure (handles the case where a future
-        -- pipeline run updates created_at instead of upserting).
-        SELECT 1 FROM job_content jc_ok
-        WHERE jc_ok.job_id = jel.job_id
-          AND jc_ok.created_at > jel.created_at
-          AND COALESCE(jc_ok.title_line, '') <> ''
-          AND COALESCE(jc_ok.description_full_text, '') <> ''
+          AND (
+            ok.event_type IN (
+              'job_created_in_salesforce',
+              'sf_ids_update',
+              'sf_scrape_fields_patched',
+              'sf_scrape_fields_recovered',
+              'mapping_ai_match'
+            )
+            OR (
+              ok.event_type IN ('manual_rescrape_completed', 'auto_retry_completed')
+              AND COALESCE(ok.payload->>'action', '') IN ('re_scraped', 're_scraped_with_warning')
+            )
+          )
       )
     ORDER BY jel.job_id, jel.created_at DESC
   `
