@@ -220,13 +220,14 @@ function QuarantineBadge({ count, fields }: { count: number; fields: string[] })
 function SfPushCell({ run }: { run: RunDetail }) {
   const patch = run.sfPatchCount
   const created = run.sfJobsCreatedCount
+  const worksites = run.worksitesCreatedCount ?? 0
   const swapped = run.extJobIdSwapCount ?? 0
   const failed = run.unresolvedFailedJobCount ?? 0
   const errs = run.sfErrorDetails
   const recovered = run.sfRecoveredCount ?? 0
   const quarantined = run.sfQuarantinedCount ?? 0
   const hasLine =
-    patch > 0 || created > 0 || swapped > 0 || failed > 0 || errs.length > 0 || recovered > 0 || quarantined > 0
+    patch > 0 || created > 0 || worksites > 0 || swapped > 0 || failed > 0 || errs.length > 0 || recovered > 0 || quarantined > 0
   if (!hasLine) {
     return <span className="text-zinc-600 tabular-nums">—</span>
   }
@@ -259,6 +260,30 @@ function SfPushCell({ run }: { run: RunDetail }) {
             />
           </svg>
           {created} new job{created === 1 ? '' : 's'}
+        </span>
+      ) : null}
+      {worksites > 0 ? (
+        <span
+          className={cn(
+            'inline-flex items-center gap-1',
+            'text-[10px] font-semibold leading-tight',
+            'px-1.5 py-0.5 rounded-md border',
+            'bg-sky-500/10 border-sky-500/30 text-sky-300',
+            'shadow-[0_0_0_1px_rgba(14,165,233,0.08)]',
+            'truncate max-w-full'
+          )}
+          title={`${worksites} new Salesforce worksite(s) (Account) created this run`}
+        >
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className="opacity-90">
+            <path
+              d="M3 21h18M5 21V8l7-5 7 5v13M9 21v-6h6v6"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          {worksites} new worksite{worksites === 1 ? '' : 's'}
         </span>
       ) : null}
       {failed > 0 ? (
