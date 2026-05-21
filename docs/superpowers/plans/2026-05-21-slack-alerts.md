@@ -931,7 +931,7 @@ Eyeball the host. If you only have one database (prod), proceed but use a clearl
 - [ ] **Step 2: Insert a fake unresolved failure**
 
 ```bash
-psql "$DATABASE_URL" -c "INSERT INTO job_event_log (job_id, event_type, event_data, created_at) VALUES ('TEST-E2E-1', 'worksite_create_failed', '{\"error\":\"e2e test\"}'::jsonb, now())"
+psql "$DATABASE_URL" -c "INSERT INTO job_event_log (job_id, event_type, payload, created_at) VALUES ('TEST-E2E-1', 'worksite_create_failed', '{\"error\":\"e2e test\"}'::jsonb, now())"
 ```
 
 Expected: `INSERT 0 1`.
@@ -951,7 +951,7 @@ Check the dev Slack channel: a 🔴 message appears with title `Job stuck in syn
 - [ ] **Step 4: Insert a recovery event**
 
 ```bash
-psql "$DATABASE_URL" -c "INSERT INTO job_event_log (job_id, event_type, event_data, created_at) VALUES ('TEST-E2E-1', 'job_created_in_salesforce', '{}'::jsonb, now())"
+psql "$DATABASE_URL" -c "INSERT INTO job_event_log (job_id, event_type, payload, created_at) VALUES ('TEST-E2E-1', 'job_created_in_salesforce', '{}'::jsonb, now())"
 ```
 
 Expected: `INSERT 0 1`.

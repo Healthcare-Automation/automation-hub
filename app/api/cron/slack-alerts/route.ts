@@ -25,6 +25,8 @@ type FailureRow = {
   job_title: string | null
   sf_job_id: string | null
   kimedics_link: string | null
+  email_subject: string | null
+  email_received_at: Date | null
 }
 
 type RecoveryRow = {
@@ -41,6 +43,8 @@ type RecoveryRow = {
   job_title: string | null
   sf_job_id: string | null
   kimedics_link: string | null
+  email_subject: string | null
+  email_received_at: Date | null
 }
 
 function sleep(ms: number): Promise<void> {
@@ -87,12 +91,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         jc.practice_value,
         jc.job_title,
         jc.sf_job_id,
-        es.view_job_link    AS kimedics_link
+        es.view_job_link    AS kimedics_link,
+        es.subject          AS email_subject,
+        es.created_at       AS email_received_at
       FROM job_event_log err
       LEFT JOIN LATERAL (
         SELECT practice_value, job_title, sf_job_id, email_scrape_id
         FROM job_content
         WHERE job_id = err.job_id
+          AND (err.run_id IS NULL OR run_id = err.run_id)
         ORDER BY created_at DESC
         LIMIT 1
       ) jc ON TRUE
@@ -151,6 +158,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         jobTitle: row.job_title,
         sfJobId: row.sf_job_id,
         kimedicsLink: row.kimedics_link,
+        emailSubject: row.email_subject,
+        emailReceivedAt: row.email_received_at,
         receivedAt: row.created_at,
       }
 
@@ -183,8 +192,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         jc.practice_value,
         jc.job_title,
         jc.sf_job_id,
-        es.view_job_link AS kimedics_link
+        es.view_job_link AS kimedics_link,
+        es.subject       AS email_subject,
+        es.created_at    AS email_received_at
       FROM slack_alerts sa
+      JOIN job_event_log src ON src.id = sa.source_event_id::bigint
       JOIN LATERAL (
         SELECT event_type, created_at
         FROM job_event_log
@@ -204,6 +216,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         SELECT practice_value, job_title, sf_job_id, email_scrape_id
         FROM job_content
         WHERE job_id = sa.job_id
+          AND (src.run_id IS NULL OR run_id = src.run_id)
         ORDER BY created_at DESC
         LIMIT 1
       ) jc ON TRUE
@@ -221,6 +234,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         jobTitle: row.job_title,
         sfJobId: row.sf_job_id,
         kimedicsLink: row.kimedics_link,
+        emailSubject: row.email_subject,
+        emailReceivedAt: row.email_received_at,
         failedAt: row.posted_at,
         recoveredAt: row.recovered_at,
       }

@@ -13,6 +13,8 @@ export type FailurePayload = {
   jobTitle: string | null
   sfJobId: string | null
   kimedicsLink: string | null
+  emailSubject: string | null
+  emailReceivedAt: Date | null
   receivedAt: Date
 }
 
@@ -24,6 +26,8 @@ export type RecoveryPayload = {
   jobTitle: string | null
   sfJobId: string | null
   kimedicsLink: string | null
+  emailSubject: string | null
+  emailReceivedAt: Date | null
   failedAt: Date
   recoveredAt: Date
 }
@@ -83,6 +87,18 @@ function linksLine(opts: {
   return parts.join('  ·  ')
 }
 
+function truncate(s: string, max: number): string {
+  return s.length <= max ? s : `${s.slice(0, max - 1).trimEnd()}…`
+}
+
+function emailLine(subject: string | null, receivedAt: Date | null): string | null {
+  if (!subject && !receivedAt) return null
+  const parts: string[] = ['📧']
+  if (subject) parts.push(`"${truncate(subject, 90)}"`)
+  if (receivedAt) parts.push(`received ${formatTimeET(receivedAt)}`)
+  return parts.join(' ')
+}
+
 export function buildFailureBlocks(p: FailurePayload): {
   text: string
   blocks: unknown[]
@@ -93,7 +109,9 @@ export function buildFailureBlocks(p: FailurePayload): {
   const body =
     `${copy.body}\n\n_What happens next:_ the system will automatically retry every 10 min. ` +
     `If it's still red after an hour, the team has been paged.`
-  const meta = `Kimedics job_id: \`${p.jobId}\` · Received ${formatTimeET(p.receivedAt)}`
+  const idLine = `Kimedics job_id: \`${p.jobId}\` · Event at ${formatTimeET(p.receivedAt)}`
+  const email = emailLine(p.emailSubject, p.emailReceivedAt)
+  const meta = email ? `${idLine}\n${email}` : idLine
   const links = linksLine({ kimedicsLink: p.kimedicsLink, sfJobId: p.sfJobId })
   return {
     text: `${copy.title} — ${subject}`,
@@ -111,11 +129,20 @@ export function buildResolvedBlocks(p: RecoveryPayload): {
 } {
   const subject = headlineSubject(p.practice, p.jobTitle, p.jobId)
   const headline = `✅ *Resolved — ${subject}*`
-  const body = getResolvedBody(p.recoveryEventType)
+  const originalCopy = getAlertCopy(p.eventType)
+  // Use only the first line of the original body so the "what went wrong" recap
+  // stays a single sentence; the full diagnostic copy remains in the red message
+  // history (and the dashboard) for anyone who needs it.
+  const originalSummary = originalCopy.body.split('\n')[0]
+  const body =
+    `*Originally:* ${originalCopy.title} — ${originalSummary}\n` +
+    `*Now:* ${getResolvedBody(p.recoveryEventType)}`
   const elapsed = formatDurationMinutes(p.failedAt.getTime(), p.recoveredAt.getTime())
-  const meta =
+  const idLine =
     `Kimedics job_id: \`${p.jobId}\` · Recovered ${formatTimeET(p.recoveredAt)} ` +
     `(${elapsed} after first failure)`
+  const email = emailLine(p.emailSubject, p.emailReceivedAt)
+  const meta = email ? `${idLine}\n${email}` : idLine
   const links = linksLine({ kimedicsLink: p.kimedicsLink, sfJobId: p.sfJobId })
   return {
     text: `Resolved — ${subject}`,
