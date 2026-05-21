@@ -173,8 +173,14 @@ SELECT
   jc.sf_job_id,
   es.view_job_link    AS kimedics_link
 FROM job_event_log err
-LEFT JOIN job_content   jc ON jc.job_id           = err.job_id
-LEFT JOIN email_scrapes es ON es.id               = jc.email_scrape_id
+LEFT JOIN LATERAL (
+  SELECT practice_value, job_title, sf_job_id, email_scrape_id
+  FROM job_content
+  WHERE job_id = err.job_id
+  ORDER BY created_at DESC
+  LIMIT 1
+) jc ON TRUE
+LEFT JOIN email_scrapes es ON es.id = jc.email_scrape_id
 WHERE err.event_type IN (
         'sf_scrape_fields_error',
         'sf_mapping_pull_failed',
@@ -253,8 +259,14 @@ JOIN LATERAL (
   ORDER BY created_at ASC
   LIMIT 1
 ) ok ON TRUE
-LEFT JOIN job_content   jc ON jc.job_id = sa.job_id
-LEFT JOIN email_scrapes es ON es.id     = jc.email_scrape_id
+LEFT JOIN LATERAL (
+  SELECT practice_value, job_title, sf_job_id, email_scrape_id
+  FROM job_content
+  WHERE job_id = sa.job_id
+  ORDER BY created_at DESC
+  LIMIT 1
+) jc ON TRUE
+LEFT JOIN email_scrapes es ON es.id = jc.email_scrape_id
 WHERE sa.resolved_at IS NULL;
 ```
 
