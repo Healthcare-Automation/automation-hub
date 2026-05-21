@@ -359,7 +359,7 @@ const SEARCH_MODE_LABEL: Record<SearchMode, string> = {
 const SF_FACETS: ReadonlyArray<{
   key: string
   label: string
-  tone: 'red' | 'amber' | 'violet' | 'cyan' | 'emerald' | 'slate'
+  tone: 'red' | 'amber' | 'violet' | 'cyan' | 'emerald' | 'slate' | 'sky'
   match: (r: RunDetail) => boolean
   tooltip: string
 }> = [
@@ -369,6 +369,7 @@ const SF_FACETS: ReadonlyArray<{
   { key: 'recovered',   label: 'Recovered',    tone: 'cyan',    match: r => (r.sfRecoveredCount ?? 0) > 0,         tooltip: 'SF push errors that were auto-recovered on this run' },
   { key: 'id-swap',     label: 'ID swap',      tone: 'amber',   match: r => (r.extJobIdSwapCount ?? 0) > 0,        tooltip: 'External_Job_ID__c was repointed on an existing SF record' },
   { key: 'new-job',     label: 'New SF job',   tone: 'violet',  match: r => (r.sfJobsCreatedCount ?? 0) > 0,        tooltip: 'New Salesforce Job__c records created by Proxi on this run' },
+  { key: 'new-worksite', label: 'New worksite', tone: 'sky',     match: r => (r.worksitesCreatedCount ?? 0) > 0,    tooltip: 'New Salesforce Worksite__c (Account) records created by Proxi on this run' },
   { key: 'no-jobs',     label: 'No jobs',      tone: 'slate',   match: r => r.emailCount > 0 && r.jobCount === 0,   tooltip: 'Emails scraped but no job_content produced' },
   { key: 'patched',     label: 'Field patches', tone: 'emerald',match: r => (r.sfPatchCount ?? 0) > 0,             tooltip: 'Salesforce field patches landed on this run' },
 ] as const
@@ -610,6 +611,7 @@ export default function LayerBreakdown({ runs }: Props) {
             cyan:    'bg-cyan-500/15 border-cyan-500/40 text-cyan-300',
             emerald: 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300',
             slate:   'bg-zinc-500/20 border-zinc-500/40 text-zinc-300',
+            sky:     'bg-sky-500/15 border-sky-500/40 text-sky-300',
           }
           return (
             <button
