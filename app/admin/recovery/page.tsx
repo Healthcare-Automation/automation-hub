@@ -301,11 +301,11 @@ export default function AdminRecoveryPage() {
           <div className="flex flex-col md:flex-row md:items-center md:justify-between px-3 sm:px-4 py-2 border-b border-zinc-800 gap-3">
             <div className="min-w-0">
               <div className="text-xs text-zinc-300 font-medium">
-                Stuck job creation
-                <span className="ml-2 text-[10px] text-zinc-500 uppercase tracking-wider">job_create_failed / worksite_create_failed</span>
+                Stuck jobs (no Salesforce record)
+                <span className="ml-2 text-[10px] text-zinc-500 uppercase tracking-wider">job_create_failed / worksite_create_failed / mapping_no_match / mapping_review_required / mapping_ambiguous</span>
               </div>
               <div className="text-[11px] text-zinc-500">
-                {scrapeFailures.length} job{scrapeFailures.length === 1 ? '' : 's'} received an email but never produced a Salesforce Job__c record. Common reasons: empty practice (login wall / page change), worksite creation rejected.
+                {scrapeFailures.length} job{scrapeFailures.length === 1 ? '' : 's'} received an email but never landed in Salesforce. Causes: empty practice (login wall / page change), worksite creation rejected, mapping resolver couldn&apos;t find a match, or resolver bailed because an existing Job__c shares the resolved worksite + location.
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2 shrink-0">
