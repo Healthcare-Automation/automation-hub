@@ -166,17 +166,20 @@ SELECT
   err.id              AS source_event_id,
   err.job_id,
   err.event_type,
-  err.event_data,
+  err.payload,
   err.created_at,
   jc.practice_value,
   jc.job_title,
   jc.sf_job_id,
-  es.view_job_link    AS kimedics_link
+  es.view_job_link    AS kimedics_link,
+  es.subject          AS email_subject,
+  es.created_at       AS email_received_at
 FROM job_event_log err
 LEFT JOIN LATERAL (
   SELECT practice_value, job_title, sf_job_id, email_scrape_id
   FROM job_content
   WHERE job_id = err.job_id
+    AND (err.run_id IS NULL OR run_id = err.run_id)
   ORDER BY created_at DESC
   LIMIT 1
 ) jc ON TRUE
@@ -237,18 +240,21 @@ SELECT
   sa.channel,
   sa.message_ts,
   sa.source_event_id,
-  ok.event_type AS recovery_event_type,
-  ok.created_at AS recovered_at,
+  ok.event_type    AS recovery_event_type,
+  ok.created_at    AS recovered_at,
   jc.practice_value,
   jc.job_title,
   jc.sf_job_id,
-  es.view_job_link AS kimedics_link
+  es.view_job_link AS kimedics_link,
+  es.subject       AS email_subject,
+  es.created_at    AS email_received_at
 FROM slack_alerts sa
+JOIN job_event_log src ON src.id = sa.source_event_id::bigint
 JOIN LATERAL (
   SELECT event_type, created_at
   FROM job_event_log
   WHERE job_id = sa.job_id
-    AND id     > sa.source_event_id
+    AND id     > sa.source_event_id::bigint
     AND event_type IN (
       'sf_scrape_fields_patched',
       'sf_scrape_fields_recovered',
@@ -263,12 +269,15 @@ LEFT JOIN LATERAL (
   SELECT practice_value, job_title, sf_job_id, email_scrape_id
   FROM job_content
   WHERE job_id = sa.job_id
+    AND (src.run_id IS NULL OR run_id = src.run_id)
   ORDER BY created_at DESC
   LIMIT 1
 ) jc ON TRUE
 LEFT JOIN email_scrapes es ON es.id = jc.email_scrape_id
 WHERE sa.resolved_at IS NULL;
 ```
+
+The extra `JOIN job_event_log src ON src.id = sa.source_event_id` pulls the original error's `run_id` so the LATERAL `job_content` lookup can prefer the scrape that actually produced this failure — important when one `job_id` has multiple updates within a short window.
 
 For each row:
 
@@ -315,7 +324,8 @@ Most likely cause: the practice page didn't load (login wall / page change).
 _What happens next:_ the system will automatically retry every 10 min.
 If it's still red after an hour, the team has been paged.
 
-Kimedics job_id: `19596` · Received 9:14 AM ET
+Kimedics job_id: `19596` · Event at 9:14 AM ET
+📧 "Update: New rate for Cardiology position" received 9:12 AM ET
 
 <kimedics_link|Open in Kimedics>  ·  <sf_link|Open in Salesforce>  ·  <hub_link|View in Automation Hub →>
 ```
@@ -325,12 +335,18 @@ Kimedics job_id: `19596` · Received 9:14 AM ET
 ```
 ✅ *Resolved — Acme Health (Cardiology)*
 
-This job is now successfully saved in Salesforce.
+*Originally:* Job stuck in sync — A new job was received from Kimedics but couldn't be saved into Salesforce.
+*Now:* This job is now successfully saved in Salesforce.
 
 Kimedics job_id: `19596` · Recovered 9:34 AM ET (20 min after first failure)
+📧 "Update: New rate for Cardiology position" received 9:12 AM ET
 
 <kimedics_link|Open in Kimedics>  ·  <sf_link|Open in Salesforce>  ·  <hub_link|View in Automation Hub →>
 ```
+
+The `📧` line is the email that triggered this specific scrape run — included on both red and green messages so readers can disambiguate when a single `job_id` has multiple updates within a short window. Omitted entirely if the failure isn't linked to an `email_scrapes` row.
+
+The `*Originally:*` line in the resolved state preserves what went wrong even after the message has flipped green, so clients can still see "what was the issue" without scrolling back through history.
 
 ### Block Kit shape
 
@@ -515,7 +531,7 @@ edit-in-place flow without touching the DB or the cron.
 4. If no current unresolved failures exist, insert a test event:
 
    ```sql
-   INSERT INTO job_event_log (job_id, event_type, event_data, created_at)
+   INSERT INTO job_event_log (job_id, event_type, payload, created_at)
    VALUES ('TEST-1', 'worksite_create_failed', '{"error":"test"}'::jsonb, now());
    ```
 
@@ -523,7 +539,7 @@ edit-in-place flow without touching the DB or the cron.
 5. Insert a recovery event:
 
    ```sql
-   INSERT INTO job_event_log (job_id, event_type, event_data, created_at)
+   INSERT INTO job_event_log (job_id, event_type, payload, created_at)
    VALUES ('TEST-1', 'job_created_in_salesforce', '{}'::jsonb, now());
    ```
 

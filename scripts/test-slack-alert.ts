@@ -30,6 +30,7 @@ async function main(): Promise<void> {
   const channel = requireEnv('SLACK_ALERT_CHANNEL_ID')
 
   const failedAt = new Date()
+  const emailReceivedAt = new Date(failedAt.getTime() - 2 * 60 * 1000)
   const failure: FailurePayload = {
     jobId: 'TEST-' + Date.now(),
     eventType: 'worksite_create_failed',
@@ -37,6 +38,8 @@ async function main(): Promise<void> {
     jobTitle: 'Cardiology',
     sfJobId: null,
     kimedicsLink: 'https://app.kimedics.com/jobs/12345',
+    emailSubject: 'Test: New rate for Cardiology position',
+    emailReceivedAt,
     receivedAt: failedAt,
   }
 
@@ -54,6 +57,8 @@ async function main(): Promise<void> {
     jobTitle: failure.jobTitle,
     sfJobId: 'a01UP00000TESTABC',
     kimedicsLink: failure.kimedicsLink,
+    emailSubject: failure.emailSubject,
+    emailReceivedAt: failure.emailReceivedAt,
     failedAt,
     recoveredAt: new Date(),
   }
