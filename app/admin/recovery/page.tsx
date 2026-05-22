@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -160,6 +160,18 @@ export default function AdminRecoveryPage() {
   const [historyOpen, setHistoryOpen] = useState(false)
   const [historyLoading, setHistoryLoading] = useState(false)
 
+  // Per-job action status during a bulk run.
+  //   - 'queued'  : selected but not yet started
+  //   - 'running' : in-flight (re-push or rescrape)
+  //   - 'done'    : succeeded
+  //   - 'failed'  : individual error (still moves on to the next)
+  //   - 'cancelled': bulk run cancelled by operator before reaching this job
+  type JobActionStatus = 'queued' | 'running' | 'done' | 'failed' | 'cancelled'
+  type JobStatus = { state: JobActionStatus; kind: 'repush' | 'rescrape'; detail?: string }
+  const [jobStatus, setJobStatus] = useState<Map<string, JobStatus>>(new Map())
+  const [progress, setProgress] = useState<{ done: number; total: number; currentJobId?: string } | null>(null)
+  const cancelRequestedRef = useRef(false)
+
   // ── Data loading ────────────────────────────────────────────────────────
   const loadAll = useCallback(async () => {
     setLoading(true)
@@ -266,79 +278,144 @@ export default function AdminRecoveryPage() {
   const clearSel = () => setSelected(new Set())
 
   // ── Actions ───────────────────────────────────────────────────────────
-  const doRepush = useCallback(async (jobIds: string[]) => {
-    if (jobIds.length === 0) return
-    setRunning(true)
-    setActionError(null)
-    setStatusMsg(null)
-    setResults(null)
+  // Bulk operations are processed ONE JOB AT A TIME (server-side calls each
+  // hit either the SF push retry endpoint or the Modal rescrape endpoint
+  // with a single jobId). Reasons:
+  //   1. Avoids Vercel function timeouts (each request is ~5-60s, well within
+  //      the function limit) which used to abort large bulk requests.
+  //   2. Gives the operator real-time progress: each row's status flips as
+  //      its turn comes up.
+  //   3. Lets the user cancel a long bulk operation without losing jobs that
+  //      already completed.
+  const cancelBulk = useCallback(() => { cancelRequestedRef.current = true }, [])
+
+  const setOneStatus = useCallback((jobId: string, s: JobStatus) => {
+    setJobStatus((prev) => {
+      const next = new Map(prev)
+      next.set(jobId, s)
+      return next
+    })
+  }, [])
+
+  const runOnePush = useCallback(async (jobId: string): Promise<{ ok: boolean; detail?: string; result?: RunResult }> => {
     try {
       const res = await fetch('/api/admin/recovery/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jobIds, sinceHours: hours, dryRun }),
+        body: JSON.stringify({ jobIds: [jobId], sinceHours: hours, dryRun }),
       })
       const json = await res.json()
-      if (!res.ok || !json.ok) {
-        setActionError(json.error || `Re-push failed (${res.status})`)
-        return
-      }
-      setResults(json.results || [])
-      setStatusMsg(`Re-push complete (${jobIds.length} job${jobIds.length === 1 ? '' : 's'}).`)
-      await loadAll()
+      if (!res.ok || !json.ok) return { ok: false, detail: json.error || `HTTP ${res.status}` }
+      const r: RunResult | undefined = (json.results || [])[0]
+      return { ok: true, detail: r?.action, result: r }
     } catch (e: any) {
-      setActionError(e?.message || 'Re-push failed')
-    } finally {
-      setRunning(false)
+      return { ok: false, detail: e?.message || 'request failed' }
     }
-  }, [hours, dryRun, loadAll])
+  }, [hours, dryRun])
 
-  const doRescrape = useCallback(async (jobIds: string[]) => {
-    if (jobIds.length === 0) return
-    setRunning(true)
-    setActionError(null)
-    setStatusMsg(null)
-    setResults(null)
+  const runOneRescrape = useCallback(async (jobId: string): Promise<{ ok: boolean; detail?: string }> => {
     try {
       const res = await fetch('/api/admin/recovery/rescrape', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jobIds }),
+        body: JSON.stringify({ jobIds: [jobId] }),
       })
       const json = await res.json()
-      if (!res.ok || !json.ok) {
-        setActionError(json.error || `Rescrape failed (${res.status})`)
-        return
-      }
-      const n = jobIds.length
-      setStatusMsg(`Rescrape requested for ${n} job${n === 1 ? '' : 's'}. Results will appear once the scrape completes.`)
-      await loadAll()
+      if (!res.ok || !json.ok) return { ok: false, detail: json.error || `HTTP ${res.status}` }
+      return { ok: true, detail: 'rescrape complete' }
     } catch (e: any) {
-      setActionError(e?.message || 'Rescrape failed')
-    } finally {
-      setRunning(false)
+      return { ok: false, detail: e?.message || 'request failed' }
     }
-  }, [loadAll])
+  }, [])
+
+  // Runs a list of (jobId, kind) pairs sequentially.
+  const runBulk = useCallback(async (jobs: Array<{ jobId: string; kind: 'repush' | 'rescrape' }>) => {
+    if (jobs.length === 0) return
+    setRunning(true)
+    setActionError(null)
+    setStatusMsg(null)
+    setResults(null)
+    cancelRequestedRef.current = false
+
+    // Mark all as queued up-front so the UI shows the planned set.
+    const initial = new Map<string, JobStatus>()
+    for (const j of jobs) initial.set(j.jobId, { state: 'queued', kind: j.kind })
+    setJobStatus(initial)
+    setProgress({ done: 0, total: jobs.length })
+
+    const aggregated: RunResult[] = []
+    let successCount = 0
+    let failCount = 0
+
+    for (let i = 0; i < jobs.length; i++) {
+      const { jobId, kind } = jobs[i]
+      if (cancelRequestedRef.current) {
+        // Mark remaining as cancelled
+        setJobStatus((prev) => {
+          const next = new Map(prev)
+          for (let k = i; k < jobs.length; k++) {
+            next.set(jobs[k].jobId, { state: 'cancelled', kind: jobs[k].kind })
+          }
+          return next
+        })
+        break
+      }
+      setOneStatus(jobId, { state: 'running', kind })
+      setProgress({ done: i, total: jobs.length, currentJobId: jobId })
+
+      const out =
+        kind === 'rescrape' ? await runOneRescrape(jobId) : await runOnePush(jobId)
+
+      if (out.ok) {
+        successCount++
+        setOneStatus(jobId, { state: 'done', kind, detail: out.detail })
+        const r = (out as { result?: RunResult }).result
+        if (r) aggregated.push(r)
+      } else {
+        failCount++
+        setOneStatus(jobId, { state: 'failed', kind, detail: out.detail })
+      }
+      setProgress({ done: i + 1, total: jobs.length, currentJobId: undefined })
+    }
+
+    if (aggregated.length) setResults(aggregated)
+    const total = jobs.length
+    setStatusMsg(
+      cancelRequestedRef.current
+        ? `Cancelled. ${successCount} of ${total} completed (${failCount} failed) before stop.`
+        : `Done. ${successCount} of ${total} succeeded${failCount ? `, ${failCount} failed` : ''}.`,
+    )
+    setProgress(null)
+    setRunning(false)
+    cancelRequestedRef.current = false
+    await loadAll()
+  }, [loadAll, runOnePush, runOneRescrape, setOneStatus])
+
+  const doRepush = useCallback(async (jobIds: string[]) => {
+    await runBulk(jobIds.map((jobId) => ({ jobId, kind: 'repush' as const })))
+  }, [runBulk])
+
+  const doRescrape = useCallback(async (jobIds: string[]) => {
+    await runBulk(jobIds.map((jobId) => ({ jobId, kind: 'rescrape' as const })))
+  }, [runBulk])
 
   const logout = async () => {
     await fetch('/api/admin/logout', { method: 'POST' })
     router.replace('/admin/login')
   }
 
-  // Bulk actions split the selection by each row's RECOMMENDED action.
-  // "Apply recommended" runs re-push on the ones we recommend re-push for,
-  // and rescrape on the ones we recommend rescrape for.
-  const applyRecommended = async () => {
+  // "Apply recommended" — one combined sequential run, picking the right
+  // action per row from RECOMMENDATION. Rescrape rows take longer than
+  // re-push rows; interleaving them in one sequence shows steady progress
+  // rather than a "fast-then-slow" two-phase wait.
+  const applyRecommended = useCallback(async () => {
     const picked = failures.filter((f) => selected.has(f.jobId))
-    const rep: string[] = []
-    const rsc: string[] = []
-    for (const f of picked) {
-      if (getRecommendation(f.eventType).action === 'rescrape') rsc.push(f.jobId)
-      else rep.push(f.jobId)
-    }
-    if (rep.length) await doRepush(rep)
-    if (rsc.length) await doRescrape(rsc)
-  }
+    const jobs = picked.map((f) => ({
+      jobId: f.jobId,
+      kind: getRecommendation(f.eventType).action as 'repush' | 'rescrape',
+    }))
+    await runBulk(jobs)
+  }, [failures, selected, runBulk])
 
   const actionColor = (a: string) => {
     if (a === 're_parsed' || a === 'transient_retried' || a === 're_scraped') return 'text-emerald-300'
@@ -424,6 +501,39 @@ export default function AdminRecoveryPage() {
             >
               Rescrape selected
             </button>
+          </div>
+        )}
+
+        {/* Progress bar (visible only while a bulk operation is in flight) */}
+        {progress && (
+          <div className="bg-zinc-900/60 border border-zinc-800 rounded-lg p-3 space-y-2">
+            <div className="flex items-center justify-between gap-3 text-xs">
+              <div className="text-zinc-300 min-w-0 truncate">
+                Processing&nbsp;
+                <span className="text-zinc-100 font-semibold tabular-nums">{progress.done}</span>
+                &nbsp;/&nbsp;
+                <span className="text-zinc-300 tabular-nums">{progress.total}</span>
+                {progress.currentJobId && (
+                  <span className="text-zinc-500"> · current: <span className="font-mono text-zinc-300">job {progress.currentJobId}</span></span>
+                )}
+              </div>
+              <button
+                onClick={cancelBulk}
+                disabled={cancelRequestedRef.current}
+                className="text-[11px] border border-zinc-700/60 hover:bg-zinc-700/30 disabled:border-zinc-800 disabled:text-zinc-600 rounded-md px-2.5 py-1 whitespace-nowrap"
+              >
+                {cancelRequestedRef.current ? 'Cancelling…' : 'Cancel after current'}
+              </button>
+            </div>
+            <div className="h-2 w-full bg-zinc-800/80 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-emerald-500 transition-[width] duration-300 ease-out"
+                style={{ width: `${progress.total === 0 ? 0 : Math.round((progress.done / progress.total) * 100)}%` }}
+              />
+            </div>
+            <p className="text-[11px] text-zinc-500">
+              Each job runs on its own request, so a Vercel timeout on one job won&apos;t kill the rest. Per-row status updates live as the queue advances.
+            </p>
           </div>
         )}
 
@@ -525,6 +635,35 @@ export default function AdminRecoveryPage() {
                           </div>
                         </td>
                         <td className="py-3 px-3 pr-4 text-right whitespace-nowrap">
+                          <div className="flex flex-col items-end gap-1.5">
+                            {(() => {
+                              const s = jobStatus.get(f.jobId)
+                              if (!s) return null
+                              const pill = (label: string, cls: string, icon?: React.ReactNode) => (
+                                <div className={`inline-flex items-center gap-1 text-[10px] font-medium rounded-full border px-2 py-0.5 ${cls}`}>
+                                  {icon}{label}
+                                </div>
+                              )
+                              if (s.state === 'queued')
+                                return pill('Queued', 'border-zinc-700/60 text-zinc-400')
+                              if (s.state === 'running')
+                                return pill(
+                                  s.kind === 'rescrape' ? 'Rescraping…' : 'Pushing…',
+                                  'border-amber-500/40 bg-amber-500/10 text-amber-300',
+                                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-300 animate-pulse" />,
+                                )
+                              if (s.state === 'done')
+                                return pill('✓ Done', 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300')
+                              if (s.state === 'failed')
+                                return pill(
+                                  s.detail ? `✕ Failed: ${s.detail.slice(0, 40)}` : '✕ Failed',
+                                  'border-red-500/40 bg-red-500/10 text-red-300',
+                                )
+                              if (s.state === 'cancelled')
+                                return pill('Cancelled', 'border-zinc-700/60 text-zinc-500')
+                              return null
+                            })()}
+                            <div>
                           {recIsRepush ? (
                             <div className="inline-flex items-center gap-1.5">
                               <button
@@ -562,6 +701,8 @@ export default function AdminRecoveryPage() {
                               </button>
                             </div>
                           )}
+                            </div>
+                          </div>
                         </td>
                       </tr>
                       {isExpanded && (

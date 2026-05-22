@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ADMIN_COOKIE_NAME, verifyAdminCookieValue } from '@/lib/adminAuth'
 
+// A single rescrape can take 10-60s (Playwright + Salesforce push). Bump the
+// Vercel function timeout to the Pro ceiling so a one-job rescrape never aborts
+// mid-Modal-call from the proxy side. Bulk operations from the admin UI now
+// issue one request per job, so this 60s budget is per-job, not per-batch.
+export const maxDuration = 60
+
 /**
  * Proxy to a Modal "rescrape" endpoint that re-runs the Kimedics scraper for a
  * specific list of job_ids. The hub does not run the scraper itself.
