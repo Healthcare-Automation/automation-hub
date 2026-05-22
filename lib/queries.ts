@@ -191,6 +191,7 @@ export async function getRecentRuns(limit = 20, offset = 0): Promise<RunDetail[]
     sf_patch_count:     string | number
     sf_jobs_created_count: string | number
     sf_worksites_created_count: string | number
+    recovered_later_count: string | number
     sf_error_count:     string | number
     sf_recovered_count: string | number
     sf_quarantined_count: string | number
@@ -216,6 +217,20 @@ export async function getRecentRuns(limit = 20, offset = 0): Promise<RunDetail[]
       count(DISTINCT jel.id) FILTER (WHERE jel.event_type = 'sf_scrape_fields_patched') AS sf_patch_count,
       count(DISTINCT jel.job_id) FILTER (WHERE jel.event_type = 'job_created_in_salesforce') AS sf_jobs_created_count,
       count(DISTINCT jel.job_id) FILTER (WHERE jel.event_type = 'worksite_created')           AS sf_worksites_created_count,
+      -- Jobs that hit a SF-side failure during this run AND were later recovered
+      -- by ANY subsequent successful event (regardless of which run patched).
+      count(DISTINCT jel.job_id) FILTER (
+        WHERE jel.event_type IN ('sf_mapping_pull_failed','sf_sync_skipped_no_mapping','sf_scrape_fields_error')
+          AND EXISTS (
+            SELECT 1 FROM job_event_log ok
+            WHERE ok.job_id = jel.job_id
+              AND ok.event_type IN (
+                'sf_scrape_fields_patched','sf_ids_update','job_created_in_salesforce',
+                'sf_scrape_fields_recovered','worksite_created','mapping_ai_match'
+              )
+              AND ok.created_at > jel.created_at
+          )
+      ) AS recovered_later_count,
       count(DISTINCT jel.id) FILTER (
         WHERE jel.event_type IN ('sf_scrape_fields_error', 'sf_mapping_pull_failed')
           AND NOT EXISTS (
@@ -345,6 +360,7 @@ export async function getRecentRuns(limit = 20, offset = 0): Promise<RunDetail[]
       sfPatchCount:         Number(row.sf_patch_count),
       sfJobsCreatedCount:   Number(row.sf_jobs_created_count ?? 0),
       worksitesCreatedCount: Number(row.sf_worksites_created_count ?? 0),
+      recoveredLaterCount:   Number(row.recovered_later_count ?? 0),
       sfErrorCount:         Number(row.sf_error_count),
       sfRecoveredCount:     Number(row.sf_recovered_count ?? 0),
       sfQuarantinedCount:   Number(row.sf_quarantined_count ?? 0),
@@ -372,6 +388,7 @@ export async function getAllRuns(): Promise<RunDetail[]> {
     sf_patch_count:     string | number
     sf_jobs_created_count: string | number
     sf_worksites_created_count: string | number
+    recovered_later_count: string | number
     sf_error_count:     string | number
     sf_recovered_count: string | number
     sf_quarantined_count: string | number
@@ -397,6 +414,20 @@ export async function getAllRuns(): Promise<RunDetail[]> {
       count(DISTINCT jel.id) FILTER (WHERE jel.event_type = 'sf_scrape_fields_patched') AS sf_patch_count,
       count(DISTINCT jel.job_id) FILTER (WHERE jel.event_type = 'job_created_in_salesforce') AS sf_jobs_created_count,
       count(DISTINCT jel.job_id) FILTER (WHERE jel.event_type = 'worksite_created')           AS sf_worksites_created_count,
+      -- Jobs that hit a SF-side failure during this run AND were later recovered
+      -- by ANY subsequent successful event (regardless of which run patched).
+      count(DISTINCT jel.job_id) FILTER (
+        WHERE jel.event_type IN ('sf_mapping_pull_failed','sf_sync_skipped_no_mapping','sf_scrape_fields_error')
+          AND EXISTS (
+            SELECT 1 FROM job_event_log ok
+            WHERE ok.job_id = jel.job_id
+              AND ok.event_type IN (
+                'sf_scrape_fields_patched','sf_ids_update','job_created_in_salesforce',
+                'sf_scrape_fields_recovered','worksite_created','mapping_ai_match'
+              )
+              AND ok.created_at > jel.created_at
+          )
+      ) AS recovered_later_count,
       count(DISTINCT jel.id) FILTER (
         WHERE jel.event_type IN ('sf_scrape_fields_error', 'sf_mapping_pull_failed')
           AND NOT EXISTS (
@@ -525,6 +556,7 @@ export async function getAllRuns(): Promise<RunDetail[]> {
       sfPatchCount:         Number(row.sf_patch_count),
       sfJobsCreatedCount:   Number(row.sf_jobs_created_count ?? 0),
       worksitesCreatedCount: Number(row.sf_worksites_created_count ?? 0),
+      recoveredLaterCount:   Number(row.recovered_later_count ?? 0),
       sfErrorCount:         Number(row.sf_error_count),
       sfRecoveredCount:     Number(row.sf_recovered_count ?? 0),
       sfQuarantinedCount:   Number(row.sf_quarantined_count ?? 0),
@@ -606,6 +638,7 @@ export async function searchRuns(params: SearchRunsParams): Promise<RunDetail[]>
     sf_patch_count:     string | number
     sf_jobs_created_count: string | number
     sf_worksites_created_count: string | number
+    recovered_later_count: string | number
     sf_error_count:     string | number
     sf_recovered_count: string | number
     sf_quarantined_count: string | number
@@ -631,6 +664,20 @@ export async function searchRuns(params: SearchRunsParams): Promise<RunDetail[]>
       count(DISTINCT jel.id) FILTER (WHERE jel.event_type = 'sf_scrape_fields_patched') AS sf_patch_count,
       count(DISTINCT jel.job_id) FILTER (WHERE jel.event_type = 'job_created_in_salesforce') AS sf_jobs_created_count,
       count(DISTINCT jel.job_id) FILTER (WHERE jel.event_type = 'worksite_created')           AS sf_worksites_created_count,
+      -- Jobs that hit a SF-side failure during this run AND were later recovered
+      -- by ANY subsequent successful event (regardless of which run patched).
+      count(DISTINCT jel.job_id) FILTER (
+        WHERE jel.event_type IN ('sf_mapping_pull_failed','sf_sync_skipped_no_mapping','sf_scrape_fields_error')
+          AND EXISTS (
+            SELECT 1 FROM job_event_log ok
+            WHERE ok.job_id = jel.job_id
+              AND ok.event_type IN (
+                'sf_scrape_fields_patched','sf_ids_update','job_created_in_salesforce',
+                'sf_scrape_fields_recovered','worksite_created','mapping_ai_match'
+              )
+              AND ok.created_at > jel.created_at
+          )
+      ) AS recovered_later_count,
       count(DISTINCT jel.id) FILTER (
         WHERE jel.event_type IN ('sf_scrape_fields_error', 'sf_mapping_pull_failed')
           AND NOT EXISTS (
@@ -755,6 +802,7 @@ export async function searchRuns(params: SearchRunsParams): Promise<RunDetail[]>
       sfPatchCount:         Number(row.sf_patch_count),
       sfJobsCreatedCount:   Number(row.sf_jobs_created_count ?? 0),
       worksitesCreatedCount: Number(row.sf_worksites_created_count ?? 0),
+      recoveredLaterCount:   Number(row.recovered_later_count ?? 0),
       sfErrorCount:         Number(row.sf_error_count),
       sfRecoveredCount:     Number(row.sf_recovered_count ?? 0),
       sfQuarantinedCount:   Number(row.sf_quarantined_count ?? 0),

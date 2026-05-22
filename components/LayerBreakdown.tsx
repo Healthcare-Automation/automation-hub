@@ -226,9 +226,32 @@ function SfPushCell({ run }: { run: RunDetail }) {
   const errs = run.sfErrorDetails
   const recovered = run.sfRecoveredCount ?? 0
   const quarantined = run.sfQuarantinedCount ?? 0
+  const recoveredLater = run.recoveredLaterCount ?? 0
   const hasLine =
     patch > 0 || created > 0 || worksites > 0 || swapped > 0 || failed > 0 || errs.length > 0 || recovered > 0 || quarantined > 0
   if (!hasLine) {
+    // Run had no direct SF push activity. If its jobs failed at the time and
+    // were patched later (e.g. via manual rescrape after auth was fixed),
+    // surface that so the empty "—" isn't misleading.
+    if (recoveredLater > 0) {
+      return (
+        <span
+          className={cn(
+            'inline-flex items-center gap-1',
+            'text-[10px] font-semibold leading-tight',
+            'px-1.5 py-0.5 rounded-md border',
+            'bg-amber-500/10 border-amber-500/30 text-amber-300',
+            'truncate max-w-full'
+          )}
+          title={`${recoveredLater} job${recoveredLater === 1 ? '' : 's'} failed during this run but were patched later via a subsequent rescrape or recovery.`}
+        >
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5" />
+          </svg>
+          {recoveredLater} amended later
+        </span>
+      )
+    }
     return <span className="text-zinc-600 tabular-nums">—</span>
   }
   return (

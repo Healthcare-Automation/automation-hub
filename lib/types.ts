@@ -44,6 +44,14 @@ export interface RunDetail {
   sfJobsCreatedCount: number
   /** Distinct worksite accounts created in Salesforce during this link_batch run (``worksite_created``). */
   worksitesCreatedCount: number
+  /**
+   * Distinct jobs that experienced a Salesforce-side failure during THIS run
+   * (sf_mapping_pull_failed, sf_sync_skipped_no_mapping, sf_scrape_fields_error)
+   * AND have been resolved later by any subsequent patch / id-update / record
+   * creation / recovery event. Used to label runs as "failed at the time but
+   * amended later" in the SF push column.
+   */
+  recoveredLaterCount: number
   /** SF push errors on this run that do NOT have a subsequent patched/recovered event. */
   sfErrorCount: number
   /** Successful push-recovery events on this run. */
