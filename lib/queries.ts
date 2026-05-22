@@ -939,6 +939,28 @@ async function fetchValidationSqlRows(
         LIMIT 50
       ) jel
     ) ev_hist ON true
+    LEFT JOIN LATERAL (
+      -- Most recent activity timestamp on this job_content row (e.g. a manual
+      -- rescrape can update / patch an old row long after the email arrived).
+      -- We use this as the primary ORDER BY key so the card showing the most
+      -- recent run lands at the top of the popup, regardless of which email
+      -- originally produced the row.
+      SELECT MAX(jel.created_at) AS latest_event_at
+      FROM job_event_log jel
+      WHERE jel.job_id = jc.job_id
+        AND jel.event_type IN (
+          'mapping_cache_hit','sf_mapping_skipped','sf_mapping_pull_failed',
+          'mapping_ambiguous','mapping_ai_match','mapping_no_match',
+          'sf_ids_update',
+          'job_created_in_salesforce','job_create_failed','job_create_skipped',
+          'worksite_created','worksite_create_failed',
+          'sf_sync_skipped_no_mapping','sf_scrape_fields_skip',
+          'sf_scrape_fields_error','sf_scrape_fields_patched',
+          'sf_scrape_fields_recovered','sf_field_quarantined','sf_push_unhandled_error',
+          'job_current_sf_ids_changed','job_current_upsert',
+          'manual_rescrape_completed','auto_retry_completed'
+        )
+    ) ev_latest ON true
     WHERE (
       jc.run_id = ${runId}
       OR (es.run_id = ${runId} AND jc.email_scrape_id = es.id)
@@ -946,7 +968,11 @@ async function fetchValidationSqlRows(
     ${jobIdFilter}
     ${sfJobIdFilter}
     ${practiceFilter}
-    ORDER BY COALESCE(es.created_at, jc.created_at) DESC
+    ORDER BY GREATEST(
+      COALESCE(ev_latest.latest_event_at, '-infinity'::timestamptz),
+      COALESCE(es.created_at,             '-infinity'::timestamptz),
+      COALESCE(jc.created_at,             '-infinity'::timestamptz)
+    ) DESC
   `
 }
 
