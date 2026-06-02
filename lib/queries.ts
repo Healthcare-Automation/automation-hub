@@ -882,6 +882,7 @@ async function fetchValidationSqlRows(
     : sql``
 
   return sql<ValidationSqlRow[]>`
+    WITH ranked_cards AS (
     SELECT
       jc.id,
       jc.job_id,
@@ -912,7 +913,22 @@ async function fetchValidationSqlRows(
       jc.run_id,
       jc.email_scrape_id,
       COALESCE(ev_this.events, '[]'::json)    AS events_this_run,
-      COALESCE(ev_hist.events, '[]'::json)    AS events_history
+      COALESCE(ev_hist.events, '[]'::json)    AS events_history,
+      -- Used by the outer ORDER BY to keep popup display order stable
+      -- (latest activity first across the whole popup).
+      GREATEST(
+        COALESCE(ev_latest.latest_event_at, '-infinity'::timestamptz),
+        COALESCE(es.created_at,             '-infinity'::timestamptz),
+        COALESCE(jc.created_at,             '-infinity'::timestamptz)
+      ) AS _sort_key,
+      -- Dedup: when multiple JCs reference the same job (e.g. a rescrape
+      -- created a new JC for the same gmail scrape), keep the one tied to
+      -- the latest pipeline run. Earlier attempts' events still appear in
+      -- events_history (which is cross-run by design).
+      ROW_NUMBER() OVER (
+        PARTITION BY jc.job_id
+        ORDER BY jc.run_id DESC, jc.id DESC
+      ) AS _rn
     FROM job_content jc
     LEFT JOIN email_scrapes es ON es.id = jc.email_scrape_id
     LEFT JOIN LATERAL (
@@ -1001,11 +1017,10 @@ async function fetchValidationSqlRows(
     ${jobIdFilter}
     ${sfJobIdFilter}
     ${practiceFilter}
-    ORDER BY GREATEST(
-      COALESCE(ev_latest.latest_event_at, '-infinity'::timestamptz),
-      COALESCE(es.created_at,             '-infinity'::timestamptz),
-      COALESCE(jc.created_at,             '-infinity'::timestamptz)
-    ) DESC
+    )
+    SELECT * FROM ranked_cards
+    WHERE _rn = 1
+    ORDER BY _sort_key DESC
   `
 }
 
