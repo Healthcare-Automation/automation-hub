@@ -930,30 +930,15 @@ async function fetchValidationSqlRows(
       ) AS events
       FROM job_event_log jel
       WHERE jel.job_id = jc.job_id
-        AND (
-          (
-            jel.run_id IS NOT NULL
-            AND (
-              (jc.run_id IS NOT NULL AND jel.run_id = jc.run_id)
-              OR (es.run_id IS NOT NULL AND jel.run_id = es.run_id)
-              OR jel.run_id = ${runId}
-            )
-          )
-          OR (
-            jel.run_id IS NULL
-            AND jel.event_type IN (
-              'sf_scrape_fields_patched',
-              'sf_scrape_fields_skip',
-              'sf_scrape_fields_error',
-              'sf_sync_skipped_no_mapping',
-              'sf_scrape_fields_recovered',
-              'sf_field_quarantined',
-              'sf_push_unhandled_error'
-            )
-            AND jel.created_at >= (jc.created_at - interval '15 minutes')
-            AND jel.created_at <= (jc.created_at + interval '7 days')
-          )
-        )
+        -- Strict run-pair scope: include ONLY events whose run_id matches
+        -- this card's pipeline run (either the link_batch leg or the gmail
+        -- leg). All event types are kept (errors, recoveries, manual
+        -- rescrapes, etc.) -- we just exclude events tagged with a DIFFERENT
+        -- run_id, plus events with run_id IS NULL (untagged push events from
+        -- recovery / out-of-band paths). The full per-job history is still
+        -- available via the events_history LATERAL below.
+        AND jel.run_id IS NOT NULL
+        AND jel.run_id IN (jc.run_id, es.run_id)
     ) ev_this ON true
     LEFT JOIN LATERAL (
       SELECT COALESCE(
