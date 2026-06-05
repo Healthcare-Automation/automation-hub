@@ -1,9 +1,12 @@
 import { getDailyStatus, getRecentRuns, getWeeklySummary } from '@/lib/queries'
+import { getDjcDailyStatus, getDjcRecentRuns, getDjcSummary } from '@/lib/djcQueries'
+import { isDjcConfigured } from '@/lib/djcDb'
 import { getOverallStatus, calculateUptime } from '@/lib/utils'
 import type { Phase } from '@/lib/types'
 import StatusHeader from '@/components/StatusHeader'
 import WeeklySummaryCards from '@/components/WeeklySummary'
 import AutomationCard from '@/components/AutomationCard'
+import DjcAutomationCard from '@/components/DjcAutomationCard'
 import { LiveDashboardRefresh } from '@/components/LiveDashboardRefresh'
 import Link from 'next/link'
 
@@ -33,6 +36,15 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
       {children}
     </p>
   )
+}
+
+async function loadDjc() {
+  const [dailyStatus, recentRuns, summary] = await Promise.all([
+    getDjcDailyStatus(),
+    getDjcRecentRuns(20),
+    getDjcSummary(),
+  ])
+  return { dailyStatus, recentRuns, summary }
 }
 
 export default async function Page() {
@@ -77,6 +89,17 @@ export default async function Page() {
   const lastRun = recentRuns[0] ?? null
   const overallStatus = getOverallStatus(enrichedDailyStatus, lastRun)
   const uptime = calculateUptime(enrichedDailyStatus)
+
+  // DJC automation (separate Supabase project) — load independently so a DJC outage/misconfig
+  // never breaks the Kimedics view.
+  let djcData: Awaited<ReturnType<typeof loadDjc>> | null = null
+  if (isDjcConfigured) {
+    try {
+      djcData = await loadDjc()
+    } catch (err) {
+      console.error('Failed to load DJC status data:', err)
+    }
+  }
 
   const phases: Phase[] = []
   if (testingStartDate <= lastTestingDay) {
@@ -140,15 +163,26 @@ export default async function Page() {
                 uptime={uptime}
                 phases={phases}
               />
+
+              {djcData && (
+                <DjcAutomationCard
+                  dailyStatus={djcData.dailyStatus}
+                  recentRuns={djcData.recentRuns}
+                  summary={djcData.summary}
+                />
+              )}
             </div>
 
-            {/* Coming soon hint */}
-            <div className="border-t border-zinc-700/40 px-5 py-3 flex items-center gap-2.5">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-600">
-                <circle cx="12" cy="12" r="10" /><path d="M12 8v4m0 4h.01" />
-              </svg>
-              <span className="text-xs text-zinc-600">More automations coming soon</span>
-            </div>
+            {!djcData && (
+              <div className="border-t border-zinc-700/40 px-5 py-3 flex items-center gap-2.5">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-600">
+                  <circle cx="12" cy="12" r="10" /><path d="M12 8v4m0 4h.01" />
+                </svg>
+                <span className="text-xs text-zinc-600">
+                  DJC → Salesforce automation — set <code className="text-zinc-500">DJC_DATABASE_URL</code> to show it here
+                </span>
+              </div>
+            )}
           </div>
         </section>
 
