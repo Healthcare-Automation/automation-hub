@@ -47,6 +47,19 @@ export default function DjcAutomationCard({ dailyStatus, recentRuns, summary }: 
   const newTotal = summary.wouldCreate + summary.created
   const firstRunDay = dailyStatus.find(d => d.totalRuns > 0)?.day
 
+  // Proportional testing segment within the 90-day window (mirrors the Kimedics phase bar):
+  // the bar only fills from the first run day to today, not the whole track.
+  const phaseSeg = (() => {
+    if (!dailyStatus.length || !firstRunDay) return { left: 0, width: 0 }
+    const winStart = new Date(dailyStatus[0].day + 'T00:00:00Z').getTime()
+    const lastDay = new Date(dailyStatus[dailyStatus.length - 1].day + 'T00:00:00Z')
+    lastDay.setUTCDate(lastDay.getUTCDate() + 1)
+    const winMs = lastDay.getTime() - winStart || 1
+    const start = new Date(firstRunDay + 'T00:00:00Z').getTime()
+    const left = Math.max(0, Math.min(100, ((start - winStart) / winMs) * 100))
+    return { left, width: Math.max(2, 100 - left) }
+  })()
+
   return (
     <div className="overflow-hidden rounded-xl border border-zinc-700/50 bg-zinc-800/30">
       <div className="px-5 pt-5 pb-4">
@@ -83,7 +96,7 @@ export default function DjcAutomationCard({ dailyStatus, recentRuns, summary }: 
         <div className="mt-3 space-y-2">
           <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-600">Phase</p>
           <div className="relative h-2 w-full overflow-hidden rounded-full bg-zinc-700/50">
-            <div className="absolute inset-0 bg-amber-500" />
+            <div className="absolute top-0 bottom-0 bg-amber-500" style={{ left: `${phaseSeg.left}%`, width: `${phaseSeg.width}%` }} />
           </div>
           <div className="flex items-center gap-2 text-[10px]">
             <span className="h-1.5 w-5 shrink-0 rounded-sm bg-amber-500" aria-hidden />

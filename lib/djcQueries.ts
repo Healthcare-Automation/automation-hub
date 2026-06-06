@@ -250,6 +250,76 @@ export async function getDjcRunDetail(runId: number): Promise<DjcRunDetailBundle
   return { events, candidates }
 }
 
+/** Search the latest candidate state across all runs — for "find the right person" by name,
+ *  DJC link/id, or specialty. */
+export async function searchDjcCandidates(opts: { q?: string; specialty?: string; limit?: number }): Promise<DjcCandidateRow[]> {
+  const sql = djcSql
+  if (!sql) return []
+  const q = (opts.q ?? '').trim()
+  const specialty = (opts.specialty ?? '').trim()
+  const like = q ? `%${q}%` : ''
+  const rows = await sql<DjcCandidateColumns[]>`
+    select candidate_id, profile_url, name, target, phone, email, contact_source,
+           mailing_city, mailing_state, mailing_postal_code, state_licenses, preferred_states,
+           position_types, cv_uploaded, cv_filename, cv_bytes_len, dedup_status, dedup_reason,
+           sf_contact_id, match_count
+    from djc_candidates
+    where ${q ? sql`(name ilike ${like} or candidate_id ilike ${like} or profile_url ilike ${like})` : sql`true`}
+      and ${specialty ? sql`target = ${specialty}` : sql`true`}
+    order by updated_at desc
+    limit ${opts.limit ?? 60}
+  `
+  return rows.map(toCandidateRow)
+}
+
+interface DjcCandidateColumns {
+  candidate_id: string
+  profile_url: string | null
+  name: string | null
+  target: string | null
+  phone: string | null
+  email: string | null
+  contact_source: string | null
+  mailing_city: string | null
+  mailing_state: string | null
+  mailing_postal_code: string | null
+  state_licenses: string | null
+  preferred_states: string | null
+  position_types: string | null
+  cv_uploaded: boolean
+  cv_filename: string | null
+  cv_bytes_len: number | null
+  dedup_status: string | null
+  dedup_reason: string | null
+  sf_contact_id: string | null
+  match_count: number | null
+}
+
+function toCandidateRow(c: DjcCandidateColumns): DjcCandidateRow {
+  return {
+    candidateId: c.candidate_id,
+    profileUrl: c.profile_url,
+    name: c.name,
+    target: c.target,
+    phone: c.phone,
+    email: c.email,
+    contactSource: c.contact_source,
+    mailingCity: c.mailing_city,
+    mailingState: c.mailing_state,
+    mailingPostalCode: c.mailing_postal_code,
+    stateLicenses: c.state_licenses,
+    preferredStates: c.preferred_states,
+    positionTypes: c.position_types,
+    cvUploaded: c.cv_uploaded,
+    cvFilename: c.cv_filename,
+    cvBytesLen: c.cv_bytes_len,
+    dedupStatus: c.dedup_status,
+    dedupReason: c.dedup_reason,
+    sfContactId: c.sf_contact_id,
+    matchCount: c.match_count,
+  }
+}
+
 export async function getDjcSummary(): Promise<DjcSummary> {
   const sql = djcSql
   if (!sql) {
