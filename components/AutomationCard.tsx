@@ -158,9 +158,17 @@ export default function AutomationCard({
       {/* Card header */}
       <div className="px-5 pt-5 pb-4">
         <div className="flex items-start justify-between gap-4 mb-1">
-          <div>
-            <h3 className="font-semibold text-white text-[15px]">{name}</h3>
-            <p className="text-xs text-zinc-400 mt-0.5">{description}</p>
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 ring-1 ring-emerald-500/25">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="4" width="20" height="16" rx="2" />
+                <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="font-semibold text-white text-[15px]">{name}</h3>
+              <p className="text-xs text-zinc-400 mt-0.5">{description}</p>
+            </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
             <span className={cn('h-2 w-2 rounded-full', dotColor)} />
