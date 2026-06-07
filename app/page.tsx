@@ -2,13 +2,11 @@ import { getDailyStatus, getRecentRuns, getWeeklySummary } from '@/lib/queries'
 import { getDjcDailyStatus, getDjcRecentRuns, getDjcSummary } from '@/lib/djcQueries'
 import { isDjcConfigured } from '@/lib/djcDb'
 import { getOverallStatus, calculateUptime } from '@/lib/utils'
-import type { Phase } from '@/lib/types'
+import type { Phase, OverallStatus } from '@/lib/types'
 import StatusHeader from '@/components/StatusHeader'
-import WeeklySummaryCards from '@/components/WeeklySummary'
 import AutomationCard from '@/components/AutomationCard'
 import DjcAutomationCard from '@/components/DjcAutomationCard'
 import { LiveDashboardRefresh } from '@/components/LiveDashboardRefresh'
-import Link from 'next/link'
 
 /** Always read fresh DB state; client also calls router.refresh() on an interval (see LiveDashboardRefresh). */
 export const dynamic = 'force-dynamic'
@@ -116,6 +114,34 @@ export default async function Page() {
     kind: 'production',
   })
 
+  // Honest, aggregate system status across BOTH automations (was Kimedics-only before).
+  const djcKind: OverallStatus['kind'] | null = djcData
+    ? (() => {
+        const r = djcData.recentRuns[0]
+        if (!r) return 'degraded'
+        if (r.status === 'error' || r.status === 'session_expired') return 'outage'
+        if (r.errorCount > 0) return 'degraded'
+        return 'operational'
+      })()
+    : null
+  const RANK = { operational: 1, degraded: 2, outage: 3 } as const
+  const health = [
+    { name: 'Kimedics', kind: overallStatus.kind },
+    ...(djcKind ? [{ name: 'Dentist Job Cafe', kind: djcKind }] : []),
+  ]
+  const worst = health.reduce((a, b) => (RANK[b.kind] > RANK[a.kind] ? b : a))
+  const systemStatus: OverallStatus = {
+    kind: worst.kind,
+    label:
+      worst.kind === 'operational' ? 'All Systems Operational'
+      : worst.kind === 'degraded' ? 'Degraded Performance'
+      : 'Partial Outage',
+    description:
+      worst.kind === 'operational'
+        ? `${health.length} automation${health.length === 1 ? '' : 's'} running normally`
+        : `${worst.name} ${worst.kind === 'outage' ? 'needs attention' : 'has recent issues'}`,
+  }
+
   return (
     <main className="min-h-screen" style={{ background: 'var(--background)' }}>
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-12 space-y-10">
@@ -123,67 +149,46 @@ export default async function Page() {
         {/* Top nav */}
         <header className="flex items-center justify-between">
           <ProxiLogo />
-          <Link
-            href="/admin/recovery"
-            className="text-[11px] text-zinc-600 hover:text-zinc-300 transition-colors inline-flex items-center gap-1"
-            title="Admin · manual push recovery"
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-              <circle cx="12" cy="12" r="3" />
-            </svg>
-            Admin
-          </Link>
         </header>
 
-        {/* Overall status + phase combined */}
+        {/* Aggregate health across all automations */}
         <section>
           <SectionLabel>System Status</SectionLabel>
-          <StatusHeader overallStatus={overallStatus} lastRun={lastRun} phases={phases} />
+          <StatusHeader overallStatus={systemStatus} lastRun={null} />
         </section>
 
-        {/* Automations + weekly stats combined */}
-        <section>
+        {/* Each automation is its own self-contained panel */}
+        <section className="space-y-3">
           <SectionLabel>Automations</SectionLabel>
-          <div className="bg-zinc-800/20 border border-zinc-700/40 rounded-2xl overflow-hidden">
 
-            {/* Weekly stats strip */}
-            <div className="border-b border-zinc-700/40">
-              <WeeklySummaryCards summary={weeklySummary} />
+          <AutomationCard
+            name="Kimedics → Salesforce Pipeline"
+            description="Scrapes Kimedics job emails, enriches via Playwright, syncs to Salesforce, validates each job (with alert emails on failures), and sends a daily 24h quality digest"
+            schedule="Every 10 min · Modal"
+            dailyStatus={enrichedDailyStatus}
+            recentRuns={recentRuns}
+            uptime={uptime}
+            phases={phases}
+            weeklySummary={weeklySummary}
+            adminHref="/admin/recovery"
+          />
+
+          {djcData ? (
+            <DjcAutomationCard
+              dailyStatus={djcData.dailyStatus}
+              recentRuns={djcData.recentRuns}
+              summary={djcData.summary}
+            />
+          ) : (
+            <div className="flex items-center gap-2.5 rounded-xl border border-zinc-700/40 px-5 py-4">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-600">
+                <circle cx="12" cy="12" r="10" /><path d="M12 8v4m0 4h.01" />
+              </svg>
+              <span className="text-xs text-zinc-600">
+                DJC → Salesforce automation — set <code className="text-zinc-500">DJC_DATABASE_URL</code> to show it here
+              </span>
             </div>
-
-            {/* Active automation cards */}
-            <div className="p-3 space-y-3">
-              <AutomationCard
-                name="Kimedics → Salesforce Pipeline"
-                description="Scrapes Kimedics job emails, enriches via Playwright, syncs to Salesforce, validates each job (with alert emails on failures), and sends a daily 24h quality digest"
-                schedule="Pipeline every 10 min · Daily summary ~9 AM ET · Modal"
-                dailyStatus={enrichedDailyStatus}
-                recentRuns={recentRuns}
-                uptime={uptime}
-                phases={phases}
-              />
-
-              {djcData && (
-                <DjcAutomationCard
-                  dailyStatus={djcData.dailyStatus}
-                  recentRuns={djcData.recentRuns}
-                  summary={djcData.summary}
-                />
-              )}
-            </div>
-
-            {!djcData && (
-              <div className="border-t border-zinc-700/40 px-5 py-3 flex items-center gap-2.5">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-600">
-                  <circle cx="12" cy="12" r="10" /><path d="M12 8v4m0 4h.01" />
-                </svg>
-                <span className="text-xs text-zinc-600">
-                  DJC → Salesforce automation — set <code className="text-zinc-500">DJC_DATABASE_URL</code> to show it here
-                </span>
-              </div>
-            )}
-          </div>
+          )}
         </section>
 
         {/* Footer */}

@@ -5,6 +5,7 @@ import type { DjcDayStatus, DjcRunDetail, DjcSummary } from '@/lib/djcTypes'
 import { cn, STATUS_DOT_COLORS, STATUS_COLORS, STATUS_LABELS, formatShortDate } from '@/lib/utils'
 import DjcStatusBarChart from './DjcStatusBarChart'
 import DjcRunBreakdown from './DjcRunBreakdown'
+import MetricStrip from './MetricStrip'
 
 interface Props {
   dailyStatus: DjcDayStatus[]
@@ -85,9 +86,18 @@ export default function DjcAutomationCard({ dailyStatus, recentRuns, summary }: 
 
         {/* Meta line — parallels the Kimedics "uptime · schedule" line */}
         <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
-          <span><span className="text-zinc-300">{summary.candidatesSeen}</span> reviewed · <span className="text-cyan-300">{newTotal}</span> new for Salesforce (90d)</span>
+          <span>Sourcing run (90 days)</span>
           <span>·</span>
           <span>Daily ~12:03 AM ET · Modal</span>
+        </div>
+
+        <div className="mb-4">
+          <MetricStrip items={[
+            { value: String(newTotal), label: 'New', accent: 'cyan' },
+            { value: summary.candidatesSeen.toLocaleString(), label: 'Reviewed' },
+            { value: summary.duplicates.toLocaleString(), label: 'On file' },
+            { value: String(summary.totalRuns), label: 'Runs' },
+          ]} />
         </div>
 
         <DjcStatusBarChart days={dailyStatus} />
