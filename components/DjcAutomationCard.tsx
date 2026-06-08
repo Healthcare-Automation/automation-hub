@@ -92,12 +92,20 @@ export default function DjcAutomationCard({ dailyStatus, recentRuns, summary }: 
         </div>
 
         <div className="mb-4">
-          <MetricStrip items={[
-            { value: String(newTotal), label: 'New', accent: 'cyan' },
-            { value: summary.candidatesSeen.toLocaleString(), label: 'Reviewed' },
-            { value: summary.duplicates.toLocaleString(), label: 'On file' },
-            { value: String(summary.totalRuns), label: 'Runs' },
-          ]} />
+          <MetricStrip periods={{
+            sevenDay: [
+              { value: String(summary.last7.wouldCreate + summary.last7.created), label: 'New', accent: 'cyan' },
+              { value: summary.last7.candidatesSeen.toLocaleString(), label: 'Reviewed' },
+              { value: summary.last7.duplicates.toLocaleString(), label: 'On file' },
+              { value: String(summary.last7.totalRuns), label: 'Runs' },
+            ],
+            allTime: [
+              { value: String(newTotal), label: 'New', accent: 'cyan' },
+              { value: summary.candidatesSeen.toLocaleString(), label: 'Reviewed' },
+              { value: summary.duplicates.toLocaleString(), label: 'On file' },
+              { value: String(summary.totalRuns), label: 'Runs' },
+            ],
+          }} />
         </div>
 
         <DjcStatusBarChart days={dailyStatus} />

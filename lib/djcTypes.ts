@@ -82,7 +82,7 @@ export interface DjcRunDetailBundle {
   candidates: DjcCandidateRow[]
 }
 
-export interface DjcSummary {
+export interface DjcTotals {
   totalRuns: number
   candidatesSeen: number
   contactable: number
@@ -90,5 +90,9 @@ export interface DjcSummary {
   wouldCreate: number // create_skipped_guard while writes off
   created: number
   errors: number
+}
+
+export interface DjcSummary extends DjcTotals {
+  last7: DjcTotals // rolling 7-day window (same fields)
   lastRunAt: string | null
 }

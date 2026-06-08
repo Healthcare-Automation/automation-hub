@@ -198,12 +198,20 @@ export default function AutomationCard({
 
         {weeklySummary && (
           <div className="mb-4">
-            <MetricStrip items={[
-              { value: weeklySummary.emailsProcessed.toLocaleString(), label: 'Emails' },
-              { value: weeklySummary.jobsScraped.toLocaleString(), label: 'Jobs' },
-              { value: weeklySummary.sfPatches.toLocaleString(), label: 'SF synced' },
-              { value: `${weeklySummary.successRate}%`, label: 'Success' },
-            ]} />
+            <MetricStrip periods={{
+              sevenDay: [
+                { value: weeklySummary.emailsProcessed.toLocaleString(), label: 'Emails' },
+                { value: weeklySummary.jobsScraped.toLocaleString(), label: 'Jobs' },
+                { value: weeklySummary.sfPatches.toLocaleString(), label: 'SF synced' },
+                { value: `${weeklySummary.successRate}%`, label: 'Success' },
+              ],
+              allTime: [
+                { value: weeklySummary.allTime.emailsProcessed.toLocaleString(), label: 'Emails' },
+                { value: weeklySummary.allTime.jobsScraped.toLocaleString(), label: 'Jobs' },
+                { value: weeklySummary.allTime.sfPatches.toLocaleString(), label: 'SF synced' },
+                { value: `${weeklySummary.allTime.successRate}%`, label: 'Success' },
+              ],
+            }} />
           </div>
         )}
 

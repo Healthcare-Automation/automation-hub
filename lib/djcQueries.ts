@@ -322,39 +322,47 @@ function toCandidateRow(c: DjcCandidateColumns): DjcCandidateRow {
 
 export async function getDjcSummary(): Promise<DjcSummary> {
   const sql = djcSql
+  const zero = { totalRuns: 0, candidatesSeen: 0, contactable: 0, duplicates: 0, wouldCreate: 0, created: 0, errors: 0 }
   if (!sql) {
-    return { totalRuns: 0, candidatesSeen: 0, contactable: 0, duplicates: 0, wouldCreate: 0, created: 0, errors: 0, lastRunAt: null }
+    return { ...zero, last7: { ...zero }, lastRunAt: null }
   }
-  const [r] = await sql<
-    {
-      total_runs: number
-      candidates_seen: number
-      contactable: number
-      duplicates: number
-      would_create: number
-      created: number
-      errors: number
-      last_run_at: string | null
-    }[]
-  >`
-    select count(*)::int                          as total_runs,
-           coalesce(sum(candidates_seen),0)::int  as candidates_seen,
-           coalesce(sum(contactable),0)::int      as contactable,
-           coalesce(sum(duplicates),0)::int       as duplicates,
-           coalesce(sum(create_skipped_guard),0)::int as would_create,
-           coalesce(sum(created),0)::int          as created,
-           coalesce(sum(errors),0)::int           as errors,
-           max(started_at)                        as last_run_at
+  const f = `filter (where started_at >= now() - interval '7 days')`
+  const [r] = await sql<Record<string, number | string | null>[]>`
+    select count(*)::int                                       as total_runs,
+           count(*) ${sql.unsafe(f)}::int                      as total_runs_7,
+           coalesce(sum(candidates_seen),0)::int               as candidates_seen,
+           coalesce(sum(candidates_seen) ${sql.unsafe(f)},0)::int as candidates_seen_7,
+           coalesce(sum(contactable),0)::int                   as contactable,
+           coalesce(sum(contactable) ${sql.unsafe(f)},0)::int  as contactable_7,
+           coalesce(sum(duplicates),0)::int                    as duplicates,
+           coalesce(sum(duplicates) ${sql.unsafe(f)},0)::int   as duplicates_7,
+           coalesce(sum(create_skipped_guard),0)::int          as would_create,
+           coalesce(sum(create_skipped_guard) ${sql.unsafe(f)},0)::int as would_create_7,
+           coalesce(sum(created),0)::int                       as created,
+           coalesce(sum(created) ${sql.unsafe(f)},0)::int      as created_7,
+           coalesce(sum(errors),0)::int                        as errors,
+           coalesce(sum(errors) ${sql.unsafe(f)},0)::int       as errors_7,
+           max(started_at)                                     as last_run_at
     from djc_runs
   `
+  const num = (k: string) => Number(r[k] ?? 0)
   return {
-    totalRuns: r.total_runs,
-    candidatesSeen: r.candidates_seen,
-    contactable: r.contactable,
-    duplicates: r.duplicates,
-    wouldCreate: r.would_create,
-    created: r.created,
-    errors: r.errors,
-    lastRunAt: r.last_run_at,
+    totalRuns: num('total_runs'),
+    candidatesSeen: num('candidates_seen'),
+    contactable: num('contactable'),
+    duplicates: num('duplicates'),
+    wouldCreate: num('would_create'),
+    created: num('created'),
+    errors: num('errors'),
+    last7: {
+      totalRuns: num('total_runs_7'),
+      candidatesSeen: num('candidates_seen_7'),
+      contactable: num('contactable_7'),
+      duplicates: num('duplicates_7'),
+      wouldCreate: num('would_create_7'),
+      created: num('created_7'),
+      errors: num('errors_7'),
+    },
+    lastRunAt: (r.last_run_at as string | null) ?? null,
   }
 }
