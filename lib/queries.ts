@@ -189,6 +189,8 @@ export async function getRecentRuns(limit = 20, offset = 0): Promise<RunDetail[]
     email_count:        string | number
     job_count:          string | number
     sf_patch_count:     string | number
+    sf_jobs_pushed:     string | number
+    sf_jobs_recovered:  string | number
     sf_jobs_created_count: string | number
     sf_worksites_created_count: string | number
     recovered_later_count: string | number
@@ -215,6 +217,23 @@ export async function getRecentRuns(limit = 20, offset = 0): Promise<RunDetail[]
       count(DISTINCT es.id)  AS email_count,
       count(DISTINCT jc.id)  AS job_count,
       count(DISTINCT jel.id) FILTER (WHERE jel.event_type = 'sf_scrape_fields_patched') AS sf_patch_count,
+      -- Job-anchored push counts: a gmail run's SF write often lands in a LATER
+      -- link_batch than the 15-min pairing captures, so a run with no paired batch
+      -- shows "—" even though its job WAS pushed. Anchor to the jobs THIS run scraped
+      -- and count distinct ones that landed a patch / recovery near their scrape time.
+      -- Keeps "new updates" (patched) separate from "quarantine re-runs" (recovered).
+      count(DISTINCT jc.job_id) FILTER (WHERE EXISTS (
+        SELECT 1 FROM job_event_log pp
+        WHERE pp.job_id = jc.job_id AND pp.event_type = 'sf_scrape_fields_patched'
+          AND pp.created_at >= jc.created_at - INTERVAL '2 minutes'
+          AND pp.created_at <= jc.created_at + INTERVAL '1 hour'
+      )) AS sf_jobs_pushed,
+      count(DISTINCT jc.job_id) FILTER (WHERE EXISTS (
+        SELECT 1 FROM job_event_log pr
+        WHERE pr.job_id = jc.job_id AND pr.event_type = 'sf_scrape_fields_recovered'
+          AND pr.created_at >= jc.created_at - INTERVAL '2 minutes'
+          AND pr.created_at <= jc.created_at + INTERVAL '1 hour'
+      )) AS sf_jobs_recovered,
       count(DISTINCT jel.job_id) FILTER (WHERE jel.event_type = 'job_created_in_salesforce') AS sf_jobs_created_count,
       count(DISTINCT jel.job_id) FILTER (WHERE jel.event_type = 'worksite_created')           AS sf_worksites_created_count,
       -- Jobs that hit a SF-side failure during this run AND were later recovered
@@ -358,6 +377,8 @@ export async function getRecentRuns(limit = 20, offset = 0): Promise<RunDetail[]
       emailCount:           Number(row.email_count),
       jobCount:             Number(row.job_count),
       sfPatchCount:         Number(row.sf_patch_count),
+      sfJobsPushed:         Number(row.sf_jobs_pushed ?? 0),
+      sfJobsRecovered:      Number(row.sf_jobs_recovered ?? 0),
       sfJobsCreatedCount:   Number(row.sf_jobs_created_count ?? 0),
       worksitesCreatedCount: Number(row.sf_worksites_created_count ?? 0),
       recoveredLaterCount:   Number(row.recovered_later_count ?? 0),
@@ -386,6 +407,8 @@ export async function getAllRuns(): Promise<RunDetail[]> {
     email_count:        string | number
     job_count:          string | number
     sf_patch_count:     string | number
+    sf_jobs_pushed:     string | number
+    sf_jobs_recovered:  string | number
     sf_jobs_created_count: string | number
     sf_worksites_created_count: string | number
     recovered_later_count: string | number
@@ -412,6 +435,23 @@ export async function getAllRuns(): Promise<RunDetail[]> {
       count(DISTINCT es.id)  AS email_count,
       count(DISTINCT jc.id)  AS job_count,
       count(DISTINCT jel.id) FILTER (WHERE jel.event_type = 'sf_scrape_fields_patched') AS sf_patch_count,
+      -- Job-anchored push counts: a gmail run's SF write often lands in a LATER
+      -- link_batch than the 15-min pairing captures, so a run with no paired batch
+      -- shows "—" even though its job WAS pushed. Anchor to the jobs THIS run scraped
+      -- and count distinct ones that landed a patch / recovery near their scrape time.
+      -- Keeps "new updates" (patched) separate from "quarantine re-runs" (recovered).
+      count(DISTINCT jc.job_id) FILTER (WHERE EXISTS (
+        SELECT 1 FROM job_event_log pp
+        WHERE pp.job_id = jc.job_id AND pp.event_type = 'sf_scrape_fields_patched'
+          AND pp.created_at >= jc.created_at - INTERVAL '2 minutes'
+          AND pp.created_at <= jc.created_at + INTERVAL '1 hour'
+      )) AS sf_jobs_pushed,
+      count(DISTINCT jc.job_id) FILTER (WHERE EXISTS (
+        SELECT 1 FROM job_event_log pr
+        WHERE pr.job_id = jc.job_id AND pr.event_type = 'sf_scrape_fields_recovered'
+          AND pr.created_at >= jc.created_at - INTERVAL '2 minutes'
+          AND pr.created_at <= jc.created_at + INTERVAL '1 hour'
+      )) AS sf_jobs_recovered,
       count(DISTINCT jel.job_id) FILTER (WHERE jel.event_type = 'job_created_in_salesforce') AS sf_jobs_created_count,
       count(DISTINCT jel.job_id) FILTER (WHERE jel.event_type = 'worksite_created')           AS sf_worksites_created_count,
       -- Jobs that hit a SF-side failure during this run AND were later recovered
@@ -554,6 +594,8 @@ export async function getAllRuns(): Promise<RunDetail[]> {
       emailCount:           Number(row.email_count),
       jobCount:             Number(row.job_count),
       sfPatchCount:         Number(row.sf_patch_count),
+      sfJobsPushed:         Number(row.sf_jobs_pushed ?? 0),
+      sfJobsRecovered:      Number(row.sf_jobs_recovered ?? 0),
       sfJobsCreatedCount:   Number(row.sf_jobs_created_count ?? 0),
       worksitesCreatedCount: Number(row.sf_worksites_created_count ?? 0),
       recoveredLaterCount:   Number(row.recovered_later_count ?? 0),
@@ -636,6 +678,8 @@ export async function searchRuns(params: SearchRunsParams): Promise<RunDetail[]>
     email_count:        string | number
     job_count:          string | number
     sf_patch_count:     string | number
+    sf_jobs_pushed:     string | number
+    sf_jobs_recovered:  string | number
     sf_jobs_created_count: string | number
     sf_worksites_created_count: string | number
     recovered_later_count: string | number
@@ -662,6 +706,23 @@ export async function searchRuns(params: SearchRunsParams): Promise<RunDetail[]>
       count(DISTINCT es.id)  AS email_count,
       count(DISTINCT jc.id)  AS job_count,
       count(DISTINCT jel.id) FILTER (WHERE jel.event_type = 'sf_scrape_fields_patched') AS sf_patch_count,
+      -- Job-anchored push counts: a gmail run's SF write often lands in a LATER
+      -- link_batch than the 15-min pairing captures, so a run with no paired batch
+      -- shows "—" even though its job WAS pushed. Anchor to the jobs THIS run scraped
+      -- and count distinct ones that landed a patch / recovery near their scrape time.
+      -- Keeps "new updates" (patched) separate from "quarantine re-runs" (recovered).
+      count(DISTINCT jc.job_id) FILTER (WHERE EXISTS (
+        SELECT 1 FROM job_event_log pp
+        WHERE pp.job_id = jc.job_id AND pp.event_type = 'sf_scrape_fields_patched'
+          AND pp.created_at >= jc.created_at - INTERVAL '2 minutes'
+          AND pp.created_at <= jc.created_at + INTERVAL '1 hour'
+      )) AS sf_jobs_pushed,
+      count(DISTINCT jc.job_id) FILTER (WHERE EXISTS (
+        SELECT 1 FROM job_event_log pr
+        WHERE pr.job_id = jc.job_id AND pr.event_type = 'sf_scrape_fields_recovered'
+          AND pr.created_at >= jc.created_at - INTERVAL '2 minutes'
+          AND pr.created_at <= jc.created_at + INTERVAL '1 hour'
+      )) AS sf_jobs_recovered,
       count(DISTINCT jel.job_id) FILTER (WHERE jel.event_type = 'job_created_in_salesforce') AS sf_jobs_created_count,
       count(DISTINCT jel.job_id) FILTER (WHERE jel.event_type = 'worksite_created')           AS sf_worksites_created_count,
       -- Jobs that hit a SF-side failure during this run AND were later recovered
@@ -800,6 +861,8 @@ export async function searchRuns(params: SearchRunsParams): Promise<RunDetail[]>
       emailCount:           Number(row.email_count),
       jobCount:             Number(row.job_count),
       sfPatchCount:         Number(row.sf_patch_count),
+      sfJobsPushed:         Number(row.sf_jobs_pushed ?? 0),
+      sfJobsRecovered:      Number(row.sf_jobs_recovered ?? 0),
       sfJobsCreatedCount:   Number(row.sf_jobs_created_count ?? 0),
       worksitesCreatedCount: Number(row.sf_worksites_created_count ?? 0),
       recoveredLaterCount:   Number(row.recovered_later_count ?? 0),

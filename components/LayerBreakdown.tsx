@@ -218,13 +218,17 @@ function QuarantineBadge({ count, fields }: { count: number; fields: string[] })
 }
 
 function SfPushCell({ run }: { run: RunDetail }) {
-  const patch = run.sfPatchCount
+  // "New updates": distinct jobs this run pushed to SF, anchored to the run's own
+  // jobs (not the 15-min batch pairing) so a push landing in a later batch still
+  // counts here instead of showing "—". Falls back to the raw event count.
+  const patch = run.sfJobsPushed || run.sfPatchCount
   const created = run.sfJobsCreatedCount
   const worksites = run.worksitesCreatedCount ?? 0
   const swapped = run.extJobIdSwapCount ?? 0
   const failed = run.unresolvedFailedJobCount ?? 0
   const errs = run.sfErrorDetails
-  const recovered = run.sfRecoveredCount ?? 0
+  // "Quarantine re-runs": SF writes via the recovery path — kept distinct from new updates.
+  const recovered = run.sfJobsRecovered || (run.sfRecoveredCount ?? 0)
   const quarantined = run.sfQuarantinedCount ?? 0
   const recoveredLater = run.recoveredLaterCount ?? 0
   const hasLine =

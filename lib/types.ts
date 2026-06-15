@@ -40,6 +40,15 @@ export interface RunDetail {
   emailCount: number
   jobCount: number
   sfPatchCount: number
+  /**
+   * Distinct jobs scraped in THIS run that landed a "new update" SF field patch
+   * (sf_scrape_fields_patched) near their scrape time — anchored to the run's own
+   * jobs rather than the 15-min gmail↔link_batch pairing, so a push that lands in
+   * a later batch is still attributed here instead of showing "—".
+   */
+  sfJobsPushed: number
+  /** Distinct jobs scraped in THIS run whose SF fields were written via the quarantine recovery re-run path (sf_scrape_fields_recovered) — kept separate from new updates. */
+  sfJobsRecovered: number
   /** Distinct Kimedics job_id values that received a new job record in this link_batch run (``job_created_in_salesforce``). */
   sfJobsCreatedCount: number
   /** Distinct worksite accounts created in Salesforce during this link_batch run (``worksite_created``). */
