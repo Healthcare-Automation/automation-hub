@@ -417,6 +417,20 @@ function buildTimeline(job: ValidationJobDetail): TimelineItem[] {
     })
   }
 
+  // Fields actually written to Salesforce per run — so a rescrape/retry "completed"
+  // event can show WHICH fields it changed (that list lives on the sibling
+  // sf_scrape_fields_patched event in the same run, not on the rescrape event itself).
+  const patchedByRun: Record<string, { fields: string[]; count: number }> = {}
+  for (const e of sfPatched) {
+    const rid = String(e.runId ?? '')
+    if (!rid) continue
+    const changed: string[] = Array.isArray(e.payload?.fields_changed) ? e.payload.fields_changed : []
+    const cur = patchedByRun[rid] ?? { fields: [], count: 0 }
+    for (const f of changed) if (!cur.fields.includes(f)) cur.fields.push(f)
+    cur.count += changed.length
+    patchedByRun[rid] = cur
+  }
+
   const subj = (job.emailSubject ?? '').toLowerCase()
   const aoc = (job.emailActionOrChange ?? '').toLowerCase()
   const isNewJobPost = aoc === 'new' || subj.includes('new job post')
@@ -614,6 +628,28 @@ function buildTimeline(job: ValidationJobDetail): TimelineItem[] {
         kind: 'mapping' as const,
         title: 'Supabase latest job snapshot',
         subtitle: [label, fc ? `Ids: ${fc}` : null].filter(Boolean).join(' · '),
+        event: e,
+      }
+    }
+
+    // Rescrape / auto-retry completed — surface WHICH fields were written, not just "completed".
+    if (type === 'auto_retry_completed' || type === 'manual_rescrape_completed') {
+      const title = type === 'auto_retry_completed' ? 'Auto-retry completed' : 'Manual rescrape completed'
+      const action = String(e.payload?.action ?? '').replace(/_/g, ' ').trim()
+      const patched = patchedByRun[String(e.runId ?? '')]
+      let detail: string
+      if (patched && patched.fields.length > 0) {
+        const f = patched.fields
+        detail = `${patched.count} field${patched.count !== 1 ? 's' : ''} updated in Salesforce · ${f.slice(0, 3).join(', ')}${f.length > 3 ? ` +${f.length - 3} more` : ''}`
+      } else {
+        detail = 'No Salesforce field changes in this run'
+      }
+      return {
+        key: `ev_${e.id ?? ts}_${type}`,
+        ts,
+        kind: 'recovered' as const,
+        title,
+        subtitle: [action ? `Action: ${action}` : null, detail].filter(Boolean).join(' · '),
         event: e,
       }
     }
