@@ -219,27 +219,37 @@ function RunDetailBody({ run, bundle }: { run: DjcRunDetail; bundle: DjcRunDetai
   )
 }
 
-/** "Jun 16 · 5:03 AM ET · 1/3" — date + which run of the day, instead of an opaque "Run #N". */
-function runDateLabels(runs: DjcRunDetail[]): Map<number, string> {
-  const opt = { timeZone: 'America/New_York' } as const
-  const dayKey = (s: string) => new Date(s).toLocaleDateString('en-US', opt)
-  const byDay = new Map<string, DjcRunDetail[]>()
-  for (const r of runs) {
-    const arr = byDay.get(dayKey(r.startedAt))
-    if (arr) arr.push(r); else byDay.set(dayKey(r.startedAt), [r])
+/* Runs are grouped under a date header (Today / Yesterday / weekday), so each row only needs its
+   own time-of-day — no opaque "Run #N", no fixed-cadence "k/3" that breaks on manual/test runs. */
+const ET = { timeZone: 'America/New_York' } as const
+const etDayKey = (s: string) => new Date(s).toLocaleDateString('en-US', ET)
+
+function timeLabel(s: string): string {
+  return new Date(s).toLocaleTimeString('en-US', { ...ET, hour: 'numeric', minute: '2-digit' }) + ' ET'
+}
+
+type DayHeader = { primary: string; secondary: string; isToday: boolean }
+function dayHeader(iso: string): DayHeader {
+  const key = etDayKey(iso)
+  const todayKey = new Date().toLocaleDateString('en-US', ET)
+  const yesterdayKey = new Date(Date.now() - 86_400_000).toLocaleDateString('en-US', ET)
+  const d = new Date(iso)
+  const secondary = d.toLocaleDateString('en-US', { ...ET, month: 'short', day: 'numeric' })
+  if (key === todayKey) return { primary: 'Today', secondary, isToday: true }
+  if (key === yesterdayKey) return { primary: 'Yesterday', secondary, isToday: false }
+  return { primary: d.toLocaleDateString('en-US', { ...ET, weekday: 'long' }), secondary, isToday: false }
+}
+
+/* Group consecutive same-day runs (runs arrive newest-first, so same-day rows are contiguous). */
+function groupRunsByDay(runs: DjcRunDetail[]): { key: string; header: DayHeader; runs: DjcRunDetail[] }[] {
+  const groups: { key: string; header: DayHeader; runs: DjcRunDetail[] }[] = []
+  for (const run of runs) {
+    const key = etDayKey(run.startedAt)
+    const last = groups[groups.length - 1]
+    if (last && last.key === key) last.runs.push(run)
+    else groups.push({ key, header: dayHeader(run.startedAt), runs: [run] })
   }
-  const out = new Map<number, string>()
-  for (const list of byDay.values()) {
-    const asc = [...list].sort((a, b) => +new Date(a.startedAt) - +new Date(b.startedAt))
-    asc.forEach((r, i) => {
-      const d = new Date(r.startedAt)
-      const date = d.toLocaleDateString('en-US', { ...opt, month: 'short', day: 'numeric' })
-      const time = d.toLocaleTimeString('en-US', { ...opt, hour: 'numeric', minute: '2-digit' })
-      // Denominator = the 3×/day cadence (grows only if extra manual runs land that day).
-      out.set(r.id, `${date} · ${time} ET · ${i + 1}/${Math.max(3, asc.length)}`)
-    })
-  }
-  return out
+  return groups
 }
 
 function RunRow({ run, label }: { run: DjcRunDetail; label: string }) {
@@ -343,7 +353,19 @@ export default function DjcRunBreakdown({ runs }: { runs: DjcRunDetail[] }) {
       ) : runs.length === 0 ? (
         <p className="px-3 py-6 text-center text-[13px] text-zinc-600">No runs yet.</p>
       ) : (
-        <div className="space-y-2.5">{(() => { const labels = runDateLabels(runs); return runs.map(run => <RunRow key={run.id} run={run} label={labels.get(run.id) ?? ''} />) })()}</div>
+        <div className="space-y-5">
+          {groupRunsByDay(runs).map(g => (
+            <div key={g.key} className="space-y-2.5">
+              <div className="flex items-center gap-2 px-1">
+                <span className={cn('text-[12px] font-semibold', g.header.isToday ? 'text-cyan-300' : 'text-zinc-300')}>{g.header.primary}</span>
+                <span className="text-[11px] text-zinc-600">{g.header.secondary}</span>
+                <span className="text-[11px] text-zinc-700">· {g.runs.length} run{g.runs.length === 1 ? '' : 's'}</span>
+                <div className="ml-1 h-px flex-1 bg-zinc-800/70" />
+              </div>
+              {g.runs.map(run => <RunRow key={run.id} run={run} label={timeLabel(run.startedAt)} />)}
+            </div>
+          ))}
+        </div>
       )}
     </div>
   )
