@@ -101,6 +101,7 @@ function CandidateDetail({ c, events }: { c: DjcCandidateRow; events: DjcEvent[]
         <Field label="Contact found" value={contactSourceCopy(c.contactSource)} />
         <Field label="Location" value={[c.mailingCity, c.mailingState].filter(Boolean).join(', ') || null} />
         <Field label="Zip" value={c.mailingPostalCode} />
+        <Field label="Job matches" value={c.matchCount != null ? String(c.matchCount) : null} />
         <Field label="State license" value={c.stateLicenses?.replace(/;/g, ', ')} />
         <Field label="Preferred states" value={c.preferredStates?.replace(/;/g, ', ')} />
         <Field label="Résumé" value={c.cvFilename ? 'Attached' : 'None'} />
