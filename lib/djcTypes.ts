@@ -96,3 +96,15 @@ export interface DjcSummary extends DjcTotals {
   last7: DjcTotals // rolling 7-day window (same fields)
   lastRunAt: string | null
 }
+
+export interface DjcIssue {
+  runId: number
+  stage: string | null
+  level: string
+  eventType: string
+  candidateId: string | null
+  name: string | null
+  profileUrl: string | null
+  message: string | null
+  createdAt: string
+}
