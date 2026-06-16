@@ -7,6 +7,9 @@ import DjcStatusBarChart from './DjcStatusBarChart'
 import DjcRunBreakdown from './DjcRunBreakdown'
 import MetricStrip from './MetricStrip'
 
+// Date the scheduled run flipped from preview/testing to live Salesforce writes.
+const DJC_GO_LIVE = '2026-06-16'
+
 interface Props {
   dailyStatus: DjcDayStatus[]
   recentRuns: DjcRunDetail[]
@@ -48,17 +51,24 @@ export default function DjcAutomationCard({ dailyStatus, recentRuns, summary }: 
   const newTotal = summary.wouldCreate + summary.created
   const firstRunDay = dailyStatus.find(d => d.totalRuns > 0)?.day
 
-  // Proportional testing segment within the 90-day window (mirrors the Kimedics phase bar):
-  // the bar only fills from the first run day to today, not the whole track.
-  const phaseSeg = (() => {
-    if (!dailyStatus.length || !firstRunDay) return { left: 0, width: 0 }
+  // Testing (amber) → Production (green) within the 90-day window, split at the go-live date.
+  const phaseSegs = (() => {
+    const empty = { testing: { left: 0, width: 0 }, production: { left: 0, width: 0 } }
+    if (!dailyStatus.length || !firstRunDay) return empty
     const winStart = new Date(dailyStatus[0].day + 'T00:00:00Z').getTime()
     const lastDay = new Date(dailyStatus[dailyStatus.length - 1].day + 'T00:00:00Z')
     lastDay.setUTCDate(lastDay.getUTCDate() + 1)
     const winMs = lastDay.getTime() - winStart || 1
+    const pct = (ms: number) => Math.max(0, Math.min(100, ((ms - winStart) / winMs) * 100))
     const start = new Date(firstRunDay + 'T00:00:00Z').getTime()
-    const left = Math.max(0, Math.min(100, ((start - winStart) / winMs) * 100))
-    return { left, width: Math.max(2, 100 - left) }
+    const live = new Date(DJC_GO_LIVE + 'T00:00:00Z').getTime()
+    const end = lastDay.getTime()
+    const tL = pct(start), tR = pct(Math.min(live, end))
+    const pL = pct(Math.max(live, start)), pR = pct(end)
+    return {
+      testing: { left: tL, width: Math.max(0, tR - tL) },
+      production: { left: pL, width: Math.max(0, pR - pL) },
+    }
   })()
 
   return (
@@ -86,10 +96,16 @@ export default function DjcAutomationCard({ dailyStatus, recentRuns, summary }: 
 
         {/* Meta line — parallels the Kimedics "uptime · schedule" line */}
         <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
-          <span>Sourcing run (90 days)</span>
-          <span>·</span>
           <span>3×/day · 5 AM / 12 PM / 8 PM ET · Modal</span>
         </div>
+
+        {/* One-line takeaway so the card reads at a glance before the numbers */}
+        <p className="mb-3 text-[13px] leading-relaxed text-zinc-300">
+          <span className="font-semibold text-cyan-300">{summary.last7.wouldCreate + summary.last7.created}</span> new candidate{summary.last7.wouldCreate + summary.last7.created === 1 ? '' : 's'} from{' '}
+          <span className="font-semibold text-white">{summary.last7.candidatesSeen.toLocaleString()}</span> reviewed
+          {summary.last7.duplicates > 0 && <> · <span className="text-zinc-400">{summary.last7.duplicates.toLocaleString()} already on file</span></>}
+          <span className="text-zinc-500"> — past 7 days</span>
+        </p>
 
         <div className="mb-4">
           <MetricStrip periods={{
@@ -114,12 +130,13 @@ export default function DjcAutomationCard({ dailyStatus, recentRuns, summary }: 
         <div className="mt-3 space-y-2">
           <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-600">Phase</p>
           <div className="relative h-2 w-full overflow-hidden rounded-full bg-zinc-700/50">
-            <div className="absolute top-0 bottom-0 bg-amber-500" style={{ left: `${phaseSeg.left}%`, width: `${phaseSeg.width}%` }} />
+            <div className="absolute top-0 bottom-0 bg-amber-500" style={{ left: `${phaseSegs.testing.left}%`, width: `${phaseSegs.testing.width}%` }} />
+            <div className="absolute top-0 bottom-0 bg-emerald-500" style={{ left: `${phaseSegs.production.left}%`, width: `${phaseSegs.production.width}%` }} />
           </div>
           <div className="flex items-center gap-2 text-[10px]">
-            <span className="h-1.5 w-5 shrink-0 rounded-sm bg-amber-500" aria-hidden />
-            <span className="font-semibold text-amber-400">Testing</span>
-            <span className="text-zinc-500">writes off — no Salesforce changes{firstRunDay ? ` · since ${formatShortDate(firstRunDay)}` : ''}</span>
+            <span className="h-1.5 w-5 shrink-0 rounded-sm bg-emerald-500" aria-hidden />
+            <span className="font-semibold text-emerald-400">Production</span>
+            <span className="text-zinc-500">live — creating Salesforce Contacts · since {formatShortDate(DJC_GO_LIVE)}</span>
           </div>
         </div>
       </div>
