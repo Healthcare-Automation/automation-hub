@@ -1,5 +1,5 @@
 import { getDailyStatus, getRecentRuns, getWeeklySummary } from '@/lib/queries'
-import { getDjcDailyStatus, getDjcRecentRuns, getDjcSummary, getDjcIssues } from '@/lib/djcQueries'
+import { getDjcDailyStatus, getDjcRecentRuns, getDjcSummary } from '@/lib/djcQueries'
 import { isDjcConfigured } from '@/lib/djcDb'
 import { getOverallStatus, calculateUptime } from '@/lib/utils'
 import type { Phase, OverallStatus } from '@/lib/types'
@@ -38,13 +38,12 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 }
 
 async function loadDjc() {
-  const [dailyStatus, recentRuns, summary, issues] = await Promise.all([
+  const [dailyStatus, recentRuns, summary] = await Promise.all([
     getDjcDailyStatus(),
     getDjcRecentRuns(20),
     getDjcSummary(),
-    getDjcIssues(40),
   ])
-  return { dailyStatus, recentRuns, summary, issues }
+  return { dailyStatus, recentRuns, summary }
 }
 
 export default async function Page() {
@@ -183,7 +182,6 @@ export default async function Page() {
                   dailyStatus={djcData.dailyStatus}
                   recentRuns={djcData.recentRuns}
                   summary={djcData.summary}
-                  issues={djcData.issues}
                 />
               ) : (
                 <div className="flex items-center gap-2.5 rounded-xl border border-zinc-700/40 px-5 py-4">

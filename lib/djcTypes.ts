@@ -97,14 +97,3 @@ export interface DjcSummary extends DjcTotals {
   lastRunAt: string | null
 }
 
-export interface DjcIssue {
-  runId: number
-  stage: string | null
-  level: string
-  eventType: string
-  candidateId: string | null
-  name: string | null
-  profileUrl: string | null
-  message: string | null
-  createdAt: string
-}

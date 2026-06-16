@@ -219,7 +219,30 @@ function RunDetailBody({ run, bundle }: { run: DjcRunDetail; bundle: DjcRunDetai
   )
 }
 
-function RunRow({ run }: { run: DjcRunDetail }) {
+/** "Jun 16 · 5:03 AM ET · 1/3" — date + which run of the day, instead of an opaque "Run #N". */
+function runDateLabels(runs: DjcRunDetail[]): Map<number, string> {
+  const opt = { timeZone: 'America/New_York' } as const
+  const dayKey = (s: string) => new Date(s).toLocaleDateString('en-US', opt)
+  const byDay = new Map<string, DjcRunDetail[]>()
+  for (const r of runs) {
+    const arr = byDay.get(dayKey(r.startedAt))
+    if (arr) arr.push(r); else byDay.set(dayKey(r.startedAt), [r])
+  }
+  const out = new Map<number, string>()
+  for (const list of byDay.values()) {
+    const asc = [...list].sort((a, b) => +new Date(a.startedAt) - +new Date(b.startedAt))
+    asc.forEach((r, i) => {
+      const d = new Date(r.startedAt)
+      const date = d.toLocaleDateString('en-US', { ...opt, month: 'short', day: 'numeric' })
+      const time = d.toLocaleTimeString('en-US', { ...opt, hour: 'numeric', minute: '2-digit' })
+      // Denominator = the 3×/day cadence (grows only if extra manual runs land that day).
+      out.set(r.id, `${date} · ${time} ET · ${i + 1}/${Math.max(3, asc.length)}`)
+    })
+  }
+  return out
+}
+
+function RunRow({ run, label }: { run: DjcRunDetail; label: string }) {
   const [open, setOpen] = useState(false)
   const [bundle, setBundle] = useState<DjcRunDetailBundle | null>(null)
   const [loading, setLoading] = useState(false)
@@ -242,7 +265,7 @@ function RunRow({ run }: { run: DjcRunDetail }) {
         <StatusGlyph status={run.status} errorCount={run.errorCount} />
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-2">
-            <span className="text-[13px] font-semibold text-zinc-100">Run #{run.id}</span>
+            <span className="text-[13px] font-semibold text-zinc-100">{label}</span>
             <span className="text-[11px] text-zinc-500">{formatRelativeTime(run.startedAt)}</span>
             {!interrupted && <span className="text-[11px] text-zinc-600">· {formatDuration(run.durationSeconds)}</span>}
           </div>
@@ -320,7 +343,7 @@ export default function DjcRunBreakdown({ runs }: { runs: DjcRunDetail[] }) {
       ) : runs.length === 0 ? (
         <p className="px-3 py-6 text-center text-[13px] text-zinc-600">No runs yet.</p>
       ) : (
-        <div className="space-y-2.5">{runs.map(run => <RunRow key={run.id} run={run} />)}</div>
+        <div className="space-y-2.5">{(() => { const labels = runDateLabels(runs); return runs.map(run => <RunRow key={run.id} run={run} label={labels.get(run.id) ?? ''} />) })()}</div>
       )}
     </div>
   )

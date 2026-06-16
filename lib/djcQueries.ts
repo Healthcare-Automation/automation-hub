@@ -9,7 +9,6 @@ import type {
   DjcCandidateRow,
   DjcRunDetailBundle,
   DjcSummary,
-  DjcIssue,
 } from './djcTypes'
 
 const DAYS = 90
@@ -324,29 +323,6 @@ function toCandidateRow(c: DjcCandidateColumns): DjcCandidateRow {
   }
 }
 
-/** Recent warn/error events across scheduled runs — drives the "Needs attention" panel. */
-export async function getDjcIssues(limit = 40): Promise<DjcIssue[]> {
-  const sql = djcSql
-  if (!sql) return []
-  const rows = await sql<{
-    run_id: number; stage: string | null; level: string; event_type: string
-    candidate_id: string | null; name: string | null; profile_url: string | null
-    message: string | null; created_at: string
-  }[]>`
-    select e.run_id, e.stage, e.level, e.event_type, e.candidate_id,
-           c.name, c.profile_url, e.message, e.created_at
-    from djc_event_log e
-    left join djc_candidates c on c.candidate_id = e.candidate_id
-    where e.level in ('warn', 'error')
-    order by e.id desc
-    limit ${limit}
-  `
-  return rows.map(r => ({
-    runId: r.run_id, stage: r.stage, level: r.level, eventType: r.event_type,
-    candidateId: r.candidate_id, name: r.name, profileUrl: r.profile_url,
-    message: r.message, createdAt: r.created_at,
-  }))
-}
 
 export async function getDjcSummary(): Promise<DjcSummary> {
   const sql = djcSql
