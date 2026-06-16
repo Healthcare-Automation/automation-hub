@@ -211,7 +211,7 @@ export async function getDjcRunDetail(runId: number): Promise<DjcRunDetailBundle
              mailing_city, mailing_state, mailing_postal_code, state_licenses, preferred_states,
              position_types, cv_uploaded, cv_filename, cv_bytes_len, dedup_status, dedup_reason,
              sf_contact_id, match_count
-      from djc_candidates where last_seen_run = ${runId} order by updated_at desc
+      from djc_candidates where first_seen_run = ${runId} order by updated_at desc
     `,
   ])
 
