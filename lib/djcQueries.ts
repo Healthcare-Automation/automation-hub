@@ -182,7 +182,9 @@ export async function getDjcRunDetail(runId: number): Promise<DjcRunDetailBundle
       }[]
     >`
       select id, candidate_id, event_type, stage, level, message, payload, created_at
-      from djc_event_log where run_id = ${runId} order by id
+      from djc_event_log
+      where candidate_id in (select candidate_id from djc_candidates where first_seen_run = ${runId})
+      order by id
     `,
     sql<
       {

@@ -6,6 +6,7 @@ import type { Phase, OverallStatus } from '@/lib/types'
 import StatusHeader from '@/components/StatusHeader'
 import AutomationCard from '@/components/AutomationCard'
 import DjcAutomationCard from '@/components/DjcAutomationCard'
+import { AutomationTabs } from '@/components/AutomationTabs'
 import { LiveDashboardRefresh } from '@/components/LiveDashboardRefresh'
 
 /** Always read fresh DB state; client also calls router.refresh() on an interval (see LiveDashboardRefresh). */
@@ -157,38 +158,43 @@ export default async function Page() {
           <StatusHeader overallStatus={systemStatus} lastRun={null} />
         </section>
 
-        {/* Each automation is its own self-contained panel */}
+        {/* Each automation gets its own tab so the views aren't crammed together */}
         <section className="space-y-3">
           <SectionLabel>Automations</SectionLabel>
 
-          <AutomationCard
-            name="Kimedics → Salesforce Pipeline"
-            description="Scrapes Kimedics job emails, enriches via Playwright, syncs to Salesforce, validates each job (with alert emails on failures), and sends a daily 24h quality digest"
-            schedule="Every 10 min · Modal"
-            dailyStatus={enrichedDailyStatus}
-            recentRuns={recentRuns}
-            uptime={uptime}
-            phases={phases}
-            weeklySummary={weeklySummary}
-            adminHref="/admin/recovery"
+          <AutomationTabs
+            kimedics={
+              <AutomationCard
+                name="Kimedics → Salesforce Pipeline"
+                description="Scrapes Kimedics job emails, enriches via Playwright, syncs to Salesforce, validates each job (with alert emails on failures), and sends a daily 24h quality digest"
+                schedule="Every 10 min · Modal"
+                dailyStatus={enrichedDailyStatus}
+                recentRuns={recentRuns}
+                uptime={uptime}
+                phases={phases}
+                weeklySummary={weeklySummary}
+                adminHref="/admin/recovery"
+              />
+            }
+            djc={
+              djcData ? (
+                <DjcAutomationCard
+                  dailyStatus={djcData.dailyStatus}
+                  recentRuns={djcData.recentRuns}
+                  summary={djcData.summary}
+                />
+              ) : (
+                <div className="flex items-center gap-2.5 rounded-xl border border-zinc-700/40 px-5 py-4">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-600">
+                    <circle cx="12" cy="12" r="10" /><path d="M12 8v4m0 4h.01" />
+                  </svg>
+                  <span className="text-xs text-zinc-600">
+                    DJC → Salesforce automation — set <code className="text-zinc-500">DJC_DATABASE_URL</code> to show it here
+                  </span>
+                </div>
+              )
+            }
           />
-
-          {djcData ? (
-            <DjcAutomationCard
-              dailyStatus={djcData.dailyStatus}
-              recentRuns={djcData.recentRuns}
-              summary={djcData.summary}
-            />
-          ) : (
-            <div className="flex items-center gap-2.5 rounded-xl border border-zinc-700/40 px-5 py-4">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-600">
-                <circle cx="12" cy="12" r="10" /><path d="M12 8v4m0 4h.01" />
-              </svg>
-              <span className="text-xs text-zinc-600">
-                DJC → Salesforce automation — set <code className="text-zinc-500">DJC_DATABASE_URL</code> to show it here
-              </span>
-            </div>
-          )}
         </section>
 
         {/* Footer */}
