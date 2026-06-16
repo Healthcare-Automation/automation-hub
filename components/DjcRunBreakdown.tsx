@@ -91,7 +91,10 @@ function CandidateDetail({ c, events }: { c: DjcCandidateRow; events: DjcEvent[]
   const willSend = out.kind === 'new' || out.kind === 'created'
   return (
     <div className="border-t border-zinc-800/80 px-4 pb-4 pt-3">
-      {willSend && <p className="mb-2.5 text-[11px] font-medium uppercase tracking-wider text-cyan-400/80">{out.kind === 'created' ? 'Sent to Salesforce' : 'Prepared for Salesforce'}</p>}
+      <div className="mb-2.5 flex items-center gap-3">
+        {willSend && <span className="text-[11px] font-medium uppercase tracking-wider text-cyan-400/80">{out.kind === 'created' ? 'Sent to Salesforce' : 'Prepared for Salesforce'}</span>}
+        {c.sfContactId && <a href={`https://proxi.my.salesforce.com/${c.sfContactId}`} target="_blank" rel="noreferrer" className="text-[11px] font-medium text-emerald-400 hover:underline">Open in Salesforce ↗</a>}
+      </div>
       <div className="grid grid-cols-2 gap-x-5 gap-y-3 sm:grid-cols-3">
         <Field label="Name" value={c.name} />
         <Field label="Specialty" value={c.target} />
