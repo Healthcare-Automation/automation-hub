@@ -1,16 +1,18 @@
 'use client'
 
 import { useState } from 'react'
-import type { DjcDayStatus, DjcRunDetail, DjcSummary } from '@/lib/djcTypes'
+import type { DjcDayStatus, DjcRunDetail, DjcSummary, DjcIssue } from '@/lib/djcTypes'
 import { cn, STATUS_DOT_COLORS, STATUS_COLORS, STATUS_LABELS, formatShortDate } from '@/lib/utils'
 import DjcStatusBarChart from './DjcStatusBarChart'
 import DjcRunBreakdown from './DjcRunBreakdown'
 import MetricStrip from './MetricStrip'
+import { DjcIssues } from './DjcIssues'
 
 interface Props {
   dailyStatus: DjcDayStatus[]
   recentRuns: DjcRunDetail[]
   summary: DjcSummary
+  issues: DjcIssue[]
 }
 
 /** Cyan tooth avatar — same slot/size as the Kimedics avatar, different color/icon. */
@@ -32,7 +34,7 @@ function ChevronDown({ className }: { className?: string }) {
   )
 }
 
-export default function DjcAutomationCard({ dailyStatus, recentRuns, summary }: Props) {
+export default function DjcAutomationCard({ dailyStatus, recentRuns, summary, issues }: Props) {
   const [expanded, setExpanded] = useState(false)
   const lastRun = recentRuns[0]
   const statusKind = lastRun
@@ -122,6 +124,10 @@ export default function DjcAutomationCard({ dailyStatus, recentRuns, summary }: 
             <span className="text-zinc-500">writes off — no Salesforce changes{firstRunDay ? ` · since ${formatShortDate(firstRunDay)}` : ''}</span>
           </div>
         </div>
+      </div>
+
+      <div className="border-t border-zinc-700/50 px-5 py-4">
+        <DjcIssues issues={issues} />
       </div>
 
       <button
