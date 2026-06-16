@@ -136,6 +136,7 @@ export async function getDjcRecentRuns(limit = 20): Promise<DjcRunDetail[]> {
            (select count(*) from djc_event_log e where e.run_id = r.id and e.level = 'warn')::int  as warn_count,
            (select count(*) from djc_event_log e where e.run_id = r.id and e.level = 'error')::int as error_count
     from djc_runs r
+    where r.trigger = 'scheduled'
     order by r.id desc
     limit ${limit}
   `

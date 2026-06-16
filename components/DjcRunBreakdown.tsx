@@ -80,6 +80,17 @@ function ProfileLink({ url }: { url: string | null }) {
   )
 }
 
+function SfLink({ id }: { id: string | null }) {
+  if (!id) return null
+  return (
+    <a href={`https://proxi.my.salesforce.com/${id}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
+      className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-zinc-500 ring-1 ring-zinc-700/50 transition-colors hover:text-emerald-300 hover:ring-emerald-500/30" title="Open Salesforce contact">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /></svg>
+      SF
+    </a>
+  )
+}
+
 function contactSourceCopy(s: string | null): string | null {
   return s === 'profile' ? 'On profile' : s === 'cv' ? 'In résumé' : s === 'profile+cv' ? 'Profile + résumé' : s === 'skipped (already in SF)' ? 'Not collected (already in SF)' : null
 }
@@ -91,10 +102,7 @@ function CandidateDetail({ c, events }: { c: DjcCandidateRow; events: DjcEvent[]
   const willSend = out.kind === 'new' || out.kind === 'created'
   return (
     <div className="border-t border-zinc-800/80 px-4 pb-4 pt-3">
-      <div className="mb-2.5 flex items-center gap-3">
-        {willSend && <span className="text-[11px] font-medium uppercase tracking-wider text-cyan-400/80">{out.kind === 'created' ? 'Sent to Salesforce' : 'Prepared for Salesforce'}</span>}
-        {c.sfContactId && <a href={`https://proxi.my.salesforce.com/${c.sfContactId}`} target="_blank" rel="noreferrer" className="text-[11px] font-medium text-emerald-400 hover:underline">Open in Salesforce ↗</a>}
-      </div>
+      {willSend && <p className="mb-2.5 text-[11px] font-medium uppercase tracking-wider text-cyan-400/80">{out.kind === 'created' ? 'Sent to Salesforce' : 'Prepared for Salesforce'}</p>}
       <div className="grid grid-cols-2 gap-x-5 gap-y-3 sm:grid-cols-3">
         <Field label="Name" value={c.name} />
         <Field label="Specialty" value={c.target} />
@@ -142,6 +150,7 @@ function CandidateRow({ c, events }: { c: DjcCandidateRow; events: DjcEvent[] })
           </div>
         </button>
         <ProfileLink url={c.profileUrl} />
+        <SfLink id={c.sfContactId} />
         <div className="flex shrink-0 flex-col items-end">
           <span className={cn('rounded-md px-2 py-0.5 text-[11px] font-medium ring-1', OUTCOME_STYLE[out.kind])}>{out.label}</span>
           {out.sub && <span className="mt-0.5 text-[10px] text-zinc-600">{out.sub}</span>}
