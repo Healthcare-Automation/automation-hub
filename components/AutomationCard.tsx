@@ -7,6 +7,7 @@ import { cn, STATUS_COLORS, STATUS_DOT_COLORS, STATUS_LABELS, getDayStatusKind, 
 import StatusBarChart from './StatusBarChart'
 import LayerBreakdown from './LayerBreakdown'
 import MetricStrip from './MetricStrip'
+import SendReportButton from './SendReportButton'
 
 interface Props {
   name: string
@@ -187,6 +188,7 @@ export default function AutomationCard({
                 Admin
               </Link>
             )}
+            <SendReportButton automation="kimedics" title={name} accent="emerald" />
           </div>
         </div>
 
