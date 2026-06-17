@@ -13,6 +13,9 @@ function createSql() {
     max: 3,
     idle_timeout: 20,
     max_lifetime: 1800,
+    // Fail fast instead of hanging forever if the pooler is unreachable/saturated — a hang
+    // stacks SSR requests and holds connections, which spirals the whole dashboard down.
+    connect_timeout: 10,
     // Required for Supabase's transaction pooler (port 6543), which serverless should use —
     // transaction mode can't keep session-level prepared statements. Harmless on session mode too.
     prepare: false,
