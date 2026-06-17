@@ -6,6 +6,7 @@ import { cn, STATUS_DOT_COLORS, STATUS_COLORS, STATUS_LABELS, formatShortDate } 
 import DjcStatusBarChart from './DjcStatusBarChart'
 import DjcRunBreakdown from './DjcRunBreakdown'
 import MetricStrip from './MetricStrip'
+import SendReportButton from './SendReportButton'
 
 // Date the scheduled run flipped from preview/testing to live Salesforce writes.
 const DJC_GO_LIVE = '2026-06-16'
@@ -88,15 +89,18 @@ export default function DjcAutomationCard({ dailyStatus, recentRuns, summary }: 
               </p>
             </div>
           </div>
-          <div className="mt-0.5 flex shrink-0 items-center gap-1.5">
-            <span className={cn('h-2 w-2 rounded-full', STATUS_DOT_COLORS[statusKind] ?? 'bg-zinc-600')} />
-            <span className={cn('text-xs font-medium', STATUS_COLORS[statusKind] ?? 'text-zinc-500')}>{STATUS_LABELS[statusKind]}</span>
+          <div className="mt-0.5 flex shrink-0 flex-col items-end gap-1.5">
+            <div className="flex items-center gap-1.5">
+              <span className={cn('h-2 w-2 rounded-full', STATUS_DOT_COLORS[statusKind] ?? 'bg-zinc-600')} />
+              <span className={cn('text-xs font-medium', STATUS_COLORS[statusKind] ?? 'text-zinc-500')}>{STATUS_LABELS[statusKind]}</span>
+            </div>
+            <SendReportButton automation="djc" title="Dentist Job Cafe → Salesforce" accent="cyan" />
           </div>
         </div>
 
         {/* Meta line — parallels the Kimedics "uptime · schedule" line */}
         <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
-          <span>3×/day · 5 AM / 12 PM / 8 PM ET · Modal</span>
+          <span>3×/day · 5 AM / 4 PM / 8 PM ET · Modal</span>
         </div>
 
         {/* One-line takeaway so the card reads at a glance before the numbers */}
