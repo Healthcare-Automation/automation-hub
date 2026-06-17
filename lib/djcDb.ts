@@ -18,6 +18,9 @@ function createDjcSql(): ReturnType<typeof postgres> | null {
     max: 3,
     idle_timeout: 20,
     max_lifetime: 1800,
+    // Required for Supabase's transaction pooler (port 6543), which serverless should use —
+    // transaction mode can't keep session-level prepared statements. Harmless on session mode too.
+    prepare: false,
     connection: { application_name: 'proxi-status-djc' },
   })
 }
