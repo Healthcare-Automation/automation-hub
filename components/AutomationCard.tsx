@@ -177,11 +177,11 @@ export default function AutomationCard({
               <p className="text-xs text-zinc-400 mt-0.5">{description}</p>
             </div>
           </div>
-          <div className="flex shrink-0 flex-col items-end gap-1.5 mt-0.5">
-            <div className="flex items-center gap-1.5">
-              <span className={cn('h-2 w-2 rounded-full', dotColor)} />
-              <span className={cn('text-xs font-medium', textColor)}>{statusLabel}</span>
-            </div>
+          <div className="flex shrink-0 flex-col items-end gap-2.5 mt-0.5">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.04] px-2.5 py-1 text-xs font-medium ring-1 ring-white/10">
+              <span className={cn('h-1.5 w-1.5 rounded-full', dotColor)} />
+              <span className={textColor}>{statusLabel}</span>
+            </span>
             {adminHref && (
               <Link href={adminHref} className="inline-flex items-center gap-1 text-[11px] text-zinc-600 transition-colors hover:text-zinc-300" title="Admin · manual push recovery">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" /></svg>

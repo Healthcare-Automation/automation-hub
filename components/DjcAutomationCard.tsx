@@ -89,11 +89,11 @@ export default function DjcAutomationCard({ dailyStatus, recentRuns, summary }: 
               </p>
             </div>
           </div>
-          <div className="mt-0.5 flex shrink-0 flex-col items-end gap-1.5">
-            <div className="flex items-center gap-1.5">
-              <span className={cn('h-2 w-2 rounded-full', STATUS_DOT_COLORS[statusKind] ?? 'bg-zinc-600')} />
-              <span className={cn('text-xs font-medium', STATUS_COLORS[statusKind] ?? 'text-zinc-500')}>{STATUS_LABELS[statusKind]}</span>
-            </div>
+          <div className="mt-0.5 flex shrink-0 flex-col items-end gap-2.5">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.04] px-2.5 py-1 text-xs font-medium ring-1 ring-white/10">
+              <span className={cn('h-1.5 w-1.5 rounded-full', STATUS_DOT_COLORS[statusKind] ?? 'bg-zinc-600')} />
+              <span className={cn(STATUS_COLORS[statusKind] ?? 'text-zinc-500')}>{STATUS_LABELS[statusKind]}</span>
+            </span>
             <SendReportButton automation="djc" title="Dentist Job Cafe → Salesforce" accent="cyan" />
           </div>
         </div>
