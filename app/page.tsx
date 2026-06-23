@@ -7,6 +7,10 @@ import StatusHeader from '@/components/StatusHeader'
 import AutomationCard from '@/components/AutomationCard'
 import DjcAutomationCard from '@/components/DjcAutomationCard'
 import { AutomationTabs } from '@/components/AutomationTabs'
+import { AutomationView } from '@/components/AutomationView'
+import { AiCostPanel } from '@/components/AiCostPanel'
+import { getKimedicsAiUsage, getDjcAiUsage } from '@/lib/aiUsage'
+import { getOpenAiActualCost, getAnthropicActualCost } from '@/lib/aiBilling'
 import { LiveDashboardRefresh } from '@/components/LiveDashboardRefresh'
 
 /** Always read fresh DB state; client also calls router.refresh() on an interval (see LiveDashboardRefresh). */
@@ -100,6 +104,14 @@ export default async function Page() {
     }
   }
 
+  // AI cost/usage per automation (never let a usage/billing query break the page).
+  const [kimUsage, djcUsage, kimActual, djcActual] = await Promise.all([
+    getKimedicsAiUsage().catch(() => null),
+    isDjcConfigured ? getDjcAiUsage().catch(() => null) : Promise.resolve(null),
+    getOpenAiActualCost().catch(() => undefined),
+    isDjcConfigured ? getAnthropicActualCost().catch(() => undefined) : Promise.resolve(undefined),
+  ])
+
   const phases: Phase[] = []
   if (testingStartDate <= lastTestingDay) {
     phases.push({
@@ -164,24 +176,46 @@ export default async function Page() {
 
           <AutomationTabs
             kimedics={
-              <AutomationCard
-                name="Kimedics → Salesforce Pipeline"
-                description="Scrapes Kimedics job emails, enriches via Playwright, syncs to Salesforce, validates each job (with alert emails on failures), and sends a daily 24h quality digest"
-                schedule="Every 10 min · Modal"
-                dailyStatus={enrichedDailyStatus}
-                recentRuns={recentRuns}
-                uptime={uptime}
-                phases={phases}
-                weeklySummary={weeklySummary}
-                adminHref="/admin/recovery"
+              <AutomationView
+                operations={
+                  <AutomationCard
+                    name="Kimedics → Salesforce Pipeline"
+                    description="Scrapes Kimedics job emails, enriches via Playwright, syncs to Salesforce, validates each job (with alert emails on failures), and sends a daily 24h quality digest"
+                    schedule="Every 10 min · Modal"
+                    dailyStatus={enrichedDailyStatus}
+                    recentRuns={recentRuns}
+                    uptime={uptime}
+                    phases={phases}
+                    weeklySummary={weeklySummary}
+                    adminHref="/admin/recovery"
+                  />
+                }
+                cost={
+                  kimUsage ? (
+                    <AiCostPanel automation="kimedics" usage={kimUsage} actual={kimActual} accent="emerald" />
+                  ) : (
+                    <p className="text-xs text-zinc-600">AI cost unavailable — could not read usage data.</p>
+                  )
+                }
               />
             }
             djc={
               djcData ? (
-                <DjcAutomationCard
-                  dailyStatus={djcData.dailyStatus}
-                  recentRuns={djcData.recentRuns}
-                  summary={djcData.summary}
+                <AutomationView
+                  operations={
+                    <DjcAutomationCard
+                      dailyStatus={djcData.dailyStatus}
+                      recentRuns={djcData.recentRuns}
+                      summary={djcData.summary}
+                    />
+                  }
+                  cost={
+                    djcUsage ? (
+                      <AiCostPanel automation="djc" usage={djcUsage} actual={djcActual} accent="cyan" />
+                    ) : (
+                      <p className="text-xs text-zinc-600">AI cost unavailable — could not read usage data.</p>
+                    )
+                  }
                 />
               ) : (
                 <div className="flex items-center gap-2.5 rounded-xl border border-zinc-700/40 px-5 py-4">
