@@ -100,7 +100,7 @@ export default function DjcAutomationCard({ dailyStatus, recentRuns, summary }: 
 
         {/* Meta line — parallels the Kimedics "uptime · schedule" line */}
         <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
-          <span>Hourly · 9 AM–8 PM ET · Modal</span>
+          <span>Hourly · 9 AM–8 PM ET · weekdays · Modal</span>
         </div>
 
         {/* One-line takeaway so the card reads at a glance before the numbers */}
