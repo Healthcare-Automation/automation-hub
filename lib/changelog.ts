@@ -139,6 +139,12 @@ const KIMEDICS: ChangeEntry[] = [
     details: 'The daily report now counts issues per job (so one job retried nine times reads as “1,” not “9”), flags any blocked job distinctly, and adds Kimedics + Salesforce buttons on each row for quick checking.',
     examples: ['A single job that retried 9 times now shows as 1 blocked job, not 9 failures.'],
   },
+  {
+    date: '2026-06-29', category: 'reliability', title: 'No more silent sync gaps',
+    summary: 'A job that maps to Salesforce but hits a momentary error while writing its details is now retried automatically instead of silently appearing “done”.',
+    details: 'Previously, a brief Salesforce hiccup while writing a job’s details could leave that job linked but with its values unwritten — while still showing as a success. The system now records the error and the recovery engine re-writes the values on its own, so no job is left half-synced without anyone knowing.',
+    examples: ['A job whose details failed to write during a momentary Salesforce error is now auto-corrected within minutes, instead of being caught by hand days later.'],
+  },
 ]
 
 const DJC: ChangeEntry[] = [
