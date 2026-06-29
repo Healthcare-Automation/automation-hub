@@ -1280,12 +1280,22 @@ export async function getValidationData(runId: number, filters: ValidationFilter
     // Legacy error extraction for backward compatibility
     const errors = [...mappingIssues, ...salesforceIssues].map(issue => issue.message).filter(Boolean)
 
-    // Determine status based on sf_job_id and errors
+    // A job is "success" ONLY if its scrape fields actually reached Salesforce — i.e.
+    // the field sync produced a terminal resolution (patched, recovered, or a deliberate
+    // skip such as "already matches" / "writes disabled"). A job that is MAPPED but has
+    // NO field-sync event of any kind never had its details written and must read FAILED,
+    // not Success — this is the silent #20046 failure (a swallowed sync crash left an
+    // sf_job_id and no error, so the old rule called it Success).
+    const FIELD_SYNC_RESOLVED = ['sf_scrape_fields_patched', 'sf_scrape_fields_recovered', 'sf_scrape_fields_skip']
+    const hasFieldSyncResolution = salesforceFieldEvents.some(e => FIELD_SYNC_RESOLVED.includes(e.eventType))
+
     let status: 'success' | 'failed' | 'partial'
     if (!row.sf_job_id) {
-      status = 'failed'
+      status = 'failed'                      // never mapped to a Salesforce record
+    } else if (!hasFieldSyncResolution) {
+      status = 'failed'                      // mapped, but its details were never written to Salesforce
     } else if (errors.length > 0) {
-      status = 'partial'
+      status = 'partial'                     // synced, but with a recoverable issue (e.g. a field dropped)
     } else {
       status = 'success'
     }
