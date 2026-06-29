@@ -145,6 +145,12 @@ const KIMEDICS: ChangeEntry[] = [
     details: 'Previously, a brief Salesforce hiccup while writing a job’s details could leave that job linked but with its values unwritten — while still showing as a success. The system now records the error and the recovery engine re-writes the values on its own, so no job is left half-synced without anyone knowing.',
     examples: ['A job whose details failed to write during a momentary Salesforce error is now auto-corrected within minutes, instead of being caught by hand days later.'],
   },
+  {
+    date: '2026-06-30', category: 'reliability', title: 'A failed job can never look successful',
+    summary: 'If a job’s details don’t fully reach Salesforce, it’s now marked as failed everywhere and re-saved automatically — it can no longer show as a success.',
+    details: 'We rebuilt the safeguards end to end: a job only counts as a success once its details have actually been written to Salesforce. If anything interrupts that, the job is flagged as failed in both the dashboard and the daily report, and a background check re-saves it within minutes — so an incomplete job can never quietly appear “done” again, no matter what causes the interruption.',
+    examples: ['A job that links to Salesforce but whose details didn’t write now shows “not synced / failed” instead of “success,” and is corrected automatically on the next cycle.'],
+  },
 ]
 
 const DJC: ChangeEntry[] = [
