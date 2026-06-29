@@ -25,10 +25,57 @@ function Badge({ category }: { category: ChangeEntry['category'] }) {
   )
 }
 
+function Chevron() {
+  return (
+    <svg
+      className="h-3 w-3 shrink-0 text-zinc-500 transition-transform duration-200 group-open:rotate-90"
+      viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+    >
+      <path d="M9 18l6-6-6-6" />
+    </svg>
+  )
+}
+
+function Entry({ e }: { e: ChangeEntry }) {
+  return (
+    <li className="relative">
+      <span className={`absolute -left-[21px] top-3 h-2 w-2 rounded-full ring-2 ring-zinc-950 ${CATEGORY_META[e.category].dot}`} />
+      <details className="group rounded-lg border border-zinc-800/70 bg-zinc-900/30 transition-colors open:border-zinc-700/70 open:bg-zinc-900/50">
+        <summary className="flex cursor-pointer list-none flex-col gap-1 p-3 [&::-webkit-details-marker]:hidden">
+          <div className="flex items-center gap-x-2">
+            <span className="text-[13px] font-semibold text-zinc-100">{e.title}</span>
+            <Badge category={e.category} />
+            <span className="ml-auto text-[10px] font-medium tabular-nums text-zinc-500">{dayLabel(e.date)}</span>
+            <Chevron />
+          </div>
+          <p className="text-[12px] leading-relaxed text-zinc-400">{e.summary}</p>
+        </summary>
+        <div className="border-t border-zinc-800/70 px-3 pb-3 pt-2.5">
+          <p className="text-[12px] leading-relaxed text-zinc-300">{e.details}</p>
+          {e.examples && e.examples.length > 0 && (
+            <div className="mt-2.5">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-600">
+                {e.examples.length === 1 ? 'Example' : 'Examples'}
+              </p>
+              <ul className="mt-1 space-y-1">
+                {e.examples.map((ex, k) => (
+                  <li key={k} className="flex gap-2 text-[11.5px] leading-relaxed text-zinc-400">
+                    <span className={`mt-1.5 h-1 w-1 shrink-0 rounded-full ${CATEGORY_META[e.category].dot}`} />
+                    <span>{ex}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      </details>
+    </li>
+  )
+}
+
 export function ChangelogPanel({ automation }: { automation: Automation }) {
   const entries = [...CHANGELOG[automation]].sort((a, b) => b.date.localeCompare(a.date))
 
-  // Group into months (already newest-first because entries are sorted desc).
   const groups: { key: string; label: string; items: ChangeEntry[] }[] = []
   for (const e of entries) {
     const k = monthKey(e.date)
@@ -51,7 +98,7 @@ export function ChangelogPanel({ automation }: { automation: Automation }) {
       <div>
         <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">What&apos;s changed</p>
         <p className="mt-1 text-xs leading-relaxed text-zinc-400">
-          A running log of the meaningful improvements to this automation — what changed, when, and why.
+          A running log of the meaningful improvements to this automation. Click any update for details and examples.
         </p>
         <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
           {(Object.keys(CATEGORY_META) as ChangeEntry['category'][]).map((k) =>
@@ -72,17 +119,7 @@ export function ChangelogPanel({ automation }: { automation: Automation }) {
             <h3 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">{g.label}</h3>
             <ol className="relative space-y-2 border-l border-zinc-800 pl-4">
               {g.items.map((e, i) => (
-                <li key={`${e.date}-${i}`} className="relative">
-                  <span className={`absolute -left-[21px] top-1.5 h-2 w-2 rounded-full ring-2 ring-zinc-950 ${CATEGORY_META[e.category].dot}`} />
-                  <div className="rounded-lg border border-zinc-800/70 bg-zinc-900/30 p-3">
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <span className="text-[13px] font-semibold text-zinc-100">{e.title}</span>
-                      <Badge category={e.category} />
-                      <span className="ml-auto text-[10px] font-medium tabular-nums text-zinc-500">{dayLabel(e.date)}</span>
-                    </div>
-                    <p className="mt-1.5 text-[12px] leading-relaxed text-zinc-400">{e.summary}</p>
-                  </div>
-                </li>
+                <Entry key={`${e.date}-${i}`} e={e} />
               ))}
             </ol>
           </section>
