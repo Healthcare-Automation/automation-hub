@@ -155,6 +155,12 @@ const KIMEDICS: ChangeEntry[] = [
 
 const DJC: ChangeEntry[] = [
   {
+    date: '2026-06-30', category: 'reliability', title: 'Steadier automatic sign-in',
+    summary: 'Fixed a sign-in timeout that briefly stopped the automation when the login security code was slow to arrive.',
+    details: 'Each run signs in with a one-time security code texted to us. That text started arriving a bit slower than our wait allowed, so sign-in timed out and a few runs were skipped. We widened the wait so a slow code no longer stops a run.',
+    examples: ['Morning runs that had been failing to sign in now complete normally.'],
+  },
+  {
     date: '2026-06-05', category: 'new', title: 'DJC automation built',
     summary: 'Built the Dentist Job Cafe → Salesforce automation end to end: automated login, candidate scraping, AI resume reading, and Salesforce contact creation.',
     details: 'The full DJC pipeline was built: it logs in automatically (including one-time codes), scrapes candidate profiles, reads resumes with AI to recover contact details, and creates Salesforce contacts.',
