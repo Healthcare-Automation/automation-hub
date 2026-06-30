@@ -11,12 +11,14 @@ function StatusBadge({
   emailCount,
   jobCount,
   unresolvedFailedJobCount,
+  recoveredLaterCount,
 }: {
   status: RunDetail['status']
   sfErrorCount: number
   emailCount: number
   jobCount: number
   unresolvedFailedJobCount: number
+  recoveredLaterCount: number
 }) {
   if (status === 'error') {
     return (
@@ -28,14 +30,14 @@ function StatusBadge({
       </span>
     )
   }
-  // Unresolved Salesforce-creation failure inside this run — surface as red so
-  // the row visibly disagrees with "Successful" until the failure is recovered
-  // (rescrape, manual SF create, or a later populated job_content row).
+  // Unresolved Salesforce failure inside this run (creation failed, OR mapped but its
+  // fields were never written) — surface as red so the row visibly disagrees with
+  // "Successful" until it's recovered (rescrape, manual fix, or the auto re-sync sweep).
   if (unresolvedFailedJobCount > 0) {
     return (
       <span
         className="inline-flex items-center gap-1 text-red-400 text-xs font-medium whitespace-nowrap"
-        title={`${unresolvedFailedJobCount} job${unresolvedFailedJobCount === 1 ? '' : 's'} in this run failed to create a Salesforce Job__c record and have not been recovered yet`}
+        title={`${unresolvedFailedJobCount} job${unresolvedFailedJobCount === 1 ? '' : 's'} in this run did not fully land in Salesforce (creation failed, or mapped but fields never synced) and have not been recovered yet — these auto-correct on the next cycle`}
       >
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
@@ -82,6 +84,25 @@ function StatusBadge({
           <line x1="12" y1="17" x2="12.01" y2="17" />
         </svg>
         Warning
+      </span>
+    )
+  }
+  // A job in this run failed to land its data on time but was fixed afterward (a delayed
+  // sync / recovery). Do NOT show a clean "Successful" — the run must reflect that it had
+  // an issue, with a visible "Recovered" so the failure is never hidden in history.
+  if (recoveredLaterCount > 0) {
+    return (
+      <span
+        className="inline-flex items-center gap-1 text-cyan-400 text-xs font-medium whitespace-nowrap"
+        title={`${recoveredLaterCount} job${recoveredLaterCount === 1 ? '' : 's'} in this run didn't fully sync at first but was auto-corrected afterward — surfaced so the failure isn't hidden behind a clean success`}
+      >
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 2v6h-6" />
+          <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+          <path d="M3 22v-6h6" />
+          <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+        </svg>
+        Recovered
       </span>
     )
   }
@@ -415,7 +436,7 @@ const SF_FACETS: ReadonlyArray<{
   match: (r: RunDetail) => boolean
   tooltip: string
 }> = [
-  { key: 'failed',      label: 'Failed',       tone: 'red',     match: r => (r.unresolvedFailedJobCount ?? 0) > 0, tooltip: 'Jobs in this run whose SF Job__c creation failed and has not been recovered' },
+  { key: 'failed',      label: 'Failed',       tone: 'red',     match: r => (r.unresolvedFailedJobCount ?? 0) > 0, tooltip: 'Jobs in this run that did not fully land in Salesforce (creation failed, or mapped but fields never synced) and have not been recovered' },
   { key: 'sf-error',    label: 'SF Error',     tone: 'red',     match: r => (r.sfErrorCount ?? 0) > 0,             tooltip: 'Unresolved Salesforce push errors on this run' },
   { key: 'quarantined', label: 'Field dropped', tone: 'amber',  match: r => (r.sfQuarantinedCount ?? 0) > 0,        tooltip: 'Field(s) dropped by SF on this run (e.g. value too long, picklist mismatch)' },
   { key: 'recovered',   label: 'Recovered',    tone: 'cyan',    match: r => (r.sfRecoveredCount ?? 0) > 0,         tooltip: 'SF push errors that were auto-recovered on this run' },
@@ -792,6 +813,7 @@ export default function LayerBreakdown({ runs }: Props) {
             emailCount={run.emailCount}
             jobCount={run.jobCount}
             unresolvedFailedJobCount={run.unresolvedFailedJobCount}
+            recoveredLaterCount={run.recoveredLaterCount}
           />
 
           {/* Started + duration */}
