@@ -155,9 +155,15 @@ const KIMEDICS: ChangeEntry[] = [
 
 const DJC: ChangeEntry[] = [
   {
+    date: '2026-06-30', category: 'accuracy', title: 'Catch more phone numbers + true activity date',
+    summary: 'We now capture phone numbers on profiles that list them differently, and record each candidate’s real "last active on DJC" date.',
+    details: 'Some profiles label the phone number in a different spot than others, and we were only reading one of them — so a few reachable candidates looked like they had no phone. We now read both. We also pull each candidate’s real last-active date straight from their profile, so that date is always accurate in Salesforce.',
+    examples: ['A general dentist whose number was listed under a different label now comes through with her phone.', 'Salesforce now shows when a candidate was genuinely last active on DJC, not an approximation.'],
+  },
+  {
     date: '2026-06-30', category: 'reliability', title: 'Steadier automatic sign-in',
     summary: 'Fixed a sign-in timeout that briefly stopped the automation when the login security code was slow to arrive.',
-    details: 'Each run signs in with a one-time security code texted to us. That text started arriving a bit slower than our wait allowed, so sign-in timed out and a few runs were skipped. We widened the wait so a slow code no longer stops a run.',
+    details: 'Each run signs in with a one-time security code texted to us. That text started arriving a bit slower than our wait allowed, so sign-in timed out and a few runs were skipped. We widened the wait, and now keep a signed-in session between runs so we only need a fresh code about once a day instead of every run.',
     examples: ['Morning runs that had been failing to sign in now complete normally.'],
   },
   {
