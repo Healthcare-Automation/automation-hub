@@ -239,16 +239,38 @@ export async function getRecentRuns(limit = 20, offset = 0): Promise<RunDetail[]
       -- Jobs that hit a SF-side failure during this run AND were later recovered
       -- by ANY subsequent successful event (regardless of which run patched).
       count(DISTINCT jel.job_id) FILTER (
-        WHERE jel.event_type IN ('sf_mapping_pull_failed','sf_sync_skipped_no_mapping','sf_scrape_fields_error')
-          AND EXISTS (
-            SELECT 1 FROM job_event_log ok
-            WHERE ok.job_id = jel.job_id
-              AND ok.event_type IN (
-                'sf_scrape_fields_patched','sf_ids_update','job_created_in_salesforce',
-                'sf_scrape_fields_recovered','worksite_created','mapping_ai_match'
-              )
-              AND ok.created_at > jel.created_at
-          )
+        WHERE (
+          (jel.event_type IN ('sf_mapping_pull_failed','sf_sync_skipped_no_mapping','sf_scrape_fields_error')
+            AND EXISTS (
+              SELECT 1 FROM job_event_log ok
+              WHERE ok.job_id = jel.job_id
+                AND ok.event_type IN (
+                  'sf_scrape_fields_patched','sf_ids_update','job_created_in_salesforce',
+                  'sf_scrape_fields_recovered','worksite_created','mapping_ai_match'
+                )
+                AND ok.created_at > jel.created_at
+            ))
+          OR
+          -- Silent failure fixed late (the #20046 shape): mapped this run, but NOT synced
+          -- promptly (no field-sync within 10 min of mapping) yet eventually synced. No
+          -- error was logged at the time, so surface it as Recovered — the failure is not
+          -- hidden behind a clean Success. (Excludes normal jobs synced right away.)
+          (jel.event_type = 'sf_ids_update'
+            AND COALESCE(jel.payload->'next'->>'sf_job_id','') <> ''
+            AND NOT EXISTS (
+              SELECT 1 FROM job_event_log prompt
+              WHERE prompt.job_id = jel.job_id
+                AND prompt.event_type IN ('sf_scrape_fields_patched','sf_scrape_fields_recovered','sf_scrape_fields_skip')
+                AND prompt.created_at >= jel.created_at - INTERVAL '5 minutes'
+                AND prompt.created_at <= jel.created_at + INTERVAL '10 minutes'
+            )
+            AND EXISTS (
+              SELECT 1 FROM job_event_log late
+              WHERE late.job_id = jel.job_id
+                AND late.event_type IN ('sf_scrape_fields_patched','sf_scrape_fields_recovered','sf_scrape_fields_skip')
+                AND late.created_at > jel.created_at + INTERVAL '10 minutes'
+            ))
+        )
       ) AS recovered_later_count,
       count(DISTINCT jel.id) FILTER (
         WHERE jel.event_type IN ('sf_scrape_fields_error', 'sf_mapping_pull_failed')
@@ -269,27 +291,43 @@ export async function getRecentRuns(limit = 20, offset = 0): Promise<RunDetail[]
               <> COALESCE(jel.payload->'next'->>'External_Job_ID__c', '')
       ) AS ext_job_id_swap_count,
       count(DISTINCT jel.job_id) FILTER (
-        WHERE jel.event_type IN ('job_create_failed', 'worksite_create_failed')
-          AND NOT EXISTS (
-            SELECT 1 FROM job_event_log ok
-            WHERE ok.job_id = jel.job_id
-              AND ok.event_type = 'job_created_in_salesforce'
-              AND ok.created_at >= jel.created_at
+        WHERE (
+          (jel.event_type IN ('job_create_failed', 'worksite_create_failed')
+            AND NOT EXISTS (
+              SELECT 1 FROM job_event_log ok
+              WHERE ok.job_id = jel.job_id
+                AND ok.event_type = 'job_created_in_salesforce'
+                AND ok.created_at >= jel.created_at
+            )
+            AND NOT EXISTS (
+              SELECT 1 FROM job_event_log rs
+              WHERE rs.job_id = jel.job_id
+                AND rs.event_type IN ('manual_rescrape_completed', 'auto_retry_completed')
+                AND rs.created_at >= jel.created_at
+                AND COALESCE(rs.payload->>'action', '') IN ('re_scraped', 're_scraped_with_warning')
+            )
+            AND NOT EXISTS (
+              SELECT 1 FROM job_content jc_ok2
+              WHERE jc_ok2.job_id = jel.job_id
+                AND jc_ok2.created_at > jel.created_at
+                AND COALESCE(jc_ok2.title_line, '') <> ''
+                AND COALESCE(jc_ok2.description_full_text, '') <> ''
+            )
           )
-          AND NOT EXISTS (
-            SELECT 1 FROM job_event_log rs
-            WHERE rs.job_id = jel.job_id
-              AND rs.event_type IN ('manual_rescrape_completed', 'auto_retry_completed')
-              AND rs.created_at >= jel.created_at
-              AND COALESCE(rs.payload->>'action', '') IN ('re_scraped', 're_scraped_with_warning')
+          OR
+          -- Mapped to Salesforce but its fields were never written (no field-sync
+          -- resolution yet) — the silent #20046 failure. Counts as Failed until the
+          -- backstop sweep re-syncs it, then it drops out and the run flips to Successful.
+          (jel.event_type = 'sf_ids_update'
+            AND COALESCE(jel.payload->'next'->>'sf_job_id', '') <> ''
+            AND NOT EXISTS (
+              SELECT 1 FROM job_event_log fs
+              WHERE fs.job_id = jel.job_id
+                AND fs.event_type IN ('sf_scrape_fields_patched', 'sf_scrape_fields_recovered', 'sf_scrape_fields_skip')
+                AND fs.created_at >= jel.created_at - INTERVAL '5 minutes'
+            )
           )
-          AND NOT EXISTS (
-            SELECT 1 FROM job_content jc_ok2
-            WHERE jc_ok2.job_id = jel.job_id
-              AND jc_ok2.created_at > jel.created_at
-              AND COALESCE(jc_ok2.title_line, '') <> ''
-              AND COALESCE(jc_ok2.description_full_text, '') <> ''
-          )
+        )
       ) AS unresolved_failed_job_count,
       (
         SELECT COALESCE(json_agg(DISTINCT q.payload->>'field'), '[]'::json)
@@ -457,16 +495,38 @@ export async function getAllRuns(): Promise<RunDetail[]> {
       -- Jobs that hit a SF-side failure during this run AND were later recovered
       -- by ANY subsequent successful event (regardless of which run patched).
       count(DISTINCT jel.job_id) FILTER (
-        WHERE jel.event_type IN ('sf_mapping_pull_failed','sf_sync_skipped_no_mapping','sf_scrape_fields_error')
-          AND EXISTS (
-            SELECT 1 FROM job_event_log ok
-            WHERE ok.job_id = jel.job_id
-              AND ok.event_type IN (
-                'sf_scrape_fields_patched','sf_ids_update','job_created_in_salesforce',
-                'sf_scrape_fields_recovered','worksite_created','mapping_ai_match'
-              )
-              AND ok.created_at > jel.created_at
-          )
+        WHERE (
+          (jel.event_type IN ('sf_mapping_pull_failed','sf_sync_skipped_no_mapping','sf_scrape_fields_error')
+            AND EXISTS (
+              SELECT 1 FROM job_event_log ok
+              WHERE ok.job_id = jel.job_id
+                AND ok.event_type IN (
+                  'sf_scrape_fields_patched','sf_ids_update','job_created_in_salesforce',
+                  'sf_scrape_fields_recovered','worksite_created','mapping_ai_match'
+                )
+                AND ok.created_at > jel.created_at
+            ))
+          OR
+          -- Silent failure fixed late (the #20046 shape): mapped this run, but NOT synced
+          -- promptly (no field-sync within 10 min of mapping) yet eventually synced. No
+          -- error was logged at the time, so surface it as Recovered — the failure is not
+          -- hidden behind a clean Success. (Excludes normal jobs synced right away.)
+          (jel.event_type = 'sf_ids_update'
+            AND COALESCE(jel.payload->'next'->>'sf_job_id','') <> ''
+            AND NOT EXISTS (
+              SELECT 1 FROM job_event_log prompt
+              WHERE prompt.job_id = jel.job_id
+                AND prompt.event_type IN ('sf_scrape_fields_patched','sf_scrape_fields_recovered','sf_scrape_fields_skip')
+                AND prompt.created_at >= jel.created_at - INTERVAL '5 minutes'
+                AND prompt.created_at <= jel.created_at + INTERVAL '10 minutes'
+            )
+            AND EXISTS (
+              SELECT 1 FROM job_event_log late
+              WHERE late.job_id = jel.job_id
+                AND late.event_type IN ('sf_scrape_fields_patched','sf_scrape_fields_recovered','sf_scrape_fields_skip')
+                AND late.created_at > jel.created_at + INTERVAL '10 minutes'
+            ))
+        )
       ) AS recovered_later_count,
       count(DISTINCT jel.id) FILTER (
         WHERE jel.event_type IN ('sf_scrape_fields_error', 'sf_mapping_pull_failed')
@@ -487,27 +547,43 @@ export async function getAllRuns(): Promise<RunDetail[]> {
               <> COALESCE(jel.payload->'next'->>'External_Job_ID__c', '')
       ) AS ext_job_id_swap_count,
       count(DISTINCT jel.job_id) FILTER (
-        WHERE jel.event_type IN ('job_create_failed', 'worksite_create_failed')
-          AND NOT EXISTS (
-            SELECT 1 FROM job_event_log ok
-            WHERE ok.job_id = jel.job_id
-              AND ok.event_type = 'job_created_in_salesforce'
-              AND ok.created_at >= jel.created_at
+        WHERE (
+          (jel.event_type IN ('job_create_failed', 'worksite_create_failed')
+            AND NOT EXISTS (
+              SELECT 1 FROM job_event_log ok
+              WHERE ok.job_id = jel.job_id
+                AND ok.event_type = 'job_created_in_salesforce'
+                AND ok.created_at >= jel.created_at
+            )
+            AND NOT EXISTS (
+              SELECT 1 FROM job_event_log rs
+              WHERE rs.job_id = jel.job_id
+                AND rs.event_type IN ('manual_rescrape_completed', 'auto_retry_completed')
+                AND rs.created_at >= jel.created_at
+                AND COALESCE(rs.payload->>'action', '') IN ('re_scraped', 're_scraped_with_warning')
+            )
+            AND NOT EXISTS (
+              SELECT 1 FROM job_content jc_ok2
+              WHERE jc_ok2.job_id = jel.job_id
+                AND jc_ok2.created_at > jel.created_at
+                AND COALESCE(jc_ok2.title_line, '') <> ''
+                AND COALESCE(jc_ok2.description_full_text, '') <> ''
+            )
           )
-          AND NOT EXISTS (
-            SELECT 1 FROM job_event_log rs
-            WHERE rs.job_id = jel.job_id
-              AND rs.event_type IN ('manual_rescrape_completed', 'auto_retry_completed')
-              AND rs.created_at >= jel.created_at
-              AND COALESCE(rs.payload->>'action', '') IN ('re_scraped', 're_scraped_with_warning')
+          OR
+          -- Mapped to Salesforce but its fields were never written (no field-sync
+          -- resolution yet) — the silent #20046 failure. Counts as Failed until the
+          -- backstop sweep re-syncs it, then it drops out and the run flips to Successful.
+          (jel.event_type = 'sf_ids_update'
+            AND COALESCE(jel.payload->'next'->>'sf_job_id', '') <> ''
+            AND NOT EXISTS (
+              SELECT 1 FROM job_event_log fs
+              WHERE fs.job_id = jel.job_id
+                AND fs.event_type IN ('sf_scrape_fields_patched', 'sf_scrape_fields_recovered', 'sf_scrape_fields_skip')
+                AND fs.created_at >= jel.created_at - INTERVAL '5 minutes'
+            )
           )
-          AND NOT EXISTS (
-            SELECT 1 FROM job_content jc_ok2
-            WHERE jc_ok2.job_id = jel.job_id
-              AND jc_ok2.created_at > jel.created_at
-              AND COALESCE(jc_ok2.title_line, '') <> ''
-              AND COALESCE(jc_ok2.description_full_text, '') <> ''
-          )
+        )
       ) AS unresolved_failed_job_count,
       (
         SELECT COALESCE(json_agg(DISTINCT q.payload->>'field'), '[]'::json)
@@ -728,16 +804,38 @@ export async function searchRuns(params: SearchRunsParams): Promise<RunDetail[]>
       -- Jobs that hit a SF-side failure during this run AND were later recovered
       -- by ANY subsequent successful event (regardless of which run patched).
       count(DISTINCT jel.job_id) FILTER (
-        WHERE jel.event_type IN ('sf_mapping_pull_failed','sf_sync_skipped_no_mapping','sf_scrape_fields_error')
-          AND EXISTS (
-            SELECT 1 FROM job_event_log ok
-            WHERE ok.job_id = jel.job_id
-              AND ok.event_type IN (
-                'sf_scrape_fields_patched','sf_ids_update','job_created_in_salesforce',
-                'sf_scrape_fields_recovered','worksite_created','mapping_ai_match'
-              )
-              AND ok.created_at > jel.created_at
-          )
+        WHERE (
+          (jel.event_type IN ('sf_mapping_pull_failed','sf_sync_skipped_no_mapping','sf_scrape_fields_error')
+            AND EXISTS (
+              SELECT 1 FROM job_event_log ok
+              WHERE ok.job_id = jel.job_id
+                AND ok.event_type IN (
+                  'sf_scrape_fields_patched','sf_ids_update','job_created_in_salesforce',
+                  'sf_scrape_fields_recovered','worksite_created','mapping_ai_match'
+                )
+                AND ok.created_at > jel.created_at
+            ))
+          OR
+          -- Silent failure fixed late (the #20046 shape): mapped this run, but NOT synced
+          -- promptly (no field-sync within 10 min of mapping) yet eventually synced. No
+          -- error was logged at the time, so surface it as Recovered — the failure is not
+          -- hidden behind a clean Success. (Excludes normal jobs synced right away.)
+          (jel.event_type = 'sf_ids_update'
+            AND COALESCE(jel.payload->'next'->>'sf_job_id','') <> ''
+            AND NOT EXISTS (
+              SELECT 1 FROM job_event_log prompt
+              WHERE prompt.job_id = jel.job_id
+                AND prompt.event_type IN ('sf_scrape_fields_patched','sf_scrape_fields_recovered','sf_scrape_fields_skip')
+                AND prompt.created_at >= jel.created_at - INTERVAL '5 minutes'
+                AND prompt.created_at <= jel.created_at + INTERVAL '10 minutes'
+            )
+            AND EXISTS (
+              SELECT 1 FROM job_event_log late
+              WHERE late.job_id = jel.job_id
+                AND late.event_type IN ('sf_scrape_fields_patched','sf_scrape_fields_recovered','sf_scrape_fields_skip')
+                AND late.created_at > jel.created_at + INTERVAL '10 minutes'
+            ))
+        )
       ) AS recovered_later_count,
       count(DISTINCT jel.id) FILTER (
         WHERE jel.event_type IN ('sf_scrape_fields_error', 'sf_mapping_pull_failed')
@@ -758,27 +856,43 @@ export async function searchRuns(params: SearchRunsParams): Promise<RunDetail[]>
               <> COALESCE(jel.payload->'next'->>'External_Job_ID__c', '')
       ) AS ext_job_id_swap_count,
       count(DISTINCT jel.job_id) FILTER (
-        WHERE jel.event_type IN ('job_create_failed', 'worksite_create_failed')
-          AND NOT EXISTS (
-            SELECT 1 FROM job_event_log ok
-            WHERE ok.job_id = jel.job_id
-              AND ok.event_type = 'job_created_in_salesforce'
-              AND ok.created_at >= jel.created_at
+        WHERE (
+          (jel.event_type IN ('job_create_failed', 'worksite_create_failed')
+            AND NOT EXISTS (
+              SELECT 1 FROM job_event_log ok
+              WHERE ok.job_id = jel.job_id
+                AND ok.event_type = 'job_created_in_salesforce'
+                AND ok.created_at >= jel.created_at
+            )
+            AND NOT EXISTS (
+              SELECT 1 FROM job_event_log rs
+              WHERE rs.job_id = jel.job_id
+                AND rs.event_type IN ('manual_rescrape_completed', 'auto_retry_completed')
+                AND rs.created_at >= jel.created_at
+                AND COALESCE(rs.payload->>'action', '') IN ('re_scraped', 're_scraped_with_warning')
+            )
+            AND NOT EXISTS (
+              SELECT 1 FROM job_content jc_ok2
+              WHERE jc_ok2.job_id = jel.job_id
+                AND jc_ok2.created_at > jel.created_at
+                AND COALESCE(jc_ok2.title_line, '') <> ''
+                AND COALESCE(jc_ok2.description_full_text, '') <> ''
+            )
           )
-          AND NOT EXISTS (
-            SELECT 1 FROM job_event_log rs
-            WHERE rs.job_id = jel.job_id
-              AND rs.event_type IN ('manual_rescrape_completed', 'auto_retry_completed')
-              AND rs.created_at >= jel.created_at
-              AND COALESCE(rs.payload->>'action', '') IN ('re_scraped', 're_scraped_with_warning')
+          OR
+          -- Mapped to Salesforce but its fields were never written (no field-sync
+          -- resolution yet) — the silent #20046 failure. Counts as Failed until the
+          -- backstop sweep re-syncs it, then it drops out and the run flips to Successful.
+          (jel.event_type = 'sf_ids_update'
+            AND COALESCE(jel.payload->'next'->>'sf_job_id', '') <> ''
+            AND NOT EXISTS (
+              SELECT 1 FROM job_event_log fs
+              WHERE fs.job_id = jel.job_id
+                AND fs.event_type IN ('sf_scrape_fields_patched', 'sf_scrape_fields_recovered', 'sf_scrape_fields_skip')
+                AND fs.created_at >= jel.created_at - INTERVAL '5 minutes'
+            )
           )
-          AND NOT EXISTS (
-            SELECT 1 FROM job_content jc_ok2
-            WHERE jc_ok2.job_id = jel.job_id
-              AND jc_ok2.created_at > jel.created_at
-              AND COALESCE(jc_ok2.title_line, '') <> ''
-              AND COALESCE(jc_ok2.description_full_text, '') <> ''
-          )
+        )
       ) AS unresolved_failed_job_count,
       (
         SELECT COALESCE(json_agg(DISTINCT q.payload->>'field'), '[]'::json)
@@ -1280,12 +1394,22 @@ export async function getValidationData(runId: number, filters: ValidationFilter
     // Legacy error extraction for backward compatibility
     const errors = [...mappingIssues, ...salesforceIssues].map(issue => issue.message).filter(Boolean)
 
-    // Determine status based on sf_job_id and errors
+    // A job is "success" ONLY if its scrape fields actually reached Salesforce — i.e.
+    // the field sync produced a terminal resolution (patched, recovered, or a deliberate
+    // skip such as "already matches" / "writes disabled"). A job that is MAPPED but has
+    // NO field-sync event of any kind never had its details written and must read FAILED,
+    // not Success — this is the silent #20046 failure (a swallowed sync crash left an
+    // sf_job_id and no error, so the old rule called it Success).
+    const FIELD_SYNC_RESOLVED = ['sf_scrape_fields_patched', 'sf_scrape_fields_recovered', 'sf_scrape_fields_skip']
+    const hasFieldSyncResolution = salesforceFieldEvents.some(e => FIELD_SYNC_RESOLVED.includes(e.eventType))
+
     let status: 'success' | 'failed' | 'partial'
     if (!row.sf_job_id) {
-      status = 'failed'
+      status = 'failed'                      // never mapped to a Salesforce record
+    } else if (!hasFieldSyncResolution) {
+      status = 'failed'                      // mapped, but its details were never written to Salesforce
     } else if (errors.length > 0) {
-      status = 'partial'
+      status = 'partial'                     // synced, but with a recoverable issue (e.g. a field dropped)
     } else {
       status = 'success'
     }

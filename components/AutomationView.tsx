@@ -2,18 +2,22 @@
 
 import { useState } from 'react'
 
+type View = 'ops' | 'cost' | 'log'
+
 /**
- * Partitions one automation's tab into [Operations] and [AI Cost] so the cost
- * detail never muddies the operational view — you switch to it deliberately.
+ * Partitions one automation's tab into [Operations] [AI Cost] [Updates] so each
+ * concern stays clean — you switch to cost detail or the change log deliberately.
  */
 export function AutomationView({
   operations,
   cost,
+  changelog,
 }: {
   operations: React.ReactNode
   cost: React.ReactNode
+  changelog: React.ReactNode
 }) {
-  const [view, setView] = useState<'ops' | 'cost'>('ops')
+  const [view, setView] = useState<View>('ops')
   const btn = (active: boolean) =>
     `rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
       active ? 'bg-zinc-700/60 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'
@@ -27,8 +31,11 @@ export function AutomationView({
         <button onClick={() => setView('cost')} className={btn(view === 'cost')}>
           AI Cost
         </button>
+        <button onClick={() => setView('log')} className={btn(view === 'log')}>
+          Updates
+        </button>
       </div>
-      {view === 'ops' ? operations : cost}
+      {view === 'ops' ? operations : view === 'cost' ? cost : changelog}
     </div>
   )
 }
