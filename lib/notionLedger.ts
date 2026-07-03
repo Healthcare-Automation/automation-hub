@@ -32,14 +32,21 @@ function monthLabel(monthStart: string): string {
   return `${MONTH_NAMES[Number(m) - 1]} ${y}`
 }
 
-/** One emoji per client group — keeps ledger rows visually scannable. */
-const CLIENT_EMOJI: Record<string, string> = {
-  Proxi: '🏢',
-  Ignite: '🔥',
-  Internal: '🏠',
+/** One emoji per project group — keeps ledger rows visually scannable. */
+const PROJECT_EMOJI: Record<string, string> = {
+  Kimedics: '🏥',
+  DJC: '🦷',
+  job_board: '📋',
+  'dental-agent': '🤖',
+  'automation-hub': '🛠️',
 }
 const MONTH_EMOJI = '📅'
 const FALLBACK_EMOJI = '📦'
+
+/** "Kimedics → Salesforce" / "job_board (DentBoard)" → "Kimedics" / "job_board". */
+function shortLabel(setupTitle: string): string {
+  return setupTitle.split(' → ')[0].split(' (')[0]
+}
 
 /** Create a ledger page; returns its id or null. */
 async function createPage(properties: object, emoji?: string): Promise<string | null> {
@@ -70,9 +77,9 @@ async function findOrCreateParent(monthStart: string): Promise<string | null> {
   }, MONTH_EMOJI)
 }
 
-/** Find the month's client-group row (e.g. "2026-08 · Proxi"), creating it if missing. */
-async function findOrCreateGroup(tag: string, client: string, monthStart: string, monthParentId: string | null): Promise<string | null> {
-  const entry = `${tag} · ${client}`
+/** Find the month's project-group row (e.g. "2026-08 · DJC (Proxi)"), creating it if missing. */
+async function findOrCreateGroup(tag: string, label: string, emoji: string, monthStart: string, monthParentId: string | null): Promise<string | null> {
+  const entry = `${tag} · ${label}`
   const existing = await queryAll(LEDGER_DB, {
     filter: { property: 'Entry', title: { equals: entry } },
   })
@@ -81,23 +88,24 @@ async function findOrCreateGroup(tag: string, client: string, monthStart: string
     Entry: { title: [{ text: { content: entry } }] },
     Month: { date: { start: monthStart } },
     'Parent item': { relation: monthParentId ? [{ id: monthParentId }] : [] },
-  }, CLIENT_EMOJI[client] ?? FALLBACK_EMOJI)
+  }, emoji)
 }
 
 /** Snapshot every Cost Tracker row into the Monthly Costs ledger for the given month
- * (YYYY-MM-01), as Month ▸ Client ▸ cost with FULL showback: a service used by N
- * clients gets a full-amount row under each client's group, so every client shows its
- * true footprint. Client-group rows carry their (overlapping) subtotal; the month
+ * (YYYY-MM-01), as Month ▸ "project (Client)" ▸ cost with FULL showback: a service used
+ * by N projects gets a full-amount row under each project's group, so every project
+ * shows its true footprint. Group rows carry their (overlapping) subtotal; the month
  * parent's Amount is the REAL de-duplicated bill (each service counted once) — so the
- * month total intentionally does not equal the sum of its client groups.
- * Idempotent per (client, service): re-runs create nothing new.
+ * month total intentionally does not equal the sum of its groups.
+ * Group labels/emoji derive from the Setup row (project name + Client select).
+ * Idempotent per (project, service): re-runs create nothing new.
  * Returns count of cost rows created. */
 export async function snapshotMonth(monthStart: string): Promise<number> {
   if (!LEDGER_DB) return 0
   const tag = monthStart.slice(0, 7)
   const parentId = await findOrCreateParent(monthStart)
 
-  // existing rows this month → titles by id, then (client|service) pairs already present
+  // existing rows this month → titles by id, then (label|service) pairs already present
   const existing = await queryAll(LEDGER_DB, {
     filter: { property: 'Month', date: { equals: monthStart } },
   })
@@ -110,13 +118,27 @@ export async function snapshotMonth(monthStart: string): Promise<number> {
     if (!r.properties?.Service?.relation?.length) continue // group/month rows
     const service = (titleById.get(r.id) ?? '').split(' · ')[1] ?? ''
     const groupTitle = titleById.get(r.properties?.['Parent item']?.relation?.[0]?.id ?? '') ?? ''
-    const client = groupTitle.split(' · ')[1] ?? ''
-    have.add(`${client}|${service}`)
+    const label = groupTitle.split(' · ')[1] ?? ''
+    have.add(`${label}|${service}`)
   }
 
-  // plan: client → services (full showback); real total counts each service once
+  // Setup page id → { label: "DJC (Proxi)", emoji }
+  const setupCache = new Map<string, { label: string; emoji: string }>()
+  async function projectInfo(setupPageId: string): Promise<{ label: string; emoji: string }> {
+    const cached = setupCache.get(setupPageId)
+    if (cached) return cached
+    const res = await fetch(`${NOTION}/pages/${setupPageId}`, { headers: headers() })
+    const j = res.ok ? await res.json() : null
+    const s = shortLabel(j?.properties?.Project?.title?.[0]?.plain_text ?? 'Unknown')
+    const client = j?.properties?.Client?.select?.name ?? '?'
+    const info = { label: `${s} (${client})`, emoji: PROJECT_EMOJI[s] ?? FALLBACK_EMOJI }
+    setupCache.set(setupPageId, info)
+    return info
+  }
+
+  // plan: project label → services (full showback); real total counts each service once
   const services = await queryAll(COST_DB, {})
-  const plan = new Map<string, { rowId: string; service: string; amount: number }[]>()
+  const plan = new Map<string, { emoji: string; members: { rowId: string; service: string; amount: number }[] }>()
   const subtotals = new Map<string, number>()
   let realTotal = 0
   for (const r of services) {
@@ -125,36 +147,36 @@ export async function snapshotMonth(monthStart: string): Promise<number> {
     if (!service || service === 'OpenRouter') continue
     const amount = p?.['Monthly Cost']?.number ?? 0
     realTotal += amount
-    const clients: string[] = (p?.Clients?.multi_select ?? []).map((o: { name: string }) => o.name)
-    for (const client of clients.length ? clients : ['Unattributed']) {
-      subtotals.set(client, (subtotals.get(client) ?? 0) + amount)
-      if (have.has(`${client}|${service}`)) continue
-      const members = plan.get(client) ?? []
-      members.push({ rowId: r.id, service, amount })
-      plan.set(client, members)
+    const projs: { id: string }[] = p?.Projects?.relation ?? []
+    for (const proj of projs) {
+      const { label, emoji } = await projectInfo(proj.id)
+      subtotals.set(label, (subtotals.get(label) ?? 0) + amount)
+      if (have.has(`${label}|${service}`)) continue
+      const bucket = plan.get(label) ?? { emoji, members: [] }
+      bucket.members.push({ rowId: r.id, service, amount })
+      plan.set(label, bucket)
     }
   }
 
   let created = 0
-  for (const [client, members] of plan) {
-    const groupId = await findOrCreateGroup(tag, client, monthStart, parentId)
+  for (const [label, { emoji, members }] of plan) {
+    const groupId = await findOrCreateGroup(tag, label, emoji, monthStart, parentId)
     for (const m of members) {
       const id = await createPage({
         Entry: { title: [{ text: { content: `${tag} · ${m.service}` } }] },
         Month: { date: { start: monthStart } },
         Service: { relation: [{ id: m.rowId }] },
         Amount: { number: m.amount },
-        Clients: { multi_select: [{ name: client }] },
         Source: { select: { name: 'Auto' } },
         'Parent item': { relation: groupId ? [{ id: groupId }] : [] },
-      }, CLIENT_EMOJI[client] ?? FALLBACK_EMOJI)
+      }, emoji)
       if (id) created++
     }
     if (groupId) {
       await fetch(`${NOTION}/pages/${groupId}`, {
         method: 'PATCH',
         headers: headers(),
-        body: JSON.stringify({ properties: { Amount: { number: Math.round((subtotals.get(client) ?? 0) * 100) / 100 } } }),
+        body: JSON.stringify({ properties: { Amount: { number: Math.round((subtotals.get(label) ?? 0) * 100) / 100 } } }),
       })
     }
   }
