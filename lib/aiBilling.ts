@@ -133,3 +133,47 @@ export async function getAnthropicActualCost(): Promise<ActualCost> {
     return { ...UNAVAILABLE, error: e instanceof Error ? e.message : 'fetch failed' }
   }
 }
+
+export interface AnthropicKeyCosts {
+  available: boolean
+  /** api_key_id → last-30d cost (list-priced). */
+  byKey: Record<string, number>
+  error?: string
+}
+
+/**
+ * Anthropic last-30d cost split per API key — one key per project, so this is the
+ * per-project attribution (grouped by api_key_id + model, priced at list like above).
+ */
+export async function getAnthropicCostByKey(): Promise<AnthropicKeyCosts> {
+  const key = (process.env.ANTHROPIC_ADMIN_KEY || '').trim()
+  if (!key) return { available: false, byKey: {} }
+  try {
+    const startIso = new Date(Date.now() - 30 * 86400_000).toISOString()
+    const byKey: Record<string, number> = {}
+    let page: string | undefined
+    for (let guard = 0; guard < 10; guard++) {
+      const qs = new URLSearchParams({ starting_at: startIso, bucket_width: '1d', limit: '31' })
+      qs.append('group_by[]', 'api_key_id')
+      qs.append('group_by[]', 'model')
+      if (page) qs.set('page', page)
+      const res = await fetch(`https://api.anthropic.com/v1/organizations/usage_report/messages?${qs}`, {
+        headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+        signal: AbortSignal.timeout(12_000),
+      })
+      if (!res.ok) return { available: false, byKey: {}, error: `Anthropic usage ${res.status}` }
+      const j: { data?: { results?: (AnthropicUsageRow & { api_key_id?: string })[] }[]; has_more?: boolean; next_page?: string } = await res.json()
+      for (const b of j.data ?? []) {
+        for (const r of b.results ?? []) {
+          const id = r.api_key_id ?? 'unknown'
+          byKey[id] = (byKey[id] ?? 0) + priceAnthropicRow(r)
+        }
+      }
+      if (j.has_more && j.next_page) page = j.next_page
+      else break
+    }
+    return { available: true, byKey }
+  } catch (e) {
+    return { available: false, byKey: {}, error: e instanceof Error ? e.message : 'fetch failed' }
+  }
+}

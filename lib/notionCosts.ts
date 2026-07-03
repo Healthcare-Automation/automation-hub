@@ -1,21 +1,38 @@
-import type { ActualCost } from './aiBilling'
+import type { ActualCost, AnthropicKeyCosts } from './aiBilling'
 
 const NOTION = 'https://api.notion.com/v1'
 const COST_DB = process.env.NOTION_COST_DB_ID || '38f23b11-7dfb-819a-a164-f7972d7fe0e2'
+
+/** One API key per project → each key maps to its own Cost Tracker row. */
+const ANTHROPIC_KEY_TO_SERVICE: Record<string, string> = {
+  apikey_01E1jCBqxyWUjJvdZdSio79n: 'Anthropic (DJC)', // proxi-djc-automation
+  apikey_011jexZPSisvaduTw8TZT8bm: 'Anthropic (Job Board)', // internal-job-board
+}
 
 export interface CostUpdate {
   service: string
   monthlyCost: number
 }
 
-/** Pure: turn vendor pulls into per-service row updates (cents-rounded). */
-export function buildCostUpdates(openai: ActualCost, anthropic: ActualCost): CostUpdate[] {
-  const out: CostUpdate[] = []
+/** Pure: turn vendor pulls into per-service row updates (cents-rounded).
+ * Unmapped Anthropic keys are returned in `unmapped` for visibility, never attributed. */
+export function buildCostUpdates(
+  openai: ActualCost,
+  anthropic: AnthropicKeyCosts,
+): { updates: CostUpdate[]; unmapped: Record<string, number> } {
+  const updates: CostUpdate[] = []
+  const unmapped: Record<string, number> = {}
   if (openai.available && openai.last30 != null)
-    out.push({ service: 'OpenAI', monthlyCost: Math.round(openai.last30 * 100) / 100 })
-  if (anthropic.available && anthropic.last30 != null)
-    out.push({ service: 'Anthropic', monthlyCost: Math.round(anthropic.last30 * 100) / 100 })
-  return out
+    updates.push({ service: 'OpenAI', monthlyCost: Math.round(openai.last30 * 100) / 100 })
+  if (anthropic.available) {
+    for (const [keyId, cost] of Object.entries(anthropic.byKey)) {
+      const service = ANTHROPIC_KEY_TO_SERVICE[keyId]
+      const rounded = Math.round(cost * 100) / 100
+      if (service) updates.push({ service, monthlyCost: rounded })
+      else if (rounded > 0) unmapped[keyId] = rounded
+    }
+  }
+  return { updates, unmapped }
 }
 
 function headers() {

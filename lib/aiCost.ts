@@ -14,6 +14,7 @@ export const MODEL_PRICING: Record<string, { in: number; out: number; vendor: 'O
   'gpt-4.1-mini': { in: 0.4, out: 1.6, vendor: 'OpenAI' },
   'gpt-4o-mini': { in: 0.15, out: 0.6, vendor: 'OpenAI' },
   'claude-haiku-4-5': { in: 1.0, out: 5.0, vendor: 'Anthropic' },
+  'claude-sonnet-5': { in: 3.0, out: 15.0, vendor: 'Anthropic' },
 }
 
 export const VENDOR: Record<Automation, 'OpenAI' | 'Anthropic'> = {
