@@ -39,17 +39,10 @@ async function findOrCreateParent(monthStart: string): Promise<string | null> {
     filter: { property: 'Entry', title: { equals: label } },
   })
   if (existing.length > 0) return existing[0].id
-  const res = await fetch(`${NOTION}/pages`, {
-    method: 'POST',
-    headers: headers(),
-    body: JSON.stringify({ parent: { database_id: LEDGER_DB }, properties: {
-      Entry: { title: [{ text: { content: label } }] },
-      Month: { date: { start: monthStart } },
-    } }),
-  })
-  if (!res.ok) return null
-  const j = await res.json()
-  return j.id ?? null
+  return createPage({
+    Entry: { title: [{ text: { content: label } }] },
+    Month: { date: { start: monthStart } },
+  }, MONTH_EMOJI)
 }
 
 /** "Kimedics → Salesforce" / "job_board (DentBoard)" → "Kimedics" / "job_board". */
@@ -57,12 +50,28 @@ function shortLabel(setupTitle: string): string {
   return setupTitle.split(' → ')[0].split(' (')[0]
 }
 
+/** One emoji per project group — keeps ledger rows visually scannable. */
+const PROJECT_EMOJI: Record<string, string> = {
+  Kimedics: '🏥',
+  DJC: '🦷',
+  job_board: '📋',
+  'dental-agent': '🤖',
+  'automation-hub': '🛠️',
+  Shared: '🧩',
+}
+const MONTH_EMOJI = '📅'
+const FALLBACK_EMOJI = '📦'
+
 /** Create a ledger page; returns its id or null. */
-async function createPage(properties: object): Promise<string | null> {
+async function createPage(properties: object, emoji?: string): Promise<string | null> {
   const res = await fetch(`${NOTION}/pages`, {
     method: 'POST',
     headers: headers(),
-    body: JSON.stringify({ parent: { database_id: LEDGER_DB }, properties }),
+    body: JSON.stringify({
+      parent: { database_id: LEDGER_DB },
+      ...(emoji ? { icon: { type: 'emoji', emoji } } : {}),
+      properties,
+    }),
   })
   if (!res.ok) return null
   const j = await res.json()
@@ -80,7 +89,7 @@ async function findOrCreateGroup(tag: string, label: string, monthStart: string,
     Entry: { title: [{ text: { content: entry } }] },
     Month: { date: { start: monthStart } },
     'Parent item': { relation: monthParentId ? [{ id: monthParentId }] : [] },
-  })
+  }, PROJECT_EMOJI[label] ?? FALLBACK_EMOJI)
 }
 
 /** Snapshot every Cost Tracker row into the Monthly Costs ledger for the given month
@@ -148,7 +157,7 @@ export async function snapshotMonth(monthStart: string): Promise<number> {
         Clients: { multi_select: m.clients },
         Source: { select: { name: 'Auto' } },
         'Parent item': { relation: groupId ? [{ id: groupId }] : [] },
-      })
+      }, PROJECT_EMOJI[label] ?? FALLBACK_EMOJI)
       if (id) created++
     }
     if (groupId) {
