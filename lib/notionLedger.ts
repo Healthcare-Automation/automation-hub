@@ -21,11 +21,43 @@ async function queryAll(db: string, body: object) {
   return j.results ?? []
 }
 
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+]
+
+/** "2026-08-01" → "August 2026" — the display title of a month's parent row. */
+function monthLabel(monthStart: string): string {
+  const [y, m] = monthStart.split('-')
+  return `${MONTH_NAMES[Number(m) - 1]} ${y}`
+}
+
+/** Find the month's parent row (sub-items container), creating it if missing. */
+async function findOrCreateParent(monthStart: string): Promise<string | null> {
+  const label = monthLabel(monthStart)
+  const existing = await queryAll(LEDGER_DB, {
+    filter: { property: 'Entry', title: { equals: label } },
+  })
+  if (existing.length > 0) return existing[0].id
+  const res = await fetch(`${NOTION}/pages`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({ parent: { database_id: LEDGER_DB }, properties: {
+      Entry: { title: [{ text: { content: label } }] },
+      Month: { date: { start: monthStart } },
+    } }),
+  })
+  if (!res.ok) return null
+  const j = await res.json()
+  return j.id ?? null
+}
+
 /** Snapshot every Cost Tracker row into the Monthly Costs ledger for the given month
- * (YYYY-MM-01). Idempotent: skips services that already have a row for that month.
- * Returns count of rows created. */
+ * (YYYY-MM-01), nested under the month's parent row. Idempotent: skips services that
+ * already have a row for that month. Returns count of rows created. */
 export async function snapshotMonth(monthStart: string): Promise<number> {
   if (!LEDGER_DB) return 0
+  const parentId = await findOrCreateParent(monthStart)
   const existing = await queryAll(LEDGER_DB, {
     filter: { property: 'Month', date: { equals: monthStart } },
   })
@@ -49,6 +81,7 @@ export async function snapshotMonth(monthStart: string): Promise<number> {
         Amount: { number: p?.['Monthly Cost']?.number ?? 0 },
         Clients: { multi_select: (p?.Clients?.multi_select ?? []).map((o: { name: string }) => ({ name: o.name })) },
         Source: { select: { name: 'Auto' } },
+        'Parent item': { relation: parentId ? [{ id: parentId }] : [] },
       } }),
     })
     if (res.ok) created++
