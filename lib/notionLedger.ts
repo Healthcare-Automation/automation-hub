@@ -77,8 +77,9 @@ async function findOrCreateParent(monthStart: string): Promise<string | null> {
   }, MONTH_EMOJI)
 }
 
-/** Find the month's project-group row (e.g. "2026-08 · DJC (Proxi)"), creating it if missing. */
-async function findOrCreateGroup(tag: string, label: string, emoji: string, monthStart: string, monthParentId: string | null): Promise<string | null> {
+/** Find the month's project-group row (e.g. "2026-08 · DJC"), creating it if missing.
+ * The client lands in the Clients field, not the title. */
+async function findOrCreateGroup(tag: string, label: string, client: string, emoji: string, monthStart: string, monthParentId: string | null): Promise<string | null> {
   const entry = `${tag} · ${label}`
   const existing = await queryAll(LEDGER_DB, {
     filter: { property: 'Entry', title: { equals: entry } },
@@ -87,6 +88,7 @@ async function findOrCreateGroup(tag: string, label: string, emoji: string, mont
   return createPage({
     Entry: { title: [{ text: { content: entry } }] },
     Month: { date: { start: monthStart } },
+    Clients: { multi_select: [{ name: client }] },
     'Parent item': { relation: monthParentId ? [{ id: monthParentId }] : [] },
   }, emoji)
 }
@@ -122,23 +124,23 @@ export async function snapshotMonth(monthStart: string): Promise<number> {
     have.add(`${label}|${service}`)
   }
 
-  // Setup page id → { label: "DJC (Proxi)", emoji }
-  const setupCache = new Map<string, { label: string; emoji: string }>()
-  async function projectInfo(setupPageId: string): Promise<{ label: string; emoji: string }> {
+  // Setup page id → { label: "DJC", client: "Proxi", emoji }
+  const setupCache = new Map<string, { label: string; client: string; emoji: string }>()
+  async function projectInfo(setupPageId: string): Promise<{ label: string; client: string; emoji: string }> {
     const cached = setupCache.get(setupPageId)
     if (cached) return cached
     const res = await fetch(`${NOTION}/pages/${setupPageId}`, { headers: headers() })
     const j = res.ok ? await res.json() : null
-    const s = shortLabel(j?.properties?.Project?.title?.[0]?.plain_text ?? 'Unknown')
+    const label = shortLabel(j?.properties?.Project?.title?.[0]?.plain_text ?? 'Unknown')
     const client = j?.properties?.Client?.select?.name ?? '?'
-    const info = { label: `${s} (${client})`, emoji: PROJECT_EMOJI[s] ?? FALLBACK_EMOJI }
+    const info = { label, client, emoji: PROJECT_EMOJI[label] ?? FALLBACK_EMOJI }
     setupCache.set(setupPageId, info)
     return info
   }
 
   // plan: project label → services (full showback); real total counts each service once
   const services = await queryAll(COST_DB, {})
-  const plan = new Map<string, { emoji: string; members: { rowId: string; service: string; amount: number }[] }>()
+  const plan = new Map<string, { client: string; emoji: string; members: { rowId: string; service: string; amount: number }[] }>()
   const subtotals = new Map<string, number>()
   let realTotal = 0
   for (const r of services) {
@@ -149,24 +151,25 @@ export async function snapshotMonth(monthStart: string): Promise<number> {
     realTotal += amount
     const projs: { id: string }[] = p?.Projects?.relation ?? []
     for (const proj of projs) {
-      const { label, emoji } = await projectInfo(proj.id)
+      const { label, client, emoji } = await projectInfo(proj.id)
       subtotals.set(label, (subtotals.get(label) ?? 0) + amount)
       if (have.has(`${label}|${service}`)) continue
-      const bucket = plan.get(label) ?? { emoji, members: [] }
+      const bucket = plan.get(label) ?? { client, emoji, members: [] }
       bucket.members.push({ rowId: r.id, service, amount })
       plan.set(label, bucket)
     }
   }
 
   let created = 0
-  for (const [label, { emoji, members }] of plan) {
-    const groupId = await findOrCreateGroup(tag, label, emoji, monthStart, parentId)
+  for (const [label, { client, emoji, members }] of plan) {
+    const groupId = await findOrCreateGroup(tag, label, client, emoji, monthStart, parentId)
     for (const m of members) {
       const id = await createPage({
         Entry: { title: [{ text: { content: `${tag} · ${m.service}` } }] },
         Month: { date: { start: monthStart } },
         Service: { relation: [{ id: m.rowId }] },
         Amount: { number: m.amount },
+        Clients: { multi_select: [{ name: client }] },
         Source: { select: { name: 'Auto' } },
         'Parent item': { relation: groupId ? [{ id: groupId }] : [] },
       }, emoji)
