@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import type { DjcRunDetail, DjcRunDetailBundle, DjcEvent, DjcCandidateRow } from '@/lib/djcTypes'
-import { cn, formatRelativeTime, formatDuration } from '@/lib/utils'
+import { cn, formatDuration } from '@/lib/utils'
 
 /* Specialties we scrape — for the filter dropdown. */
 const TARGETS = [
@@ -269,24 +269,27 @@ function RunRow({ run, label }: { run: DjcRunDetail; label: string }) {
     }
   }
 
+  const time = label.replace(' ET', '')
   return (
-    <div className={cn('overflow-hidden rounded-xl ring-1 transition-colors', open ? 'ring-cyan-500/30 bg-zinc-800/40' : 'ring-zinc-700/40')}>
-      <button onClick={toggle} className="flex w-full items-center gap-3.5 px-4 py-3.5 text-left transition-colors hover:bg-zinc-700/15">
+    <div className={cn('transition-colors', open && 'bg-zinc-800/40')}>
+      <button onClick={toggle} className="flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-zinc-700/15">
         <StatusGlyph status={run.status} errorCount={run.errorCount} />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-baseline gap-2">
-            <span className="text-[13px] font-semibold text-zinc-100">{label}</span>
-            <span className="text-[11px] text-zinc-500">{formatRelativeTime(run.startedAt)}</span>
-            {!interrupted && <span className="text-[11px] text-zinc-600">· {formatDuration(run.durationSeconds)}</span>}
-          </div>
-          <p className="mt-0.5 truncate text-[12px] text-zinc-400">
-            {interrupted ? <span className="text-zinc-500">Did not finish — {run.errorCount > 0 ? 'errored partway' : 'interrupted'}</span>
-              : run.candidatesSeen === 0 ? <span className="text-zinc-500">No candidates reviewed</span>
-              : <><span className="text-zinc-300">{run.candidatesSeen}</span> reviewed{newCount > 0 && <> · <span className="font-medium text-cyan-300">{newCount} new</span></>}{run.duplicates > 0 && <> · {run.duplicates} already in SF</>}{run.uncontactable > 0 && <> · {run.uncontactable} no contact</>}</>}
-          </p>
-        </div>
-        {run.writeMode !== 'live' && <span className="hidden shrink-0 rounded-md bg-zinc-700/30 px-2 py-0.5 text-[10px] text-zinc-500 ring-1 ring-zinc-600/30 sm:inline">test mode</span>}
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={cn('shrink-0 text-zinc-600 transition-transform', open && 'rotate-180')}><path d="m6 9 6 6 6-6" /></svg>
+        <span className="w-[74px] shrink-0 text-[12px] font-semibold text-zinc-100 tabular-nums">{time}</span>
+        <span className="min-w-0 flex-1 truncate text-[12px]">
+          {interrupted ? (
+            <span className="text-red-400">Did not finish — {run.errorCount > 0 ? 'errored partway' : 'interrupted'}</span>
+          ) : (
+            <>
+              {newCount > 0 ? <span className="font-semibold text-cyan-300">{newCount} new</span>
+                : <span className="text-zinc-600">no new candidates</span>}
+              {run.duplicates > 0 && <span className="text-zinc-500"> · {run.duplicates} in SF</span>}
+              {run.uncontactable > 0 && <span className="text-zinc-500"> · {run.uncontactable} no contact</span>}
+            </>
+          )}
+        </span>
+        {run.writeMode !== 'live' && <span className="hidden shrink-0 rounded bg-zinc-700/30 px-1.5 py-0.5 text-[9px] text-zinc-500 sm:inline">test</span>}
+        {!interrupted && <span className="shrink-0 text-[11px] text-zinc-600 tabular-nums">{formatDuration(run.durationSeconds)}</span>}
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={cn('shrink-0 text-zinc-600 transition-transform', open && 'rotate-180')}><path d="m6 9 6 6 6-6" /></svg>
       </button>
       {open && <div className="border-t border-cyan-500/15 bg-zinc-900/40 p-4">{loading ? <p className="py-6 text-center text-[13px] text-zinc-600">Loading…</p> : bundle ? <RunDetailBody run={run} bundle={bundle} /> : null}</div>}
     </div>
@@ -353,18 +356,26 @@ export default function DjcRunBreakdown({ runs }: { runs: DjcRunDetail[] }) {
       ) : runs.length === 0 ? (
         <p className="px-3 py-6 text-center text-[13px] text-zinc-600">No runs yet.</p>
       ) : (
-        <div className="space-y-5">
-          {groupRunsByDay(runs).map(g => (
-            <div key={g.key} className="space-y-2.5">
-              <div className="flex items-center gap-2 px-1">
-                <span className={cn('text-[12px] font-semibold', g.header.isToday ? 'text-cyan-300' : 'text-zinc-300')}>{g.header.primary}</span>
-                <span className="text-[11px] text-zinc-600">{g.header.secondary}</span>
-                <span className="text-[11px] text-zinc-700">· {g.runs.length} run{g.runs.length === 1 ? '' : 's'}</span>
-                <div className="ml-1 h-px flex-1 bg-zinc-800/70" />
+        <div className="space-y-4">
+          {groupRunsByDay(runs).map(g => {
+            const dayNew = g.runs.reduce((s, r) => s + r.created + r.createSkippedGuard, 0)
+            const dayDup = g.runs.reduce((s, r) => s + r.duplicates, 0)
+            return (
+              <div key={g.key} className="space-y-1.5">
+                <div className="flex items-center gap-2 px-1">
+                  <span className={cn('text-[12px] font-semibold', g.header.isToday ? 'text-cyan-300' : 'text-zinc-300')}>{g.header.primary}</span>
+                  <span className="text-[11px] text-zinc-600">{g.header.secondary}</span>
+                  <span className="text-[11px] text-zinc-700">· {g.runs.length} run{g.runs.length === 1 ? '' : 's'}</span>
+                  {dayNew > 0 && <span className="text-[11px] font-medium text-cyan-300">· {dayNew} new</span>}
+                  {dayDup > 0 && <span className="text-[11px] text-zinc-600">· {dayDup} in SF</span>}
+                  <div className="ml-1 h-px flex-1 bg-zinc-800/70" />
+                </div>
+                <div className="overflow-hidden rounded-xl ring-1 ring-zinc-700/40 divide-y divide-zinc-800/70">
+                  {g.runs.map(run => <RunRow key={run.id} run={run} label={timeLabel(run.startedAt)} />)}
+                </div>
               </div>
-              {g.runs.map(run => <RunRow key={run.id} run={run} label={timeLabel(run.startedAt)} />)}
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>
