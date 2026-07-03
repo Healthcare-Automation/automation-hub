@@ -101,8 +101,11 @@ async function findOrCreateGroup(tag: string, label: string, client: string, emo
  * month total intentionally does not equal the sum of its groups.
  * Group labels/emoji derive from the Setup row (project name + Client select).
  * Idempotent per (project, service): re-runs create nothing new.
+ * `usageOverrides` maps service name → exact calendar-month amount (LLM APIs): rows
+ * for those services are created with — or, if they already exist, UPDATED to — the
+ * override, so usage lands in the month it actually happened.
  * Returns count of cost rows created. */
-export async function snapshotMonth(monthStart: string): Promise<number> {
+export async function snapshotMonth(monthStart: string, usageOverrides: Record<string, number> = {}): Promise<number> {
   if (!LEDGER_DB) return 0
   const tag = monthStart.slice(0, 7)
   const parentId = await findOrCreateParent(monthStart)
@@ -147,7 +150,7 @@ export async function snapshotMonth(monthStart: string): Promise<number> {
     const p = r.properties
     const service: string = p?.Service?.title?.[0]?.plain_text ?? ''
     if (!service || service === 'OpenRouter') continue
-    const amount = p?.['Monthly Cost']?.number ?? 0
+    const amount = usageOverrides[service] ?? p?.['Monthly Cost']?.number ?? 0
     realTotal += amount
     const projs: { id: string }[] = p?.Projects?.relation ?? []
     for (const proj of projs) {
@@ -158,6 +161,18 @@ export async function snapshotMonth(monthStart: string): Promise<number> {
       bucket.members.push({ rowId: r.id, service, amount })
       plan.set(label, bucket)
     }
+  }
+
+  // update pass: existing rows for overridden services get the exact-month amount
+  for (const r of existing) {
+    if (!r.properties?.Service?.relation?.length) continue
+    const service = (titleById.get(r.id) ?? '').split(' · ')[1] ?? ''
+    if (!(service in usageOverrides)) continue
+    await fetch(`${NOTION}/pages/${r.id}`, {
+      method: 'PATCH',
+      headers: headers(),
+      body: JSON.stringify({ properties: { Amount: { number: usageOverrides[service] } } }),
+    })
   }
 
   let created = 0
@@ -182,6 +197,17 @@ export async function snapshotMonth(monthStart: string): Promise<number> {
         body: JSON.stringify({ properties: { Amount: { number: Math.round((subtotals.get(label) ?? 0) * 100) / 100 } } }),
       })
     }
+  }
+  // refresh subtotals on groups that existed before this run (e.g. truing up a month)
+  for (const r of existing) {
+    if (r.properties?.Service?.relation?.length) continue
+    const label = (titleById.get(r.id) ?? '').split(' · ')[1] ?? ''
+    if (!label || !subtotals.has(label)) continue
+    await fetch(`${NOTION}/pages/${r.id}`, {
+      method: 'PATCH',
+      headers: headers(),
+      body: JSON.stringify({ properties: { Amount: { number: Math.round((subtotals.get(label) ?? 0) * 100) / 100 } } }),
+    })
   }
   if (parentId) {
     await fetch(`${NOTION}/pages/${parentId}`, {

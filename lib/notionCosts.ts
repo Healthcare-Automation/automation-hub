@@ -4,7 +4,7 @@ const NOTION = 'https://api.notion.com/v1'
 const COST_DB = process.env.NOTION_COST_DB_ID || '38f23b11-7dfb-819a-a164-f7972d7fe0e2'
 
 /** One API key per project → each key maps to its own Cost Tracker row. */
-const ANTHROPIC_KEY_TO_SERVICE: Record<string, string> = {
+export const ANTHROPIC_KEY_TO_SERVICE: Record<string, string> = {
   apikey_01E1jCBqxyWUjJvdZdSio79n: 'Anthropic (DJC)', // proxi-djc-automation
   apikey_011jexZPSisvaduTw8TZT8bm: 'Anthropic (Job Board)', // internal-job-board
 }

@@ -142,18 +142,20 @@ export interface AnthropicKeyCosts {
 }
 
 /**
- * Anthropic last-30d cost split per API key — one key per project, so this is the
- * per-project attribution (grouped by api_key_id + model, priced at list like above).
+ * Anthropic cost split per API key — one key per project, so this is the per-project
+ * attribution (grouped by api_key_id + model, priced at list like above).
+ * Defaults to the trailing 30 days; pass startIso/endIso for an exact calendar month.
  */
-export async function getAnthropicCostByKey(): Promise<AnthropicKeyCosts> {
+export async function getAnthropicCostByKey(startIso?: string, endIso?: string): Promise<AnthropicKeyCosts> {
   const key = (process.env.ANTHROPIC_ADMIN_KEY || '').trim()
   if (!key) return { available: false, byKey: {} }
   try {
-    const startIso = new Date(Date.now() - 30 * 86400_000).toISOString()
+    const start = startIso ?? new Date(Date.now() - 30 * 86400_000).toISOString()
     const byKey: Record<string, number> = {}
     let page: string | undefined
     for (let guard = 0; guard < 10; guard++) {
-      const qs = new URLSearchParams({ starting_at: startIso, bucket_width: '1d', limit: '31' })
+      const qs = new URLSearchParams({ starting_at: start, bucket_width: '1d', limit: '31' })
+      if (endIso) qs.set('ending_at', endIso)
       qs.append('group_by[]', 'api_key_id')
       qs.append('group_by[]', 'model')
       if (page) qs.set('page', page)
@@ -175,5 +177,25 @@ export async function getAnthropicCostByKey(): Promise<AnthropicKeyCosts> {
     return { available: true, byKey }
   } catch (e) {
     return { available: false, byKey: {}, error: e instanceof Error ? e.message : 'fetch failed' }
+  }
+}
+
+/** OpenAI cost for an exact epoch-second range (calendar-month attribution). */
+export async function getOpenAiCostRange(startEpoch: number, endEpoch: number): Promise<ActualCost> {
+  const key = (process.env.OPENAI_ADMIN_KEY || '').trim()
+  if (!key) return UNAVAILABLE
+  try {
+    const url = `https://api.openai.com/v1/organization/costs?start_time=${startEpoch}&end_time=${endEpoch}&bucket_width=1d&limit=31`
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${key}` },
+      signal: AbortSignal.timeout(12_000),
+    })
+    if (!res.ok) return { ...UNAVAILABLE, error: `OpenAI billing ${res.status}` }
+    const j: { data?: { results?: unknown }[] } = await res.json()
+    let total = 0
+    for (const b of j.data ?? []) total += sumAmounts(b.results)
+    return { available: true, last30: total, last7: null, currency: 'USD' }
+  } catch (e) {
+    return { ...UNAVAILABLE, error: e instanceof Error ? e.message : 'fetch failed' }
   }
 }
