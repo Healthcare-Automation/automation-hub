@@ -79,7 +79,7 @@ async function findOrCreateParent(monthStart: string): Promise<string | null> {
 
 /** Find the month's project-group row (e.g. "2026-08 · DJC"), creating it if missing.
  * The client lands in the Clients field, not the title. */
-async function findOrCreateGroup(tag: string, label: string, client: string, emoji: string, monthStart: string, monthParentId: string | null): Promise<string | null> {
+async function findOrCreateGroup(tag: string, label: string, clients: string[], emoji: string, monthStart: string, monthParentId: string | null): Promise<string | null> {
   const entry = `${tag} · ${label}`
   const existing = await queryAll(LEDGER_DB, {
     filter: { property: 'Entry', title: { equals: entry } },
@@ -88,7 +88,7 @@ async function findOrCreateGroup(tag: string, label: string, client: string, emo
   return createPage({
     Entry: { title: [{ text: { content: entry } }] },
     Month: { date: { start: monthStart } },
-    Clients: { multi_select: [{ name: client }] },
+    Clients: { multi_select: clients.map(name => ({ name })) },
     'Parent item': { relation: monthParentId ? [{ id: monthParentId }] : [] },
   }, emoji)
 }
@@ -141,9 +141,19 @@ export async function snapshotMonth(monthStart: string, usageOverrides: Record<s
     return info
   }
 
-  // plan: project label → services (full showback); real total counts each service once
+  // plan: project label → services (full showback); real total counts each service once.
+  // A service attributed to EVERY tracked project goes to a single "Shared Cost" group
+  // instead of being duplicated into each project's toggle.
   const services = await queryAll(COST_DB, {})
-  const plan = new Map<string, { client: string; emoji: string; members: { rowId: string; service: string; amount: number }[] }>()
+  const union = new Set<string>()
+  for (const r of services) {
+    const service: string = r.properties?.Service?.title?.[0]?.plain_text ?? ''
+    if (!service || service === 'OpenRouter') continue
+    for (const proj of r.properties?.Projects?.relation ?? []) union.add(proj.id)
+  }
+  const SHARED_LABEL = 'Shared Cost'
+  const SHARED_EMOJI = '🧩'
+  const plan = new Map<string, { clients: string[]; emoji: string; members: { rowId: string; service: string; amount: number }[] }>()
   const subtotals = new Map<string, number>()
   let realTotal = 0
   for (const r of services) {
@@ -153,11 +163,26 @@ export async function snapshotMonth(monthStart: string, usageOverrides: Record<s
     const amount = usageOverrides[service] ?? p?.['Monthly Cost']?.number ?? 0
     realTotal += amount
     const projs: { id: string }[] = p?.Projects?.relation ?? []
+    const isShared = union.size > 1 && projs.length === union.size && projs.every(x => union.has(x.id))
+    if (isShared) {
+      subtotals.set(SHARED_LABEL, (subtotals.get(SHARED_LABEL) ?? 0) + amount)
+      if (!have.has(`${SHARED_LABEL}|${service}`)) {
+        const sharedClients: string[] = []
+        for (const id of union) {
+          const { client } = await projectInfo(id)
+          if (!sharedClients.includes(client)) sharedClients.push(client)
+        }
+        const bucket = plan.get(SHARED_LABEL) ?? { clients: sharedClients, emoji: SHARED_EMOJI, members: [] }
+        bucket.members.push({ rowId: r.id, service, amount })
+        plan.set(SHARED_LABEL, bucket)
+      }
+      continue
+    }
     for (const proj of projs) {
       const { label, client, emoji } = await projectInfo(proj.id)
       subtotals.set(label, (subtotals.get(label) ?? 0) + amount)
       if (have.has(`${label}|${service}`)) continue
-      const bucket = plan.get(label) ?? { client, emoji, members: [] }
+      const bucket = plan.get(label) ?? { clients: [client], emoji, members: [] }
       bucket.members.push({ rowId: r.id, service, amount })
       plan.set(label, bucket)
     }
@@ -176,15 +201,15 @@ export async function snapshotMonth(monthStart: string, usageOverrides: Record<s
   }
 
   let created = 0
-  for (const [label, { client, emoji, members }] of plan) {
-    const groupId = await findOrCreateGroup(tag, label, client, emoji, monthStart, parentId)
+  for (const [label, { clients, emoji, members }] of plan) {
+    const groupId = await findOrCreateGroup(tag, label, clients, emoji, monthStart, parentId)
     for (const m of members) {
       const id = await createPage({
         Entry: { title: [{ text: { content: `${tag} · ${m.service}` } }] },
         Month: { date: { start: monthStart } },
         Service: { relation: [{ id: m.rowId }] },
         Amount: { number: m.amount },
-        Clients: { multi_select: [{ name: client }] },
+        Clients: { multi_select: clients.map(name => ({ name })) },
         Source: { select: { name: 'Auto' } },
         'Parent item': { relation: groupId ? [{ id: groupId }] : [] },
       }, emoji)
