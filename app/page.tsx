@@ -1,6 +1,9 @@
-import { getDailyStatus, getRecentRuns, getWeeklySummary } from '@/lib/queries'
+import { getDailyStatus, getRecentRuns, getWeeklySummary, getPipelineBacklog } from '@/lib/queries'
 import { getDjcDailyStatus, getDjcRecentRuns, getDjcSummary } from '@/lib/djcQueries'
 import { isDjcConfigured } from '@/lib/djcDb'
+import { getCandidateBankBundle } from '@/lib/candidateBankQueries'
+import { isCandidateBankConfigured } from '@/lib/candidateBankDb'
+import CandidateBankCard from '@/components/CandidateBankCard'
 import { getOverallStatus, calculateUptime } from '@/lib/utils'
 import type { Phase, OverallStatus } from '@/lib/types'
 import StatusHeader from '@/components/StatusHeader'
@@ -52,16 +55,36 @@ async function loadDjc() {
 }
 
 export default async function Page() {
-  let dailyStatus, recentRuns, weeklySummary
-
-  try {
-    ;[dailyStatus, recentRuns, weeklySummary] = await Promise.all([
-      getDailyStatus(),
-      getRecentRuns(20),
-      getWeeklySummary(),
+  // Every data dependency is fetched concurrently — the previous four sequential
+  // stages (Kimedics → backlog → DJC → AI cost) made first paint pay the SUM of
+  // their latencies (~17s) instead of the max. Only the core Kimedics trio is
+  // fatal on failure; everything else fails soft to keep the page up.
+  const [core, backlog, djcData, kimUsage, djcUsage, kimActual, djcActual, candidateBank] =
+    await Promise.all([
+      Promise.all([getDailyStatus(), getRecentRuns(20), getWeeklySummary()]).catch((err) => {
+        console.error('Failed to load status data:', err)
+        return null
+      }),
+      getPipelineBacklog().catch(() => null),
+      isDjcConfigured
+        ? loadDjc().catch((err) => {
+            console.error('Failed to load DJC status data:', err)
+            return null
+          })
+        : Promise.resolve(null),
+      getKimedicsAiUsage().catch(() => null),
+      isDjcConfigured ? getDjcAiUsage().catch(() => null) : Promise.resolve(null),
+      getOpenAiActualCost().catch(() => undefined),
+      isDjcConfigured ? getAnthropicActualCost().catch(() => undefined) : Promise.resolve(undefined),
+      isCandidateBankConfigured
+        ? getCandidateBankBundle().catch((err) => {
+            console.error('Failed to load Candidate Bank data:', err)
+            return null
+          })
+        : Promise.resolve(null),
     ])
-  } catch (err) {
-    console.error('Failed to load status data:', err)
+
+  if (!core) {
     return (
       <main className="min-h-screen flex items-center justify-center" style={{ background: 'var(--background)' }}>
         <div className="text-center space-y-3">
@@ -71,6 +94,7 @@ export default async function Page() {
       </main>
     )
   }
+  const [dailyStatus, recentRuns, weeklySummary] = core
 
   // Automation clock start: first day we have any run data (for idle / chart context)
   const testingStartDate =
@@ -91,27 +115,8 @@ export default async function Page() {
   )
 
   const lastRun = recentRuns[0] ?? null
-  const overallStatus = getOverallStatus(enrichedDailyStatus, lastRun)
+  const overallStatus = getOverallStatus(enrichedDailyStatus, lastRun, backlog)
   const uptime = calculateUptime(enrichedDailyStatus)
-
-  // DJC automation (separate Supabase project) — load independently so a DJC outage/misconfig
-  // never breaks the Kimedics view.
-  let djcData: Awaited<ReturnType<typeof loadDjc>> | null = null
-  if (isDjcConfigured) {
-    try {
-      djcData = await loadDjc()
-    } catch (err) {
-      console.error('Failed to load DJC status data:', err)
-    }
-  }
-
-  // AI cost/usage per automation (never let a usage/billing query break the page).
-  const [kimUsage, djcUsage, kimActual, djcActual] = await Promise.all([
-    getKimedicsAiUsage().catch(() => null),
-    isDjcConfigured ? getDjcAiUsage().catch(() => null) : Promise.resolve(null),
-    getOpenAiActualCost().catch(() => undefined),
-    isDjcConfigured ? getAnthropicActualCost().catch(() => undefined) : Promise.resolve(undefined),
-  ])
 
   const phases: Phase[] = []
   if (testingStartDate <= lastTestingDay) {
@@ -153,7 +158,9 @@ export default async function Page() {
     description:
       worst.kind === 'operational'
         ? `${health.length} automation${health.length === 1 ? '' : 's'} running normally`
-        : `${worst.name} ${worst.kind === 'outage' ? 'needs attention' : 'has recent issues'}`,
+        : worst.name === 'Kimedics'
+          ? `Kimedics — ${overallStatus.description}`
+          : `${worst.name} ${worst.kind === 'outage' ? 'needs attention' : 'has recent issues'}`,
   }
 
   return (
@@ -230,6 +237,18 @@ export default async function Page() {
                   </span>
                 </div>
               )
+            }
+            candidateBank={
+              candidateBank ? (
+                <CandidateBankCard bundle={candidateBank} />
+              ) : isCandidateBankConfigured ? (
+                <div className="flex items-center gap-2.5 rounded-xl border border-zinc-700/40 px-5 py-4">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-600">
+                    <circle cx="12" cy="12" r="10" /><path d="M12 8v4m0 4h.01" />
+                  </svg>
+                  <span className="text-xs text-zinc-600">Candidate Bank — could not load data.</span>
+                </div>
+              ) : undefined
             }
           />
         </section>
