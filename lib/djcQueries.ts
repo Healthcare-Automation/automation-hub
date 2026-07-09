@@ -188,7 +188,8 @@ export async function getDjcRunDetail(runId: number): Promise<DjcRunDetailBundle
     >`
       select id, candidate_id, event_type, stage, level, message, payload, created_at
       from djc_event_log
-      where candidate_id in (select candidate_id from djc_candidates where first_seen_run = ${runId})
+      where candidate_id in (select candidate_id from djc_candidates
+                             where first_seen_run = ${runId} or last_seen_run = ${runId})
       order by id
     `,
     sql<
@@ -219,7 +220,8 @@ export async function getDjcRunDetail(runId: number): Promise<DjcRunDetailBundle
              mailing_city, mailing_state, mailing_postal_code, state_licenses, preferred_states,
              position_types, cv_uploaded, cv_filename, cv_bytes_len, dedup_status, dedup_reason,
              sf_contact_id, match_count
-      from djc_candidates where first_seen_run = ${runId} order by updated_at desc
+      from djc_candidates where first_seen_run = ${runId} or last_seen_run = ${runId}
+      order by updated_at desc
     `,
   ])
 
