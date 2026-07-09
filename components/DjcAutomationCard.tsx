@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import type { DjcDayStatus, DjcRunDetail, DjcSummary } from '@/lib/djcTypes'
+import type { DjcDayStatus, DjcRunDetail, DjcSummary, DjcProfileViews } from '@/lib/djcTypes'
 import { cn, STATUS_DOT_COLORS, STATUS_COLORS, STATUS_LABELS, formatShortDate } from '@/lib/utils'
 import DjcStatusBarChart from './DjcStatusBarChart'
 import DjcRunBreakdown from './DjcRunBreakdown'
@@ -15,6 +15,7 @@ interface Props {
   dailyStatus: DjcDayStatus[]
   recentRuns: DjcRunDetail[]
   summary: DjcSummary
+  profileViews: DjcProfileViews | null
 }
 
 /** Cyan tooth avatar — same slot/size as the Kimedics avatar, different color/icon. */
@@ -36,9 +37,13 @@ function ChevronDown({ className }: { className?: string }) {
   )
 }
 
-export default function DjcAutomationCard({ dailyStatus, recentRuns, summary }: Props) {
+export default function DjcAutomationCard({ dailyStatus, recentRuns, summary, profileViews }: Props) {
   const [expanded, setExpanded] = useState(false)
   const lastRun = recentRuns[0]
+  // Candidates whose DJC profile couldn't be viewed because the account's Profile Views quota was
+  // hit — summed across the runs we show. Surfaces the shared-quota wall instead of hiding it in
+  // the "uncontactable" count.
+  const quotaBlockedRecent = recentRuns.reduce((a, r) => a + (r.quotaBlocked || 0), 0)
   const statusKind = lastRun
     ? lastRun.status === 'error' || lastRun.status === 'session_expired'
       ? 'outage'
@@ -74,6 +79,28 @@ export default function DjcAutomationCard({ dailyStatus, recentRuns, summary }: 
 
   return (
     <div className="overflow-hidden rounded-xl border border-zinc-700/50 bg-zinc-800/30">
+      {quotaBlockedRecent > 0 && (
+        <div className="flex items-start gap-2 border-b border-amber-500/30 bg-amber-500/10 px-5 py-2.5 text-[12px] leading-relaxed text-amber-200">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 shrink-0">
+            <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" /><path d="M12 9v4m0 4h.01" />
+          </svg>
+          <span>
+            <span className="font-semibold">Profile Views quota reached.</span>{' '}
+            {quotaBlockedRecent.toLocaleString()} candidate{quotaBlockedRecent === 1 ? '' : 's'} couldn’t be viewed across recent runs — their contact info and résumé stay blank until DentistJobCafe’s quarterly Profile Views reset.
+          </span>
+        </div>
+      )}
+      {profileViews && (
+        <div className="flex items-center justify-between border-b border-zinc-800/60 bg-zinc-900/30 px-5 py-1.5 text-[11px]">
+          <span className="text-zinc-500">DentistJobCafe Profile Views</span>
+          <span className="tabular-nums">
+            <span className={cn('font-medium', profileViews.remaining <= 15 ? 'text-amber-300' : 'text-zinc-300')}>
+              {profileViews.remaining.toLocaleString()} left
+            </span>
+            <span className="text-zinc-600"> · {profileViews.used.toLocaleString()}/{profileViews.total.toLocaleString()} used</span>
+          </span>
+        </div>
+      )}
       <div className="px-5 pt-5 pb-4">
         {/* Header — same structure as the Kimedics card (avatar · title/desc · status) */}
         <div className="mb-3 flex items-start justify-between gap-4">

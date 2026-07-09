@@ -1549,3 +1549,65 @@ export async function getWeeklySummary(): Promise<WeeklySummary> {
     },
   }
 }
+
+export interface PipelineBacklog {
+  /** Job updates received (email logged) but still not scraped, >20 min old. */
+  orphanedCount: number
+  /** Jobs linked to Salesforce whose details were never written, >20 min old. */
+  unsyncedCount: number
+  /** Age in minutes of the oldest stuck item across both sets (0 when clear). */
+  oldestAgeMinutes: number
+}
+
+/**
+ * Work the pipeline has accepted but not finished — the signal the July 2 incident
+ * proved the header badge was blind to. A cleanly-finished run with a stuck backlog
+ * is NOT "All Systems Operational": these queries mirror the Modal watchdog's
+ * definitions (pipeline_watchdog.py) at a shorter 20-min threshold so the hub turns
+ * amber/red before the 45-min alert email fires.
+ */
+export async function getPipelineBacklog(): Promise<PipelineBacklog> {
+  const [orphanRes, unsyncedRes] = await Promise.all([
+    sql<Array<{ c: string | number; oldest_min: string | number | null }>>`
+      SELECT count(*) AS c,
+             max(ROUND(EXTRACT(EPOCH FROM (NOW() - es.created_at)) / 60)) AS oldest_min
+      FROM email_scrapes es
+      WHERE es.created_at BETWEEN NOW() - INTERVAL '48 hours' AND NOW() - INTERVAL '20 minutes'
+        AND COALESCE(es.view_job_link, '') <> ''
+        AND COALESCE(es.job_post_id, '') <> ''
+        AND NOT EXISTS (
+          SELECT 1 FROM job_content jc
+          WHERE jc.email_scrape_id = es.id
+            AND (COALESCE(NULLIF(jc.title_line, ''), '') <> ''
+                 OR COALESCE(NULLIF(jc.description_full_text, ''), '') <> ''
+                 OR COALESCE(NULLIF(jc.job_title, ''), '') <> '')
+        )
+    `,
+    sql<Array<{ c: string | number; oldest_min: string | number | null }>>`
+      SELECT count(*) AS c,
+             max(ROUND(EXTRACT(EPOCH FROM (NOW() - jc.created_at)) / 60)) AS oldest_min
+      FROM job_content jc
+      WHERE jc.id IN (SELECT MAX(id) FROM job_content GROUP BY job_id)
+        AND COALESCE(NULLIF(jc.sf_job_id, ''), '') <> ''
+        AND jc.created_at < NOW() - INTERVAL '20 minutes'
+        AND jc.created_at > NOW() - INTERVAL '21 days'
+        AND NOT EXISTS (
+          SELECT 1 FROM job_event_log e
+          WHERE e.job_id = jc.job_id
+            AND e.event_type IN (
+                  'sf_scrape_fields_patched', 'sf_scrape_fields_recovered',
+                  'sf_scrape_fields_skip', 'sf_scrape_fields_error',
+                  'sf_sync_skipped_no_mapping')
+            AND e.created_at >= jc.created_at - INTERVAL '5 minutes'
+        )
+    `,
+  ])
+
+  const orphanedCount = Number(orphanRes[0]?.c ?? 0)
+  const unsyncedCount = Number(unsyncedRes[0]?.c ?? 0)
+  const oldestAgeMinutes = Math.max(
+    Number(orphanRes[0]?.oldest_min ?? 0),
+    Number(unsyncedRes[0]?.oldest_min ?? 0),
+  )
+  return { orphanedCount, unsyncedCount, oldestAgeMinutes }
+}

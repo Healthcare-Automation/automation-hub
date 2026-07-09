@@ -17,6 +17,7 @@
  * UI falls back to the activity-based estimate.
  */
 
+import { unstable_cache } from 'next/cache'
 import { MODEL_PRICING } from './aiCost'
 
 export interface ActualCost {
@@ -43,7 +44,7 @@ function sumAmounts(results: unknown): number {
 }
 
 /** Kimedics (OpenAI) — Costs API, daily buckets over the last 30 days. */
-export async function getOpenAiActualCost(): Promise<ActualCost> {
+async function fetchOpenAiActualCost(): Promise<ActualCost> {
   const key = (process.env.OPENAI_ADMIN_KEY || '').trim()
   if (!key) return UNAVAILABLE
   try {
@@ -96,13 +97,35 @@ function priceAnthropicRow(r: AnthropicUsageRow): number {
 }
 
 /**
- * DJC (Anthropic) — token usage meter priced at list (see file header for why not cost_report).
- * Daily buckets over 30 days, grouped by model; reconciles to the real API invoice.
+ * Resolve which org API key ids belong to the DJC automation, by key NAME
+ * (contains "djc", case-insensitive). The org has unrelated keys (e.g. the
+ * internal-job-board key created 2026-07-02) whose usage must never count as
+ * DJC spend. Name-matching survives key rotation with no config change.
  */
-export async function getAnthropicActualCost(): Promise<ActualCost> {
+async function resolveDjcApiKeyIds(adminKey: string): Promise<string[]> {
+  const res = await fetch('https://api.anthropic.com/v1/organizations/api_keys?limit=100', {
+    headers: { 'x-api-key': adminKey, 'anthropic-version': '2023-06-01' },
+    signal: AbortSignal.timeout(12_000),
+  })
+  if (!res.ok) throw new Error(`Anthropic api_keys ${res.status}`)
+  const j: { data?: { id?: string; name?: string }[] } = await res.json()
+  return (j.data ?? [])
+    .filter((k) => /djc/i.test(k.name ?? '') && k.id)
+    .map((k) => k.id as string)
+}
+
+/**
+ * DJC (Anthropic) — token usage meter priced at list (see file header for why not
+ * cost_report). Daily buckets over 30 days, grouped by api_key_id + model, and
+ * ONLY the DJC key's usage is counted — org-wide totals silently absorbed other
+ * projects' keys (the $54.82 incident: $52.35 of it was internal-job-board).
+ */
+async function fetchAnthropicActualCost(): Promise<ActualCost> {
   const key = (process.env.ANTHROPIC_ADMIN_KEY || '').trim()
   if (!key) return UNAVAILABLE
   try {
+    const djcKeyIds = new Set(await resolveDjcApiKeyIds(key))
+    if (djcKeyIds.size === 0) return { ...UNAVAILABLE, error: 'no DJC-named API key found in org' }
     const now = Date.now()
     const startIso = new Date(now - 30 * 86400_000).toISOString()
     const cut7 = now - 7 * 86400_000
@@ -111,6 +134,7 @@ export async function getAnthropicActualCost(): Promise<ActualCost> {
     let page: string | undefined
     for (let guard = 0; guard < 10; guard++) {
       const qs = new URLSearchParams({ starting_at: startIso, bucket_width: '1d', limit: '31' })
+      qs.append('group_by[]', 'api_key_id')
       qs.append('group_by[]', 'model')
       if (page) qs.set('page', page)
       const res = await fetch(`https://api.anthropic.com/v1/organizations/usage_report/messages?${qs}`, {
@@ -118,9 +142,11 @@ export async function getAnthropicActualCost(): Promise<ActualCost> {
         signal: AbortSignal.timeout(12_000),
       })
       if (!res.ok) return { ...UNAVAILABLE, error: `Anthropic usage ${res.status}` }
-      const j: { data?: { starting_at?: string; results?: AnthropicUsageRow[] }[]; has_more?: boolean; next_page?: string } = await res.json()
+      const j: { data?: { starting_at?: string; results?: (AnthropicUsageRow & { api_key_id?: string })[] }[]; has_more?: boolean; next_page?: string } = await res.json()
       for (const b of j.data ?? []) {
-        const amt = (b.results ?? []).reduce((s, r) => s + priceAnthropicRow(r), 0)
+        const amt = (b.results ?? [])
+          .filter((r) => djcKeyIds.has(r.api_key_id ?? ''))
+          .reduce((s, r) => s + priceAnthropicRow(r), 0)
         last30 += amt
         const t = b.starting_at ? Date.parse(b.starting_at) : 0
         if (t >= cut7) last7 += amt
@@ -133,6 +159,38 @@ export async function getAnthropicActualCost(): Promise<ActualCost> {
     return { ...UNAVAILABLE, error: e instanceof Error ? e.message : 'fetch failed' }
   }
 }
+
+/**
+ * Cached fronts for the billing calls. The vendors' billing endpoints are slow
+ * (OpenAI's Costs API ~7s) and their data aggregates with hours of delay at the
+ * source, so a 1h cache costs no real freshness but was most of the page's
+ * render time. Vercel's data cache serves these instantly (stale-while-revalidate)
+ * across cold starts. Failures are thrown before caching so an outage is retried
+ * on the next request instead of being cached as "unavailable" for an hour.
+ */
+function cachedActualCost(key: string, fetcher: () => Promise<ActualCost>) {
+  const cached = unstable_cache(
+    async () => {
+      const r = await fetcher()
+      if (!r.available) throw new Error(r.error || 'billing unavailable')
+      return r
+    },
+    [key],
+    { revalidate: 3600 },
+  )
+  return async (): Promise<ActualCost> => {
+    try {
+      return await cached()
+    } catch (e) {
+      return { ...UNAVAILABLE, error: e instanceof Error ? e.message : 'fetch failed' }
+    }
+  }
+}
+
+export const getOpenAiActualCost = cachedActualCost('openai-actual-cost-v1', fetchOpenAiActualCost)
+// v2: key bumped when per-key filtering landed — the v1 entry held the org-wide
+// (unfiltered) figure and Vercel's data cache persists across deploys.
+export const getAnthropicActualCost = cachedActualCost('anthropic-actual-cost-v2', fetchAnthropicActualCost)
 
 export interface AnthropicKeyCosts {
   available: boolean

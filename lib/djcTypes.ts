@@ -39,6 +39,7 @@ export interface DjcRunDetail {
   errors: number
   warnCount: number
   errorCount: number
+  quotaBlocked: number // candidates whose DJC profile couldn't be viewed — Profile Views quota hit
 }
 
 export type DjcEventLevel = 'info' | 'warn' | 'error'
@@ -80,6 +81,12 @@ export interface DjcCandidateRow {
 export interface DjcRunDetailBundle {
   events: DjcEvent[]
   candidates: DjcCandidateRow[]
+}
+export interface DjcProfileViews {
+  used: number
+  total: number
+  remaining: number
+  checkedAt: string
 }
 
 export interface DjcTotals {

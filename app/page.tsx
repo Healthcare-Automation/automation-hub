@@ -1,5 +1,5 @@
 import { getDailyStatus, getRecentRuns, getWeeklySummary } from '@/lib/queries'
-import { getDjcDailyStatus, getDjcRecentRuns, getDjcSummary } from '@/lib/djcQueries'
+import { getDjcDailyStatus, getDjcRecentRuns, getDjcSummary, getDjcProfileViews } from '@/lib/djcQueries'
 import { isDjcConfigured } from '@/lib/djcDb'
 import { getCandidateBankBundle } from '@/lib/candidateBankQueries'
 import { isCandidateBankConfigured } from '@/lib/candidateBankDb'
@@ -46,12 +46,13 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 }
 
 async function loadDjc() {
-  const [dailyStatus, recentRuns, summary] = await Promise.all([
+  const [dailyStatus, recentRuns, summary, profileViews] = await Promise.all([
     getDjcDailyStatus(),
     getDjcRecentRuns(20),
     getDjcSummary(),
+    getDjcProfileViews(),
   ])
-  return { dailyStatus, recentRuns, summary }
+  return { dailyStatus, recentRuns, summary, profileViews }
 }
 
 export default async function Page() {
@@ -223,6 +224,7 @@ export default async function Page() {
                       dailyStatus={djcData.dailyStatus}
                       recentRuns={djcData.recentRuns}
                       summary={djcData.summary}
+                      profileViews={djcData.profileViews}
                     />
                   }
                   cost={

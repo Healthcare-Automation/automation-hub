@@ -100,16 +100,44 @@ export function calculateUptime(days: DayStatus[]): string {
   return `${((good / activeDays.length) * 100).toFixed(1)}%`
 }
 
-export function getOverallStatus(days: DayStatus[], lastRun?: import('./types').RunDetail | null): OverallStatus {
-  // Prioritise the most recent run — if it finished cleanly the system is up.
-  if (lastRun) {
-    if (lastRun.status === 'error') {
+export function getOverallStatus(
+  days: DayStatus[],
+  lastRun?: import('./types').RunDetail | null,
+  backlog?: import('./queries').PipelineBacklog | null,
+): OverallStatus {
+  if (lastRun?.status === 'error') {
+    return {
+      kind: 'outage',
+      label: 'Partial Outage',
+      description: 'The most recent pipeline run failed',
+    }
+  }
+
+  // A stuck backlog outranks a clean last run — the July 2 incident showed the
+  // scrape can be hard-killed mid-batch while every logged run still "finished
+  // cleanly". Work accepted but not delivered to Salesforce is the real signal.
+  const backlogTotal = backlog ? backlog.orphanedCount + backlog.unsyncedCount : 0
+  if (backlog && backlogTotal > 0) {
+    const what = [
+      backlog.orphanedCount > 0 ? `${backlog.orphanedCount} update${backlog.orphanedCount === 1 ? '' : 's'} not yet scraped` : '',
+      backlog.unsyncedCount > 0 ? `${backlog.unsyncedCount} job${backlog.unsyncedCount === 1 ? '' : 's'} not fully in Salesforce` : '',
+    ].filter(Boolean).join(' · ')
+    if (backlog.oldestAgeMinutes > 60) {
       return {
         kind: 'outage',
-        label: 'Partial Outage',
-        description: 'The most recent pipeline run failed',
+        label: 'Backlog Stuck',
+        description: `${what} — auto-recovery has not cleared it (oldest ${backlog.oldestAgeMinutes} min)`,
       }
     }
+    return {
+      kind: 'degraded',
+      label: 'Catching Up',
+      description: `${what} — auto-recovery is draining the backlog`,
+    }
+  }
+
+  // Prioritise the most recent run — if it finished cleanly the system is up.
+  if (lastRun) {
     if (lastRun.status === 'running') {
       return {
         kind: 'operational',

@@ -151,6 +151,24 @@ const KIMEDICS: ChangeEntry[] = [
     details: 'We rebuilt the safeguards end to end: a job only counts as a success once its details have actually been written to Salesforce. If anything interrupts that, the job is flagged as failed in both the dashboard and the daily report, and a background check re-saves it within minutes — so an incomplete job can never quietly appear “done” again, no matter what causes the interruption.',
     examples: ['A job that links to Salesforce but whose details didn’t write now shows “not synced / failed” instead of “success,” and is corrected automatically on the next cycle.'],
   },
+  {
+    date: '2026-07-03', category: 'reliability', title: 'No more skipped updates during busy spells',
+    summary: 'When several job updates arrive close together, they’re now processed in safe-sized batches so none get dropped, and any that were missed are picked up automatically on the next cycle.',
+    details: 'When a burst of job updates landed at once, reading them all in a single pass could run long enough to be cut off — and if that happened, the whole batch was discarded, so those updates never reached Salesforce and quietly showed as “no jobs.” We now process updates in safe-sized batches that always finish in time, and a background sweep re-checks and re-reads anything left over on every cycle until it’s in Salesforce. Nothing is left behind.',
+    examples: ['A “status: Closed” update that had been logged but never applied — leaving the job showing “active” — is now read and corrected automatically.', 'A day where a cluster of updates arrived together and several never synced now drains completely within a few cycles instead of stalling.'],
+  },
+  {
+    date: '2026-07-03', category: 'reliability', title: 'An independent safety net now watches the pipeline',
+    summary: 'A separate watchdog now checks the whole pipeline every 30 minutes and emails the team if anything is stuck — and this dashboard now shows “Catching Up” or “Backlog Stuck” instead of “Operational” whenever work hasn’t fully reached Salesforce.',
+    details: 'Previously, if the automation itself was interrupted, the part responsible for raising the alarm could be interrupted with it — so problems could sit quietly until someone noticed by hand. A new watchdog runs completely separately from the automation: it verifies the automation is alive, that every received update got read, and that every job’s details actually landed in Salesforce. If anything sits stuck past its normal self-recovery window, the team gets an email within the hour. Each job is also now saved the moment it’s read, so an interruption can no longer throw away work already done.',
+    examples: ['If the automation stopped running entirely, the team is emailed within about 30 minutes — instead of finding out from a client.', 'During the July 2 busy spell, the dashboard showed “Operational” while 19 updates sat unsynced; the same situation now shows “Backlog Stuck” on this page and triggers a watchdog email.'],
+  },
+  {
+    date: '2026-07-04', category: 'reporting', title: 'Dashboard loads in a moment',
+    summary: 'Opening this dashboard used to take up to 17 seconds on a first visit — it now loads in about a second, with all live data still fresh.',
+    details: 'The page was gathering its numbers one group at a time and re-asking slow billing services on every visit. It now gathers everything at once, the activity queries were tuned to answer in a fraction of a second, and the slow-moving cost figures are remembered for up to an hour (they only change daily at the source). Everything operational — runs, statuses, backlogs — is still queried live on every load.',
+    examples: ['A first visit that used to show a blank screen for ~17 seconds now paints in about a second.'],
+  },
 ]
 
 const DJC: ChangeEntry[] = [
@@ -165,6 +183,24 @@ const DJC: ChangeEntry[] = [
     summary: 'Fixed a sign-in timeout that briefly stopped the automation when the login security code was slow to arrive.',
     details: 'Each run signs in with a one-time security code texted to us. That text started arriving a bit slower than our wait allowed, so sign-in timed out and a few runs were skipped. We widened the wait, and now keep a signed-in session between runs so we only need a fresh code about once a day instead of every run.',
     examples: ['Morning runs that had been failing to sign in now complete normally.'],
+  },
+  {
+    date: '2026-07-01', category: 'reliability', title: 'Sign-in now heals itself',
+    summary: 'If a login code never arrives or a saved session expires mid-run, the automation now recovers on its own — no more failed runs waiting on a human.',
+    details: 'Two remaining sign-in gaps are closed: when the texted security code is slow or lost, the automation now requests a fresh one and tries again instead of giving up; and when its saved session turns out to be expired at the start of a run, it signs itself back in and continues instead of stopping. Sign-in problems now fix themselves in the background.',
+    examples: ['A run that found its saved session expired used to stop and wait for someone to notice — it now signs back in and finishes normally.', 'A lost login text no longer kills the run; a fresh code is requested automatically.'],
+  },
+  {
+    date: '2026-07-04', category: 'reporting', title: 'Dashboard loads in a moment',
+    summary: 'Opening this dashboard used to take up to 17 seconds on a first visit — it now loads in about a second, with all live data still fresh.',
+    details: 'The page was gathering its numbers one group at a time and re-asking slow billing services on every visit. It now gathers everything at once, the activity queries were tuned to answer in a fraction of a second, and the slow-moving cost figures are remembered for up to an hour (they only change daily at the source). Everything operational — runs, statuses, backlogs — is still queried live on every load.',
+    examples: ['A first visit that used to show a blank screen for ~17 seconds now paints in about a second.'],
+  },
+  {
+    date: '2026-07-04', category: 'accuracy', title: 'AI spend now counts only this automation',
+    summary: 'The billed AI spend on this page was accidentally including an unrelated project that shares the same account — it now counts only this automation’s own usage.',
+    details: 'The billing account behind this automation is also used by other, unrelated work. The “billed” figure was reading the account-wide total, so someone else’s usage showed up here as this automation’s cost. The page now attributes spend to this automation’s own access key only, so the billed figure — and the monthly/yearly projections built on it — reflect just this pipeline.',
+    examples: ['The AI Cost tab showed $54.82 for the last 30 days when this automation’s real usage was about $2.47 — the rest belonged to an unrelated internal project.'],
   },
   {
     date: '2026-06-05', category: 'new', title: 'DJC automation built',

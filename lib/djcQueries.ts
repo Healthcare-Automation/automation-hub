@@ -9,6 +9,7 @@ import type {
   DjcCandidateRow,
   DjcRunDetailBundle,
   DjcSummary,
+  DjcProfileViews,
 } from './djcTypes'
 
 const DAYS = 90
@@ -124,6 +125,7 @@ export async function getDjcRecentRuns(limit = 20): Promise<DjcRunDetail[]> {
       errors: number
       warn_count: number
       error_count: number
+      quota_blocked: number
     }[]
   >`
     select r.id,
@@ -134,7 +136,9 @@ export async function getDjcRecentRuns(limit = 20): Promise<DjcRunDetail[]> {
            r.targets_processed, r.candidates_seen, r.candidates_selected, r.contactable,
            r.uncontactable, r.duplicates, r.created, r.create_skipped_guard, r.errors,
            (select count(*) from djc_event_log e where e.run_id = r.id and e.level = 'warn')::int  as warn_count,
-           (select count(*) from djc_event_log e where e.run_id = r.id and e.level = 'error')::int as error_count
+           (select count(*) from djc_event_log e where e.run_id = r.id and e.level = 'error')::int as error_count,
+           (select count(*) from djc_event_log e where e.run_id = r.id
+              and e.event_type = 'profile_view_quota_blocked')::int as quota_blocked
     from djc_runs r
     where r.trigger = 'scheduled'
     order by r.id desc
@@ -160,6 +164,7 @@ export async function getDjcRecentRuns(limit = 20): Promise<DjcRunDetail[]> {
     errors: r.errors,
     warnCount: r.warn_count,
     errorCount: r.error_count,
+    quotaBlocked: r.quota_blocked,
   }))
 }
 
@@ -323,6 +328,22 @@ function toCandidateRow(c: DjcCandidateColumns): DjcCandidateRow {
   }
 }
 
+
+/** Latest DJC Profile Views budget snapshot (view-free read logged by the automation each run). */
+export async function getDjcProfileViews(): Promise<DjcProfileViews | null> {
+  const sql = djcSql
+  if (!sql) return null
+  const rows = await sql<{ payload: { used: number; total: number; remaining: number }; created_at: string }[]>`
+    select payload, created_at
+    from djc_event_log
+    where event_type = 'profile_views_snapshot'
+    order by id desc
+    limit 1
+  `
+  if (!rows.length || !rows[0].payload) return null
+  const p = rows[0].payload
+  return { used: p.used, total: p.total, remaining: p.remaining, checkedAt: rows[0].created_at }
+}
 
 export async function getDjcSummary(): Promise<DjcSummary> {
   const sql = djcSql
