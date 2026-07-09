@@ -1,4 +1,4 @@
-import { getDailyStatus, getRecentRuns, getWeeklySummary } from '@/lib/queries'
+import { getDailyStatus, getRecentRuns, getWeeklySummary, getPipelineBacklog } from '@/lib/queries'
 import { getDjcDailyStatus, getDjcRecentRuns, getDjcSummary, getDjcProfileViews } from '@/lib/djcQueries'
 import { isDjcConfigured } from '@/lib/djcDb'
 import { getCandidateBankBundle } from '@/lib/candidateBankQueries'
@@ -13,6 +13,7 @@ import { AutomationTabs } from '@/components/AutomationTabs'
 import { AutomationView } from '@/components/AutomationView'
 import { AiCostPanel } from '@/components/AiCostPanel'
 import { ChangelogPanel } from '@/components/ChangelogPanel'
+import { getTicketChangelog } from '@/lib/notionTickets'
 import { getKimedicsAiUsage, getDjcAiUsage } from '@/lib/aiUsage'
 import { getOpenAiActualCost, getAnthropicActualCost } from '@/lib/aiBilling'
 import { LiveDashboardRefresh } from '@/components/LiveDashboardRefresh'
@@ -95,7 +96,10 @@ export default async function Page() {
   )
 
   const lastRun = recentRuns[0] ?? null
-  const overallStatus = getOverallStatus(enrichedDailyStatus, lastRun)
+  // Backlog = accepted-but-undelivered work (orphaned/unsynced updates). Without it the
+  // header said "Operational" during the July 2 incident while 19 updates sat stuck.
+  const backlog = await getPipelineBacklog().catch(() => null)
+  const overallStatus = getOverallStatus(enrichedDailyStatus, lastRun, backlog)
   const uptime = calculateUptime(enrichedDailyStatus)
 
   // DJC automation (separate Supabase project) — load independently so a DJC outage/misconfig
@@ -119,6 +123,9 @@ export default async function Page() {
       console.error('Failed to load Candidate Bank data:', err)
     }
   }
+
+  // Client-facing tickets → Updates tab, so the changelog stays current without a code deploy.
+  const ticketChangelog = await getTicketChangelog().catch(() => ({ djc: [], kimedics: [] }))
 
   // AI cost/usage per automation (never let a usage/billing query break the page).
   const [kimUsage, djcUsage, kimActual, djcActual] = await Promise.all([
@@ -213,7 +220,7 @@ export default async function Page() {
                     <p className="text-xs text-zinc-600">AI cost unavailable — could not read usage data.</p>
                   )
                 }
-                changelog={<ChangelogPanel automation="kimedics" />}
+                changelog={<ChangelogPanel automation="kimedics" ticketEntries={ticketChangelog.kimedics} />}
               />
             }
             djc={
@@ -234,7 +241,7 @@ export default async function Page() {
                       <p className="text-xs text-zinc-600">AI cost unavailable — could not read usage data.</p>
                     )
                   }
-                  changelog={<ChangelogPanel automation="djc" />}
+                  changelog={<ChangelogPanel automation="djc" ticketEntries={ticketChangelog.djc} />}
                 />
               ) : (
                 <div className="flex items-center gap-2.5 rounded-xl border border-zinc-700/40 px-5 py-4">

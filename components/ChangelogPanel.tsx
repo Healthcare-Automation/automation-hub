@@ -73,8 +73,27 @@ function Entry({ e }: { e: ChangeEntry }) {
   )
 }
 
-export function ChangelogPanel({ automation }: { automation: Automation }) {
-  const entries = [...CHANGELOG[automation]].sort((a, b) => b.date.localeCompare(a.date))
+// Tickets resolved before this date (per automation) are already told by the curated static
+// entries above — the static log was maintained up to here when we wired the tickets feed
+// (2026-07-09). Tickets resolved on/after surface automatically, so a newly-filed client ticket
+// appears on this tab with no code deploy. Rule going forward: an incident is logged as a ticket
+// OR a static entry, never both, so the two feeds never duplicate.
+const TICKET_FEED_SINCE: Record<Automation, string> = {
+  djc: '2026-07-05', // last curated DJC static entry: 2026-07-04
+  kimedics: '2026-07-09', // last curated Kimedics static entry: 2026-07-08
+}
+
+export function ChangelogPanel({
+  automation,
+  ticketEntries = [],
+}: {
+  automation: Automation
+  // Live entries sourced from the Notion tickets board (see lib/notionTickets.ts) — merged with
+  // the curated static log so filing a ticket keeps this tab current with no code deploy.
+  ticketEntries?: ChangeEntry[]
+}) {
+  const freshTickets = ticketEntries.filter((t) => t.date >= TICKET_FEED_SINCE[automation])
+  const entries = [...CHANGELOG[automation], ...freshTickets].sort((a, b) => b.date.localeCompare(a.date))
 
   const groups: { key: string; label: string; items: ChangeEntry[] }[] = []
   for (const e of entries) {
