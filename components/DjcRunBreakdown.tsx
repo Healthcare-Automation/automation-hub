@@ -287,6 +287,7 @@ function RunRow({ run, label }: { run: DjcRunDetail; label: string }) {
             </>
           )}
         </span>
+        {run.trigger === 'backfill' && <span className="shrink-0 rounded bg-violet-500/15 px-1.5 py-0.5 text-[9px] font-medium text-violet-300 ring-1 ring-violet-500/25">recovery</span>}
         {run.writeMode !== 'live' && <span className="hidden shrink-0 rounded bg-zinc-700/30 px-1.5 py-0.5 text-[9px] text-zinc-500 sm:inline">test</span>}
         {!interrupted && <span className="shrink-0 text-[11px] text-zinc-600 tabular-nums">{formatDuration(run.durationSeconds)}</span>}
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={cn('shrink-0 text-zinc-600 transition-transform', open && 'rotate-180')}><path d="m6 9 6 6 6-6" /></svg>

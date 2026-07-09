@@ -140,7 +140,7 @@ export async function getDjcRecentRuns(limit = 20): Promise<DjcRunDetail[]> {
            (select count(*) from djc_event_log e where e.run_id = r.id
               and e.event_type = 'profile_view_quota_blocked')::int as quota_blocked
     from djc_runs r
-    where r.trigger = 'scheduled'
+    where r.trigger in ('scheduled', 'backfill')
     order by r.id desc
     limit ${limit}
   `
