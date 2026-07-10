@@ -169,6 +169,24 @@ const KIMEDICS: ChangeEntry[] = [
     details: 'The page was gathering its numbers one group at a time and re-asking slow billing services on every visit. It now gathers everything at once, the activity queries were tuned to answer in a fraction of a second, and the slow-moving cost figures are remembered for up to an hour (they only change daily at the source). Everything operational — runs, statuses, backlogs — is still queried live on every load.',
     examples: ['A first visit that used to show a blank screen for ~17 seconds now paints in about a second.'],
   },
+  {
+    date: '2026-07-10', category: 'reporting', title: 'Uptime and success now tell the truth',
+    summary: 'The uptime and success figures on this page now score what actually happened to each job update — days with lost or badly delayed updates show red or amber instead of counting as perfect.',
+    details: 'These numbers used to grade the automation on whether its runs finished — but the worst failures leave no finished runs to grade, so incident days scored as 100%. The dashboard now scores each received update directly: was it processed, and was it on time? Days where updates were lost show red, days where updates ran late show amber, and the uptime and success percentages are computed from that same record — past days included.',
+    examples: ['July 2 and July 6 — when updates sat delayed for hours — used to show as 100% uptime days; they now correctly show red.', 'Success now means “updates handled right the first time,” so a stretch with delays reads 85%, not 100%.'],
+  },
+  {
+    date: '2026-07-08', category: 'accuracy', title: 'Cleaner dates when the post has a typo',
+    summary: 'When a job post leaves a dangling dash after a start date (“July 15-” with no end date), the captured dates now drop the stray dash instead of carrying the typo into Salesforce.',
+    details: 'Posters sometimes write an open-ended need like “July 15- open to roster” — a dash with no end date after it. The automation was faithfully copying that stray dash into the captured dates, so Salesforce and the review emails showed “July 15-”. The dash is now recognized as a typo and removed on every capture path; real date ranges like “May 18-22” are untouched.',
+    examples: ['Job #19705’s “July 15- open to roster” now captures as “July 15” instead of “July 15-”.'],
+  },
+  {
+    date: '2026-07-07', category: 'reliability', title: 'Mailbox check made 30× faster',
+    summary: 'The step that reads new Kimedics emails had slowed down as months of mail accumulated — enough to stall runs. It now reads only the recent window and finishes in seconds.',
+    details: 'Every cycle starts by checking the inbox for new job updates. That check was quietly re-reading every Kimedics email ever received — over 1,800 by now — just to find the newest handful, and this weekend it got slow enough to stall runs and delay updates by a few hours. The watchdog we added last week caught it and emailed the team within the hour. The check now asks the mailbox for only the recent window (10 minutes → about 20 seconds), and it stays fast no matter how much mail accumulates. The delayed updates were all recovered and synced.',
+    examples: ['The watchdog alert listed 20 waiting updates at 2 AM; by the morning all 20 were recovered and in Salesforce.', 'This fix is permanent: the check reads days of mail, not the whole mailbox, so it can never slow down with age again.'],
+  },
 ]
 
 const DJC: ChangeEntry[] = [
@@ -201,6 +219,12 @@ const DJC: ChangeEntry[] = [
     summary: 'The billed AI spend on this page was accidentally including an unrelated project that shares the same account — it now counts only this automation’s own usage.',
     details: 'The billing account behind this automation is also used by other, unrelated work. The “billed” figure was reading the account-wide total, so someone else’s usage showed up here as this automation’s cost. The page now attributes spend to this automation’s own access key only, so the billed figure — and the monthly/yearly projections built on it — reflect just this pipeline.',
     examples: ['The AI Cost tab showed $54.82 for the last 30 days when this automation’s real usage was about $2.47 — the rest belonged to an unrelated internal project.'],
+  },
+  {
+    date: '2026-07-10', category: 'reporting', title: 'Profile Views budget on the sourcing report',
+    summary: 'The daily sourcing email now shows how many Dentist Job Cafe profile views have been used and how many remain.',
+    details: 'Dentist Job Cafe limits how many candidate profiles the account can open each quarter. The daily report now surfaces that budget right in the KPIs — views used and views left — so the remaining sourcing capacity is visible at a glance next to the day’s candidate numbers.',
+    examples: ['A run now shows “800 views used · 50 views left” alongside the candidates it sourced that day.'],
   },
   {
     date: '2026-06-05', category: 'new', title: 'DJC automation built',
