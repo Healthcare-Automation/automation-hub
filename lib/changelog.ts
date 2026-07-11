@@ -171,9 +171,9 @@ const KIMEDICS: ChangeEntry[] = [
   },
   {
     date: '2026-07-10', category: 'reporting', title: 'Uptime and success now tell the truth',
-    summary: 'The uptime and success figures on this page now score what actually happened to each job update — days with lost or badly delayed updates show red or amber instead of counting as perfect.',
-    details: 'These numbers used to grade the automation on whether its runs finished — but the worst failures leave no finished runs to grade, so incident days scored as 100%. The dashboard now scores each received update directly: was it processed, and was it on time? Days where updates were lost show red, days where updates ran late show amber, and the uptime and success percentages are computed from that same record — past days included.',
-    examples: ['July 2 and July 6 — when updates sat delayed for hours — used to show as 100% uptime days; they now correctly show red.', 'Success now means “updates handled right the first time,” so a stretch with delays reads 85%, not 100%.'],
+    summary: 'The uptime and success figures now score what actually happened to each job update — days with lost or delayed updates show red or amber, and hovering or clicking a day bar shows exactly why.',
+    details: 'These numbers used to grade the automation on whether its runs finished — but the worst failures leave no finished runs to grade, so incident days scored as 100%. The dashboard now scores each received update directly: was it processed, and was it on time? Days where updates were lost show red, days where updates ran late show amber, and the percentages are computed from that same record — past days included. Hovering a day bar now lists the reasons in plain English, and clicking it pins the details with the specific jobs (or failed runs) affected, linked for one-click review.',
+    examples: ['July 2 and July 6 — when updates sat delayed for hours — used to show as 100% uptime days; they now correctly show red, and clicking either bar lists the exact jobs that were delayed.', 'Success now means “updates handled right the first time,” so a stretch with delays reads 85%, not 100%.'],
   },
   {
     date: '2026-07-08', category: 'accuracy', title: 'Cleaner dates when the post has a typo',
@@ -186,6 +186,12 @@ const KIMEDICS: ChangeEntry[] = [
     summary: 'The step that reads new Kimedics emails had slowed down as months of mail accumulated — enough to stall runs. It now reads only the recent window and finishes in seconds.',
     details: 'Every cycle starts by checking the inbox for new job updates. That check was quietly re-reading every Kimedics email ever received — over 1,800 by now — just to find the newest handful, and this weekend it got slow enough to stall runs and delay updates by a few hours. The watchdog we added last week caught it and emailed the team within the hour. The check now asks the mailbox for only the recent window (10 minutes → about 20 seconds), and it stays fast no matter how much mail accumulates. The delayed updates were all recovered and synced.',
     examples: ['The watchdog alert listed 20 waiting updates at 2 AM; by the morning all 20 were recovered and in Salesforce.', 'This fix is permanent: the check reads days of mail, not the whole mailbox, so it can never slow down with age again.'],
+  },
+  {
+    date: '2026-07-11', category: 'reliability', title: 'Rides through busy-inbox moments',
+    summary: 'When the shared inbox is briefly maxed out by another program reading it, the automation now waits and retries instead of skipping that check.',
+    details: 'The inbox the automation reads is shared with other tools, and the mail provider only allows so many readers at once. Once a day another program was briefly using up all the reading slots, and a check that landed in that moment would fail and try again 10 minutes later. No job data was ever missed — each check re-reads a full day of mail — but the automation now also waits out the busy moment and retries within seconds, so checks succeed even while the inbox is crowded.',
+    examples: ['A check that lands during the daily busy window now pauses ~30 seconds and completes, instead of skipping to the next 10-minute cycle.'],
   },
 ]
 
