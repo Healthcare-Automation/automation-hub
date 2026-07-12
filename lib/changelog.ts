@@ -188,6 +188,12 @@ const KIMEDICS: ChangeEntry[] = [
     examples: ['The watchdog alert listed 20 waiting updates at 2 AM; by the morning all 20 were recovered and in Salesforce.', 'This fix is permanent: the check reads days of mail, not the whole mailbox, so it can never slow down with age again.'],
   },
   {
+    date: '2026-07-12', category: 'reliability', title: 'Inbox reading rebuilt — congestion-proof',
+    summary: 'The automation now reads the inbox through a direct Google connection with no shared-slot limit, so inbox congestion can never delay a check again.',
+    details: 'The inbox is shared with other tools, and the old way of reading mail allowed only a limited number of programs to connect at once — the source of the occasional "busy inbox" delays. The automation now reads mail through Google’s modern direct channel, which has no such limit and is faster. If that channel is ever unavailable, the automation automatically falls back to the old method, so there is no new way to fail. We verified side by side that both methods return exactly the same emails before switching.',
+    examples: ['The daily 20–40 minute window where another program hogged all the inbox slots used to be able to delay checks; the new reading method is simply unaffected by it.', 'Reading the last day of job updates is also faster than before.'],
+  },
+  {
     date: '2026-07-12', category: 'reliability', title: 'Busy-inbox root cause fixed + new safeguard',
     summary: 'Found and removed the source of the daily inbox congestion, and added a watchdog alert that pages the team if the inbox ever becomes unreadable for over an hour.',
     details: 'The congestion that occasionally delayed email checks was traced to a mail program holding almost all of the inbox’s connection slots; it has been disconnected. The automation also now handles any future congestion gracefully — a check that finds the inbox busy simply waits for the next 10-minute cycle instead of raising a false alarm, while a new independent safeguard emails the team if the inbox stays unreadable for more than 90 minutes (a real problem, not a blip). No job data was ever lost during the congestion — every check re-reads a full day of mail.',
@@ -231,6 +237,12 @@ const DJC: ChangeEntry[] = [
     summary: 'The billed AI spend on this page was accidentally including an unrelated project that shares the same account — it now counts only this automation’s own usage.',
     details: 'The billing account behind this automation is also used by other, unrelated work. The “billed” figure was reading the account-wide total, so someone else’s usage showed up here as this automation’s cost. The page now attributes spend to this automation’s own access key only, so the billed figure — and the monthly/yearly projections built on it — reflect just this pipeline.',
     examples: ['The AI Cost tab showed $54.82 for the last 30 days when this automation’s real usage was about $2.47 — the rest belonged to an unrelated internal project.'],
+  },
+  {
+    date: '2026-07-10', category: 'accuracy', title: 'Real names instead of initials',
+    summary: 'Candidates whose DJC profile only shows initials now get their full name recovered from their résumé, so Salesforce shows real names.',
+    details: 'Some DJC profiles hide the candidate’s name behind initials like "M.M.". The automation now reads the full name from the résumé already attached to the candidate — including for candidates added earlier — and uses it when the résumé and profile agree. Existing initials-only contacts in Salesforce were cleaned up the same way, without spending any Profile Views.',
+    examples: ['A contact saved as "M.m." was updated to her full name taken from her own résumé.', 'When DJC and the résumé disagree on a middle initial, the résumé wins if the email address confirms it.'],
   },
   {
     date: '2026-07-10', category: 'reporting', title: 'Profile Views budget on the sourcing report',
