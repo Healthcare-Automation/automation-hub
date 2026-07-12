@@ -239,12 +239,6 @@ const DJC: ChangeEntry[] = [
     examples: ['The AI Cost tab showed $54.82 for the last 30 days when this automation’s real usage was about $2.47 — the rest belonged to an unrelated internal project.'],
   },
   {
-    date: '2026-07-10', category: 'accuracy', title: 'Real names instead of initials',
-    summary: 'Candidates whose DJC profile only shows initials now get their full name recovered from their résumé, so Salesforce shows real names.',
-    details: 'Some DJC profiles hide the candidate’s name behind initials like "M.M.". The automation now reads the full name from the résumé already attached to the candidate — including for candidates added earlier — and uses it when the résumé and profile agree. Existing initials-only contacts in Salesforce were cleaned up the same way, without spending any Profile Views.',
-    examples: ['A contact saved as "M.m." was updated to her full name taken from her own résumé.', 'When DJC and the résumé disagree on a middle initial, the résumé wins if the email address confirms it.'],
-  },
-  {
     date: '2026-07-10', category: 'reporting', title: 'Profile Views budget on the sourcing report',
     summary: 'The daily sourcing email now shows how many Dentist Job Cafe profile views have been used and how many remain.',
     details: 'Dentist Job Cafe limits how many candidate profiles the account can open each quarter. The daily report now surfaces that budget right in the KPIs — views used and views left — so the remaining sourcing capacity is visible at a glance next to the day’s candidate numbers.',
