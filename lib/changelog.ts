@@ -188,6 +188,12 @@ const KIMEDICS: ChangeEntry[] = [
     examples: ['The watchdog alert listed 20 waiting updates at 2 AM; by the morning all 20 were recovered and in Salesforce.', 'This fix is permanent: the check reads days of mail, not the whole mailbox, so it can never slow down with age again.'],
   },
   {
+    date: '2026-07-12', category: 'reliability', title: 'Busy-inbox root cause fixed + new safeguard',
+    summary: 'Found and removed the source of the daily inbox congestion, and added a watchdog alert that pages the team if the inbox ever becomes unreadable for over an hour.',
+    details: 'The congestion that occasionally delayed email checks was traced to a mail program holding almost all of the inbox’s connection slots; it has been disconnected. The automation also now handles any future congestion gracefully — a check that finds the inbox busy simply waits for the next 10-minute cycle instead of raising a false alarm, while a new independent safeguard emails the team if the inbox stays unreadable for more than 90 minutes (a real problem, not a blip). No job data was ever lost during the congestion — every check re-reads a full day of mail.',
+    examples: ['During congestion the automation used to send a technical failure alert within a minute; now it quietly retries and catches up, and the team is only alerted if the inbox stays blocked past 90 minutes.'],
+  },
+  {
     date: '2026-07-11', category: 'reliability', title: 'Rides through busy-inbox moments',
     summary: 'When the shared inbox is briefly maxed out by another program reading it, the automation now waits and retries instead of skipping that check.',
     details: 'The inbox the automation reads is shared with other tools, and the mail provider only allows so many readers at once. Once a day another program was briefly using up all the reading slots, and a check that landed in that moment would fail and try again 10 minutes later. No job data was ever missed — each check re-reads a full day of mail — but the automation now also waits out the busy moment and retries within seconds, so checks succeed even while the inbox is crowded.',
