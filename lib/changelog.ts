@@ -239,12 +239,6 @@ const DJC: ChangeEntry[] = [
     examples: ['The AI Cost tab showed $54.82 for the last 30 days when this automation’s real usage was about $2.47 — the rest belonged to an unrelated internal project.'],
   },
   {
-    date: '2026-07-13', category: 'reliability', title: 'One-day pause to protect views',
-    summary: 'Candidate sourcing was paused for Monday so the last few Dentist Job Cafe profile views stay available to the team; it resumes Tuesday when the quarterly allowance resets.',
-    details: 'The quarterly Dentist Job Cafe profile-view allowance was nearly used up (26 views left), and Monday morning’s weekend catch-up alone needed more than that. Rather than running dry mid-morning and locking the team out of viewing profiles for the rest of the day, Monday’s runs were held. Nothing is lost — the weekend’s candidates stay in scope and Tuesday’s runs pick them all up on the fresh allowance, with the assistant and hygienist roles rejoining as planned.',
-    examples: ['About 38 candidates from the weekend are queued; all of them get processed Tuesday morning instead of being cut off partway through on Monday.', 'The team keeps the remaining 26 views for manual candidate searching on Monday.'],
-  },
-  {
     date: '2026-07-10', category: 'reporting', title: 'Profile Views budget on the sourcing report',
     summary: 'The daily sourcing email now shows how many Dentist Job Cafe profile views have been used and how many remain.',
     details: 'Dentist Job Cafe limits how many candidate profiles the account can open each quarter. The daily report now surfaces that budget right in the KPIs — views used and views left — so the remaining sourcing capacity is visible at a glance next to the day’s candidate numbers.',
