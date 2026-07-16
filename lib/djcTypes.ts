@@ -14,6 +14,10 @@ export interface DjcDayStatus {
   created: number
   createSkippedGuard: number
   errors: number
+  /** Runs that ended in error / session_expired (drives the red day bar). */
+  errorRuns: number
+  /** "HH:MM — status" per failed run, UTC (for the day-bar details popover). */
+  errorRunDetails: string[]
   status: DjcDayStatusKind
 }
 
@@ -76,6 +80,8 @@ export interface DjcCandidateRow {
   dedupReason: string | null // phone | email | name+link
   sfContactId: string | null
   matchCount: number | null
+  addedAt: string | null // when we first created this candidate in SF (first_seen_at)
+  lastReviewedOn: string | null // last date we confirmed them active in the DJC scan (view-free)
 }
 
 export interface DjcRunDetailBundle {

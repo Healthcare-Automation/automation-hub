@@ -101,6 +101,11 @@ export async function getDailyStatus(): Promise<DayStatus[]> {
     sf_errors: string | number
     sf_recovered: string | number
     sf_quarantined: string | number
+    emails_dropped: string | number
+    emails_late: string | number
+    dropped_job_ids: string[] | null
+    late_job_ids: string[] | null
+    killed_runs: string | number
   }>>`
     WITH ${sql.unsafe(PAIRED_CTE)}
     SELECT
@@ -112,6 +117,34 @@ export async function getDailyStatus(): Promise<DayStatus[]> {
       ) AS completed_runs,
       count(DISTINCT es.id)  AS emails_scraped,
       count(DISTINCT jc.id)  AS jobs_scraped,
+      -- Honesty signals (retroactive — derived from what actually happened, not from
+      -- whether the run managed to log anything before dying). "Meaningful content"
+      -- matches the watchdog/orphan definition; esc.first_content_at comes from the
+      -- lateral join below.
+      count(DISTINCT es.id) FILTER (
+        WHERE COALESCE(es.view_job_link, '') <> '' AND COALESCE(es.job_post_id, '') <> ''
+          AND esc.first_content_at IS NULL
+          AND es.created_at < NOW() - INTERVAL '60 minutes'    -- give the pipeline its window
+      ) AS emails_dropped,
+      count(DISTINCT es.id) FILTER (
+        WHERE COALESCE(es.view_job_link, '') <> '' AND COALESCE(es.job_post_id, '') <> ''
+          AND esc.first_content_at > es.created_at + INTERVAL '60 minutes'
+      ) AS emails_late,
+      array_agg(DISTINCT es.job_post_id) FILTER (
+        WHERE COALESCE(es.view_job_link, '') <> '' AND COALESCE(es.job_post_id, '') <> ''
+          AND esc.first_content_at IS NULL
+          AND es.created_at < NOW() - INTERVAL '60 minutes'
+      ) AS dropped_job_ids,
+      array_agg(DISTINCT es.job_post_id) FILTER (
+        WHERE COALESCE(es.view_job_link, '') <> '' AND COALESCE(es.job_post_id, '') <> ''
+          AND esc.first_content_at > es.created_at + INTERVAL '60 minutes'
+      ) AS late_job_ids,
+      (
+        count(DISTINCT p.gmail_id) FILTER (
+          WHERE p.gmail_finished IS NULL AND p.started_at < NOW() - INTERVAL '30 minutes')
+        + count(DISTINCT p.batch_id) FILTER (
+          WHERE p.batch_finished IS NULL AND p.batch_started < NOW() - INTERVAL '30 minutes')
+      ) AS killed_runs,
       count(DISTINCT jel.id) FILTER (WHERE jel.event_type = 'sf_scrape_fields_patched')                           AS sf_patches,
       count(DISTINCT jel.job_id) FILTER (WHERE jel.event_type = 'job_created_in_salesforce')                       AS sf_jobs_created,
       count(DISTINCT jel.id) FILTER (
@@ -127,6 +160,14 @@ export async function getDailyStatus(): Promise<DayStatus[]> {
       count(DISTINCT jel.id) FILTER (WHERE jel.event_type = 'sf_field_quarantined')       AS sf_quarantined
     FROM paired p
     LEFT JOIN email_scrapes es  ON es.run_id  = p.gmail_id
+    LEFT JOIN LATERAL (
+      SELECT MIN(jm.created_at) AS first_content_at
+      FROM job_content jm
+      WHERE jm.email_scrape_id = es.id
+        AND (COALESCE(NULLIF(jm.title_line, ''), '') <> ''
+             OR COALESCE(NULLIF(jm.description_full_text, ''), '') <> ''
+             OR COALESCE(NULLIF(jm.job_title, ''), '') <> '')
+    ) esc ON true
     LEFT JOIN job_content   jc  ON jc.email_scrape_id = es.id
     LEFT JOIN job_event_log jel ON ${JEL_ON_BATCH_SQL}
     WHERE p.started_at > NOW() - INTERVAL '90 days'
@@ -153,6 +194,11 @@ export async function getDailyStatus(): Promise<DayStatus[]> {
         sfErrors: 0,
         sfRecovered: 0,
         sfQuarantined: 0,
+        emailsDropped: 0,
+        emailsLate: 0,
+        droppedJobIds: [],
+        lateJobIds: [],
+        killedRuns: 0,
         status: 'no_data' as const,
       }
     }
@@ -160,6 +206,9 @@ export async function getDailyStatus(): Promise<DayStatus[]> {
     const completedRuns = Number(row.completed_runs)
     const sfErrors = Number(row.sf_errors)
     const sfJobsCreated = Number(row.sf_jobs_created ?? 0)
+    const emailsDropped = Number(row.emails_dropped ?? 0)
+    const emailsLate = Number(row.emails_late ?? 0)
+    const killedRuns = Number(row.killed_runs ?? 0)
     return {
       day,
       totalRuns,
@@ -171,7 +220,20 @@ export async function getDailyStatus(): Promise<DayStatus[]> {
       sfErrors,
       sfRecovered: Number(row.sf_recovered ?? 0),
       sfQuarantined: Number(row.sf_quarantined ?? 0),
-      status: getDayStatusKind({ totalRuns, completedRuns, emailsScraped: Number(row.emails_scraped), sfErrors }),
+      emailsDropped,
+      emailsLate,
+      droppedJobIds: (row.dropped_job_ids ?? []).map(String),
+      lateJobIds: (row.late_job_ids ?? []).map(String),
+      killedRuns,
+      status: getDayStatusKind({
+        totalRuns,
+        completedRuns,
+        emailsScraped: Number(row.emails_scraped),
+        sfErrors,
+        emailsDropped,
+        emailsLate,
+        killedRuns,
+      }),
     }
   })
 }
@@ -1531,21 +1593,48 @@ export async function getWeeklySummary(): Promise<WeeklySummary> {
   const allTimeTotalRuns = Number(allTimeRunRes[0]?.total ?? 0)
   const allTimeCompletedRuns = Number(allTimeRunRes[0]?.completed ?? 0)
 
+  // SUCCESS = updates handled right the first time (meaningful content within 60 min
+  // of the email), NOT "runs that finished". Run-completion scored July 2 and July 6 —
+  // hours of delayed updates — as 100%, because runs that die before logging anything
+  // leave no row to count as failed. Emails younger than 60 min are excluded (still
+  // inside their handling window).
+  const emailOkSql = (window: ReturnType<typeof sql.unsafe> | null) => sql<Array<{ total: string | number; ok: string | number }>>`
+    SELECT count(*) AS total,
+           count(*) FILTER (WHERE (
+             SELECT MIN(jl.created_at) FROM job_content jl
+             WHERE jl.email_scrape_id = es.id
+               AND (COALESCE(NULLIF(jl.title_line, ''), '') <> ''
+                    OR COALESCE(NULLIF(jl.description_full_text, ''), '') <> ''
+                    OR COALESCE(NULLIF(jl.job_title, ''), '') <> '')
+           ) <= es.created_at + INTERVAL '60 minutes') AS ok
+    FROM email_scrapes es
+    WHERE COALESCE(es.view_job_link, '') <> '' AND COALESCE(es.job_post_id, '') <> ''
+      AND es.created_at < NOW() - INTERVAL '60 minutes'
+      ${window ?? sql.unsafe('')}
+  `
+  const [weekOk, allOk] = await Promise.all([
+    emailOkSql(sql.unsafe(`AND es.created_at > NOW() - INTERVAL '7 days'`)),
+    emailOkSql(null),
+  ])
+  const rate = (r: { total: string | number; ok: string | number } | undefined) => {
+    const total = Number(r?.total ?? 0)
+    return total > 0 ? Math.round((Number(r?.ok ?? 0) / total) * 100) : 100
+  }
+
   return {
     emailsProcessed: Number(emailRes[0]?.c ?? 0),
     jobsScraped:     Number(jobRes[0]?.c ?? 0),
     sfPatches:       Number(sfRes[0]?.c ?? 0),
     totalRuns,
     completedRuns,
-    successRate: totalRuns > 0 ? Math.round((completedRuns / totalRuns) * 100) : 0,
+    successRate: rate(weekOk[0]),
     allTime: {
       emailsProcessed: Number(allTimeEmailRes[0]?.c ?? 0),
       jobsScraped:     Number(allTimeJobRes[0]?.c ?? 0),
       sfPatches:       Number(allTimeSfRes[0]?.c ?? 0),
       totalRuns:       allTimeTotalRuns,
       completedRuns:   allTimeCompletedRuns,
-      successRate:
-        allTimeTotalRuns > 0 ? Math.round((allTimeCompletedRuns / allTimeTotalRuns) * 100) : 0,
+      successRate:     rate(allOk[0]),
     },
   }
 }

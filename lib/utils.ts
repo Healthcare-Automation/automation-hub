@@ -6,16 +6,31 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+/** A mass delay (this many updates >60 min late in one day) counts as an outage,
+ * not mere degradation — calibrated to the July 2 (19 late) and July 6 (20 late)
+ * incidents, while normal days show 0–2. */
+const LATE_OUTAGE_THRESHOLD = 10
+
 export function getDayStatusKind(day: {
   totalRuns: number
   completedRuns: number
   emailsScraped: number
   sfErrors: number
+  emailsDropped?: number
+  emailsLate?: number
+  killedRuns?: number
 }): DayStatusKind {
   if (day.totalRuns === 0) return 'no_data'
-  // In-progress runs are normal; don't mark the day as an outage while a run is still running.
-  if (day.completedRuns < day.totalRuns) return 'operational'
-  if (day.sfErrors > 0) return 'degraded'
+  // Honest scoring, derived from what actually happened to the work — not from
+  // whether a run managed to log a clean finish before dying. The old logic marked
+  // days with unfinished (hard-killed) runs as OPERATIONAL and couldn't see updates
+  // that were received but never processed, which is how July 2 and July 6 — our two
+  // worst incidents — scored as 100% uptime.
+  const dropped = day.emailsDropped ?? 0
+  const late = day.emailsLate ?? 0
+  const killed = day.killedRuns ?? 0
+  if (dropped > 0 || killed > 0 || late >= LATE_OUTAGE_THRESHOLD) return 'outage'
+  if (day.sfErrors > 0 || late > 0) return 'degraded'
   if (day.emailsScraped === 0) return 'idle'
   return 'operational'
 }
@@ -96,8 +111,10 @@ export function formatShortDate(dateStr: string): string {
 export function calculateUptime(days: DayStatus[]): string {
   const activeDays = days.filter(d => d.totalRuns > 0)
   if (activeDays.length === 0) return '—'
-  const good = activeDays.filter(d => d.status === 'operational' || d.status === 'idle').length
-  return `${((good / activeDays.length) * 100).toFixed(1)}%`
+  // Outage days (lost updates, killed runs, mass delays) count as DOWN. Degraded days
+  // count as up-but-impaired — they show amber in the bars but don't zero the day.
+  const up = activeDays.filter(d => d.status !== 'outage').length
+  return `${((up / activeDays.length) * 100).toFixed(1)}%`
 }
 
 export function getOverallStatus(

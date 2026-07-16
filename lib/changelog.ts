@@ -32,6 +32,12 @@ export const CATEGORY_META: Record<
 
 const KIMEDICS: ChangeEntry[] = [
   {
+    date: '2026-07-14', category: 'reporting', title: 'Report looks right in dark mode',
+    summary: 'Fixed a display glitch where the “time recouped” card in your report looked broken — a dark box on a light panel — when the email was read in dark mode.',
+    details: 'That one card was styled differently from the rest of the report, which some email apps (notably the Gmail app in dark mode) rendered as a mismatched dark rectangle on a pale card. It is now built exactly like every other card, so the whole report looks consistent whether you read it in light or dark mode, on your phone or your computer, and its little trend line sits cleanly on the card in every email app.',
+    examples: ['Opening the report in the Gmail app with dark mode on used to show a stray dark box over a light card; the report now reads cleanly top to bottom.'],
+  },
+  {
     date: '2026-04-09', category: 'new', title: 'Live in production',
     summary: 'The Kimedics → Salesforce automation went live, automatically syncing every job posting into Salesforce.',
     details: 'After a testing phase, the automation began running in production: it watches for Kimedics job emails around the clock, reads each posting, and files it into Salesforce with no manual data entry.',
@@ -208,6 +214,12 @@ const KIMEDICS: ChangeEntry[] = [
 ]
 
 const DJC: ChangeEntry[] = [
+  {
+    date: '2026-07-16', category: 'new', title: 'See when each candidate was added and last checked',
+    summary: 'Every candidate now carries two dates in Salesforce: the day the automation first added them, and the most recent day it confirmed them still active on Dentist Job Cafe.',
+    details: 'Two new dates are written to each candidate record — "DJC Date Added" (set once, when we first create them) and "DJC Last Reviewed" (refreshed each day we see them active in the scan). The last-reviewed check is done from the candidate list without opening their profile, so it never uses any of the limited profile-view allowance. Both dates also show on each candidate here in the dashboard.',
+    examples: ['A candidate added on June 20 who keeps appearing in the daily scan shows "Added June 20" and a "Last reviewed" date that advances each day they stay active.', 'You can now tell at a glance which Salesforce candidates were sourced recently versus months ago, and which are still active.'],
+  },
   {
     date: '2026-06-30', category: 'accuracy', title: 'Catch more phone numbers + true activity date',
     summary: 'We now capture phone numbers on profiles that list them differently, and record each candidate’s real "last active on DJC" date.',

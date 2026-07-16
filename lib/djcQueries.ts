@@ -44,6 +44,7 @@ export async function getDjcDailyStatus(): Promise<DjcDayStatus[]> {
           created: number
           create_skipped_guard: number
           errors: number
+          error_run_details: string[] | null
         }[]
       >`
         select to_char(started_at::date, 'YYYY-MM-DD')                       as day,
@@ -56,7 +57,10 @@ export async function getDjcDailyStatus(): Promise<DjcDayStatus[]> {
                coalesce(sum(duplicates),0)::int                              as duplicates,
                coalesce(sum(created),0)::int                                 as created,
                coalesce(sum(create_skipped_guard),0)::int                    as create_skipped_guard,
-               coalesce(sum(errors),0)::int                                  as errors
+               coalesce(sum(errors),0)::int                                  as errors,
+               array_agg(to_char(started_at, 'HH24:MI') || ' — ' || replace(status, '_', ' ')
+                         order by started_at)
+                 filter (where status in ('error','session_expired'))        as error_run_details
         from djc_runs
         where started_at >= now() - interval '90 days'
         group by 1
@@ -75,6 +79,7 @@ export async function getDjcDailyStatus(): Promise<DjcDayStatus[]> {
       out.push({
         day: key, totalRuns: 0, completedRuns: 0, candidatesSeen: 0, candidatesSelected: 0,
         contactable: 0, duplicates: 0, created: 0, createSkippedGuard: 0, errors: 0,
+        errorRuns: 0, errorRunDetails: [],
         status: 'no_data',
       })
     } else {
@@ -89,6 +94,8 @@ export async function getDjcDailyStatus(): Promise<DjcDayStatus[]> {
         created: r.created,
         createSkippedGuard: r.create_skipped_guard,
         errors: r.errors,
+        errorRuns: r.error_runs,
+        errorRunDetails: r.error_run_details ?? [],
         status: dayKind({
           totalRuns: r.total_runs,
           errorRuns: r.error_runs,
@@ -214,12 +221,14 @@ export async function getDjcRunDetail(runId: number): Promise<DjcRunDetailBundle
         dedup_reason: string | null
         sf_contact_id: string | null
         match_count: number | null
+        first_seen_at: string | null
+        last_reviewed_on: string | null
       }[]
     >`
       select candidate_id, profile_url, name, target, phone, email, contact_source,
              mailing_city, mailing_state, mailing_postal_code, state_licenses, preferred_states,
              position_types, cv_uploaded, cv_filename, cv_bytes_len, dedup_status, dedup_reason,
-             sf_contact_id, match_count
+             sf_contact_id, match_count, first_seen_at, last_reviewed_on
       from djc_candidates where first_seen_run = ${runId} or last_seen_run = ${runId}
       order by updated_at desc
     `,
@@ -256,6 +265,8 @@ export async function getDjcRunDetail(runId: number): Promise<DjcRunDetailBundle
     dedupReason: c.dedup_reason,
     sfContactId: c.sf_contact_id,
     matchCount: c.match_count,
+    addedAt: c.first_seen_at,
+    lastReviewedOn: c.last_reviewed_on,
   }))
   return { events, candidates }
 }
@@ -272,7 +283,7 @@ export async function searchDjcCandidates(opts: { q?: string; specialty?: string
     select candidate_id, profile_url, name, target, phone, email, contact_source,
            mailing_city, mailing_state, mailing_postal_code, state_licenses, preferred_states,
            position_types, cv_uploaded, cv_filename, cv_bytes_len, dedup_status, dedup_reason,
-           sf_contact_id, match_count
+           sf_contact_id, match_count, first_seen_at, last_reviewed_on
     from djc_candidates
     where ${q ? sql`(name ilike ${like} or candidate_id ilike ${like} or profile_url ilike ${like})` : sql`true`}
       and ${specialty ? sql`target = ${specialty}` : sql`true`}
@@ -303,6 +314,8 @@ interface DjcCandidateColumns {
   dedup_reason: string | null
   sf_contact_id: string | null
   match_count: number | null
+  first_seen_at: string | null
+  last_reviewed_on: string | null
 }
 
 function toCandidateRow(c: DjcCandidateColumns): DjcCandidateRow {
@@ -327,6 +340,8 @@ function toCandidateRow(c: DjcCandidateColumns): DjcCandidateRow {
     dedupReason: c.dedup_reason,
     sfContactId: c.sf_contact_id,
     matchCount: c.match_count,
+    addedAt: c.first_seen_at,
+    lastReviewedOn: c.last_reviewed_on,
   }
 }
 

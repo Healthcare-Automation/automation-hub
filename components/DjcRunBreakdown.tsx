@@ -69,6 +69,14 @@ function Field({ label, value }: { label: string; value: string | null | undefin
   return <div className="min-w-0"><p className="text-[10px] uppercase tracking-wider text-zinc-600">{label}</p><p className="truncate text-[13px] text-zinc-200" title={value ?? ''}>{value || '—'}</p></div>
 }
 
+// A date-only ('YYYY-MM-DD') or timestamp → short 'Mon D, YYYY' in ET; null-safe.
+function fmtDate(s: string | null | undefined): string | null {
+  if (!s) return null
+  const iso = /^\d{4}-\d{2}-\d{2}$/.test(s) ? `${s}T12:00:00Z` : s
+  const d = new Date(iso)
+  return isNaN(d.getTime()) ? null : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
 function ProfileLink({ url }: { url: string | null }) {
   if (!url) return null
   return (
@@ -116,6 +124,8 @@ function CandidateDetail({ c, events }: { c: DjcCandidateRow; events: DjcEvent[]
         <Field label="State license" value={c.stateLicenses?.replace(/;/g, ', ')} />
         <Field label="Preferred states" value={c.preferredStates?.replace(/;/g, ', ')} />
         <Field label="Résumé" value={c.cvFilename ? 'Attached' : 'None'} />
+        <Field label="Added to SF" value={fmtDate(c.addedAt)} />
+        <Field label="Last reviewed" value={fmtDate(c.lastReviewedOn)} />
         <Field label="DJC candidate id" value={c.candidateId} />
       </div>
       {events.length > 0 && (

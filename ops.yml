@@ -1,0 +1,8 @@
+# Mission Control metadata — edit freely; ops-sync picks it up on next commit/refresh
+name: automation-hub
+boundary: client
+description: Client-facing status dashboard + Updates changelog for Proxi automations
+account: supabase:kimedics | reads
+account: supabase:djc | reads
+account: supabase:candidate-bank | reads
+account: notion:proxi-tickets | reads

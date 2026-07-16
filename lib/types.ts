@@ -15,6 +15,15 @@ export interface DayStatus {
   sfRecovered: number
   /** Fields dropped from payload by recovery (``sf_field_quarantined``). */
   sfQuarantined: number
+  /** Job updates received that day that NEVER produced content — lost work. */
+  emailsDropped: number
+  /** Job updates whose content arrived more than 60 min after the email — delayed work. */
+  emailsLate: number
+  /** Kimedics job ids behind emailsDropped / emailsLate (for the day-bar details popover). */
+  droppedJobIds: string[]
+  lateJobIds: string[]
+  /** Runs that died without finishing (hard-killed; excludes a currently-running run). */
+  killedRuns: number
   status: DayStatusKind
 }
 
