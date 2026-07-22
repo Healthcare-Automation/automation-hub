@@ -12,8 +12,6 @@ import DjcAutomationCard from '@/components/DjcAutomationCard'
 import { AutomationTabs } from '@/components/AutomationTabs'
 import { AutomationView } from '@/components/AutomationView'
 import { AiCostPanel } from '@/components/AiCostPanel'
-import { ChangelogPanel } from '@/components/ChangelogPanel'
-import { getTicketChangelog } from '@/lib/notionTickets'
 import { getKimedicsAiUsage, getDjcAiUsage } from '@/lib/aiUsage'
 import { getOpenAiActualCost, getAnthropicActualCost } from '@/lib/aiBilling'
 import { LiveDashboardRefresh } from '@/components/LiveDashboardRefresh'
@@ -124,9 +122,6 @@ export default async function Page() {
     }
   }
 
-  // Client-facing tickets → Updates tab, so the changelog stays current without a code deploy.
-  const ticketChangelog = await getTicketChangelog().catch(() => ({ djc: [], kimedics: [] }))
-
   // AI cost/usage per automation (never let a usage/billing query break the page).
   const [kimUsage, djcUsage, kimActual, djcActual] = await Promise.all([
     getKimedicsAiUsage().catch(() => null),
@@ -220,7 +215,6 @@ export default async function Page() {
                     <p className="text-xs text-zinc-600">AI cost unavailable — could not read usage data.</p>
                   )
                 }
-                changelog={<ChangelogPanel automation="kimedics" ticketEntries={ticketChangelog.kimedics} />}
               />
             }
             djc={
@@ -241,7 +235,7 @@ export default async function Page() {
                       <p className="text-xs text-zinc-600">AI cost unavailable — could not read usage data.</p>
                     )
                   }
-                  changelog={<ChangelogPanel automation="djc" ticketEntries={ticketChangelog.djc} />}
+                  insightsHref="/djc/insights"
                 />
               ) : (
                 <div className="flex items-center gap-2.5 rounded-xl border border-zinc-700/40 px-5 py-4">

@@ -19,15 +19,11 @@ Client-facing status dashboard for the Proxi automations (Kimedics → SF, DJC �
 - `app/page.tsx` — main dashboard; server component, fetches all data
 - `app/api/cron/` — Vercel crons (see `vercel.json`): slack-alerts every 10 min, sync-notion-costs daily; auth via `CRON_SECRET`
 - `app/admin/` + `middleware.ts` — admin pages gated by signed cookie (`lib/adminAuth.ts`)
-- `components/AutomationView.tsx` — splits each automation tab into [Operations] [AI Cost] [Updates]
-- `lib/changelog.ts` — static client-facing changelog entries shown in the Updates tab
-- `lib/notionTickets.ts` — Updates tab also pulls the Notion "Proxi Tickets" board live (Ticket Type=Customer AND Status=Done); those entries need no deploy
+- `components/AutomationView.tsx` — splits each automation tab into [Operations] [AI Cost] (+ [Insights] where provided). The client-facing Updates/changelog tab was removed 2026-07-22 (nobody read it).
 - `lib/db.ts`, `lib/djcDb.ts`, `lib/candidateBankDb.ts` — three SEPARATE Supabase projects (`DATABASE_URL`, `DJC_DATABASE_URL`, `CANDIDATE_BANK_DATABASE_URL`)
 - `lib/queries.ts` / `lib/djcQueries.ts` — all SQL lives here, not in components
 
 ## Conventions
-- The Updates tab is read by the client: keep changelog entries outcome-focused, plain English, zero internal jargon. Follow the `proxi-automation-changelog` skill after shipping automation changes.
-- Add changelog entries by appending to `lib/changelog.ts` (any order — sorted by date), or preferably by filing a Notion ticket (`proxi-notion-tickets` skill) so no deploy is needed.
 - Use Supabase transaction-pooler connection strings; `lib/db.ts` is tuned for that (low `max`, short `connect_timeout`). Don't loosen those settings.
 
 ## Gotchas

@@ -1,21 +1,22 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 
-type View = 'ops' | 'cost' | 'log'
+type View = 'ops' | 'cost'
 
 /**
- * Partitions one automation's tab into [Operations] [AI Cost] [Updates] so each
- * concern stays clean — you switch to cost detail or the change log deliberately.
+ * Partitions one automation's tab into [Operations] [AI Cost] (+ an [Insights ↗] link when the
+ * automation has a full-page analytics report) so each concern stays clean.
  */
 export function AutomationView({
   operations,
   cost,
-  changelog,
+  insightsHref,
 }: {
   operations: React.ReactNode
   cost: React.ReactNode
-  changelog: React.ReactNode
+  insightsHref?: string
 }) {
   const [view, setView] = useState<View>('ops')
   const btn = (active: boolean) =>
@@ -31,11 +32,13 @@ export function AutomationView({
         <button onClick={() => setView('cost')} className={btn(view === 'cost')}>
           AI Cost
         </button>
-        <button onClick={() => setView('log')} className={btn(view === 'log')}>
-          Updates
-        </button>
+        {insightsHref ? (
+          <Link href={insightsHref} className={btn(false)}>
+            Insights ↗
+          </Link>
+        ) : null}
       </div>
-      {view === 'ops' ? operations : view === 'cost' ? cost : changelog}
+      {view === 'ops' ? operations : cost}
     </div>
   )
 }
