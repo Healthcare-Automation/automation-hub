@@ -1,8 +1,16 @@
 import Link from 'next/link'
+import { unstable_cache } from 'next/cache'
 import { getDjcInsights, type InsightsPeriod } from '@/lib/djcInsights'
 import DjcInsightsPanel from '@/components/DjcInsightsPanel'
 
-export const dynamic = 'force-dynamic'
+/** Reading searchParams makes this page dynamic (per Next docs), so the CACHE lives at the data
+ * layer: the ~15-query insights bundle is reused for up to a minute (keyed per period) and
+ * tab-hops back here render instantly. Drill-downs stay live via the API. */
+const getCachedInsights = unstable_cache(
+  (period: InsightsPeriod) => getDjcInsights(period),
+  ['djc-insights'],
+  { revalidate: 60 },
+)
 
 /** Full-page DJC candidate analytics. The dashboard's Insights tab links here — the report needs
  *  more width and air than the status page's narrow column can give it. */
@@ -16,7 +24,7 @@ export default async function DjcInsightsPage({
 
   let data = null
   try {
-    data = await getDjcInsights(period)
+    data = await getCachedInsights(period)
   } catch (err) {
     console.error('Failed to load DJC insights:', err)
   }

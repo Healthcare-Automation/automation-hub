@@ -16,8 +16,10 @@ import { getKimedicsAiUsage, getDjcAiUsage } from '@/lib/aiUsage'
 import { getOpenAiActualCost, getAnthropicActualCost } from '@/lib/aiBilling'
 import { LiveDashboardRefresh } from '@/components/LiveDashboardRefresh'
 
-/** Always read fresh DB state; client also calls router.refresh() on an interval (see LiveDashboardRefresh). */
-export const dynamic = 'force-dynamic'
+/** Serve a cached render and revalidate in the background every 30s — the data only moves on
+ * run cadence (10 min / hourly), and force-dynamic made every visit AND every 15s client
+ * refresh pay the full multi-database render (~2s warm, ~16s cold). */
+export const revalidate = 30
 
 /** First day in production (UTC calendar day). Testing phase ends the prior day. */
 const PRODUCTION_GO_LIVE_DATE = '2026-04-09'
@@ -94,41 +96,35 @@ export default async function Page() {
   )
 
   const lastRun = recentRuns[0] ?? null
-  // Backlog = accepted-but-undelivered work (orphaned/unsynced updates). Without it the
-  // header said "Operational" during the July 2 incident while 19 updates sat stuck.
-  const backlog = await getPipelineBacklog().catch(() => null)
+
+  // Everything below is independent — one parallel wave instead of four sequential ones
+  // (each sequential wave was a full round trip to a different Supabase pool or billing API).
+  // Per-source catches keep one outage/misconfig from breaking the rest of the page.
+  const [backlog, djcData, candidateBank, kimUsage, djcUsage, kimActual, djcActual] =
+    await Promise.all([
+      // Backlog = accepted-but-undelivered work. Without it the header said "Operational"
+      // during the July 2 incident while 19 updates sat stuck.
+      getPipelineBacklog().catch(() => null),
+      isDjcConfigured
+        ? loadDjc().catch(err => {
+            console.error('Failed to load DJC status data:', err)
+            return null
+          })
+        : Promise.resolve(null),
+      isCandidateBankConfigured
+        ? getCandidateBankBundle().catch(err => {
+            console.error('Failed to load Candidate Bank data:', err)
+            return null
+          })
+        : Promise.resolve(null),
+      getKimedicsAiUsage().catch(() => null),
+      isDjcConfigured ? getDjcAiUsage().catch(() => null) : Promise.resolve(null),
+      getOpenAiActualCost().catch(() => undefined),
+      isDjcConfigured ? getAnthropicActualCost().catch(() => undefined) : Promise.resolve(undefined),
+    ])
+
   const overallStatus = getOverallStatus(enrichedDailyStatus, lastRun, backlog)
   const uptime = calculateUptime(enrichedDailyStatus)
-
-  // DJC automation (separate Supabase project) — load independently so a DJC outage/misconfig
-  // never breaks the Kimedics view.
-  let djcData: Awaited<ReturnType<typeof loadDjc>> | null = null
-  if (isDjcConfigured) {
-    try {
-      djcData = await loadDjc()
-    } catch (err) {
-      console.error('Failed to load DJC status data:', err)
-    }
-  }
-
-  // DJC Candidate Bank (Job Board [Internal] Supabase) — internal résumé store; load independently
-  // so a candidate-bank outage/misconfig never breaks the other views.
-  let candidateBank: Awaited<ReturnType<typeof getCandidateBankBundle>> | null = null
-  if (isCandidateBankConfigured) {
-    try {
-      candidateBank = await getCandidateBankBundle()
-    } catch (err) {
-      console.error('Failed to load Candidate Bank data:', err)
-    }
-  }
-
-  // AI cost/usage per automation (never let a usage/billing query break the page).
-  const [kimUsage, djcUsage, kimActual, djcActual] = await Promise.all([
-    getKimedicsAiUsage().catch(() => null),
-    isDjcConfigured ? getDjcAiUsage().catch(() => null) : Promise.resolve(null),
-    getOpenAiActualCost().catch(() => undefined),
-    isDjcConfigured ? getAnthropicActualCost().catch(() => undefined) : Promise.resolve(undefined),
-  ])
 
   const phases: Phase[] = []
   if (testingStartDate <= lastTestingDay) {

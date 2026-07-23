@@ -142,11 +142,16 @@ export async function getDjcRecentRuns(limit = 20): Promise<DjcRunDetail[]> {
            r.status, r.trigger, r.write_mode, r.targets,
            r.targets_processed, r.candidates_seen, r.candidates_selected, r.contactable,
            r.uncontactable, r.duplicates, r.created, r.create_skipped_guard, r.errors,
-           (select count(*) from djc_event_log e where e.run_id = r.id and e.level = 'warn')::int  as warn_count,
-           (select count(*) from djc_event_log e where e.run_id = r.id and e.level = 'error')::int as error_count,
-           (select count(*) from djc_event_log e where e.run_id = r.id
-              and e.event_type = 'profile_view_quota_blocked')::int as quota_blocked
+           coalesce(ev.warn_count, 0)::int as warn_count,
+           coalesce(ev.error_count, 0)::int as error_count,
+           coalesce(ev.quota_blocked, 0)::int as quota_blocked
     from djc_runs r
+    left join lateral (
+      select count(*) filter (where e.level = 'warn') as warn_count,
+             count(*) filter (where e.level = 'error') as error_count,
+             count(*) filter (where e.event_type = 'profile_view_quota_blocked') as quota_blocked
+      from djc_event_log e where e.run_id = r.id
+    ) ev on true
     where r.trigger in ('scheduled', 'backfill')
     order by r.id desc
     limit ${limit}
