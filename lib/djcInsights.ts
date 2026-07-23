@@ -297,12 +297,11 @@ export async function getDjcInsights(period: InsightsPeriod = 'quarter'): Promis
         from djc_candidates where dedup_status = 'new' group by 2
       ) t`,
     sql<{ cohort: string; total: number; active_last90: number }[]>`
-      select to_char(date_trunc('quarter', registered_on), 'YYYY "Q"Q') as cohort,
+      select to_char(registered_on, 'YYYY') as cohort,
              count(*)::int as total,
              count(*) filter (where ${sql.unsafe(LAST_ACT)} >= current_date - 90)::int as active_last90
       from djc_candidates where registered_on is not null
-      group by date_trunc('quarter', registered_on)
-      order by date_trunc('quarter', registered_on)`,
+      group by 1 order by 1`,
     sql<{ key: string; count: number }[]>`
       select ${sql.unsafe(DROPOFF_BUCKET)} as key, count(*)::int as count
       from djc_candidates
@@ -481,7 +480,7 @@ const DRILL_BUCKET_EXPRS: Record<string, string> = {
   experience: EXPERIENCE_BUCKET,
   activity: ACTIVITY_BUCKET,
   rating: RATING_BUCKET,
-  registered_quarter: `to_char(date_trunc('quarter', registered_on), 'YYYY "Q"Q')`,
+  registered_year: `to_char(registered_on, 'YYYY')`,
   grad_decade: `(floor(grad_year / 10) * 10)::int::text || 's'`,
   dropoff: DROPOFF_BUCKET,
   funnel: `''`, // handled specially below

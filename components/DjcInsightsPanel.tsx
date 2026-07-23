@@ -350,26 +350,46 @@ export default function DjcInsightsPanel({ data }: { data: DjcInsights }) {
             sub="Supply freshness: how fast new profiles arrive and how long people stay active after signing up."
           >
             <div className="space-y-6">
-              {data.registeredCohorts.length > 0 && (
-                <div>
-                  <SmallLabel>Profile signups by quarter (darker = still active in the last 90 days)</SmallLabel>
-                  <CohortBars
-                    cohorts={data.registeredCohorts}
-                    onClick={c => setDrill({ dim: 'registered_quarter', value: c.cohort, label: `Signed up ${c.cohort}` })}
-                  />
-                </div>
-              )}
-              {data.dropoff.some(b => b.count > 0) && (
-                <div>
-                  <SmallLabel>How long candidates stay active after signing up</SmallLabel>
-                  <BarList
-                    items={data.dropoff.map(b => ({ ...b, color: C.amber }))}
-                    total={Math.max(...data.dropoff.map(b => b.count), 1)}
-                    relative
-                    onClick={b => setDrill({ dim: 'dropoff', value: b.key, label: `Active for ${b.label} after signup` })}
-                  />
-                </div>
-              )}
+              {data.registeredCohorts.length > 0 && (() => {
+                const total = data.registeredCohorts.reduce((a, c) => a + c.total, 0)
+                const thisYear = new Date().getFullYear()
+                const recent = data.registeredCohorts
+                  .filter(c => Number(c.cohort) >= thisYear - 1)
+                  .reduce((a, c) => a + c.total, 0)
+                return (
+                  <div>
+                    <p className="mb-3 text-xs text-zinc-300">
+                      <span className="font-semibold tabular-nums text-cyan-300">{Math.round((recent / Math.max(total, 1)) * 100)}%</span>{' '}
+                      of the candidate pool signed up in {thisYear - 1}–{thisYear} — the rest is older inventory
+                      resurfacing in searches.
+                    </p>
+                    <SmallLabel>Profile signups by year · solid = still active in the last 90 days</SmallLabel>
+                    <YearBars
+                      cohorts={data.registeredCohorts}
+                      onClick={c => setDrill({ dim: 'registered_year', value: c.cohort, label: `Signed up in ${c.cohort}` })}
+                    />
+                  </div>
+                )
+              })()}
+              {data.dropoff.some(b => b.count > 0) && (() => {
+                const dropTotal = data.dropoff.reduce((a, b) => a + b.count, 0)
+                return (
+                  <div>
+                    <SmallLabel>Lifespan: gap between signing up and their last activity</SmallLabel>
+                    <p className="mb-2 text-[11px] leading-relaxed text-zinc-500">
+                      &ldquo;2y+&rdquo; is the good end — people still active years after joining. &ldquo;&lt;1mo&rdquo; means
+                      they signed up and went quiet within a month.
+                    </p>
+                    <BarList
+                      items={data.dropoff.map(b => ({ ...b, color: C.amber }))}
+                      total={Math.max(...data.dropoff.map(b => b.count), 1)}
+                      relative
+                      extra={data.dropoff.map(b => `${Math.round((b.count / Math.max(dropTotal, 1)) * 100)}%`)}
+                      onClick={b => setDrill({ dim: 'dropoff', value: b.key, label: `Active for ${b.label} after signup` })}
+                    />
+                  </div>
+                )
+              })()}
               <p className="text-[11px] leading-relaxed text-zinc-500">
                 {data.sightingsSince
                   ? `Day-by-day appearance tracking started ${fmtDay(data.sightingsSince)} — recurrence and return-rate charts sharpen as history accumulates.`
@@ -868,30 +888,54 @@ function PairedBars({
   )
 }
 
-function CohortBars({
+function YearBars({
   cohorts, onClick,
 }: {
   cohorts: { cohort: string; total: number; activeLast90: number }[]
   onClick?: (c: { cohort: string }) => void
 }) {
-  const max = Math.max(...cohorts.map(c => c.total), 1)
+  // Fill missing years so the time axis is honest (a gap year renders as an empty slot).
+  const years: { cohort: string; total: number; activeLast90: number }[] = []
+  const first = Number(cohorts[0].cohort)
+  const last = Number(cohorts[cohorts.length - 1].cohort)
+  const byYear = new Map(cohorts.map(c => [c.cohort, c]))
+  for (let y = first; y <= last; y++) {
+    years.push(byYear.get(String(y)) ?? { cohort: String(y), total: 0, activeLast90: 0 })
+  }
+  const max = Math.max(...years.map(c => c.total), 1)
+  const BAR_AREA = 120
   return (
-    <div className="flex items-end gap-1.5 overflow-x-auto pb-1" style={{ height: 110 }}>
-      {cohorts.map(c => (
+    <div className="flex items-end gap-1" style={{ height: BAR_AREA + 40 }}>
+      {years.map(c => (
         <button
           key={c.cohort}
-          onClick={onClick ? () => onClick(c) : undefined}
-          className="group flex h-full min-w-8 flex-1 flex-col justify-end"
-          title={`${c.cohort}: ${c.total} signups, ${c.activeLast90} active in last 90d`}
+          onClick={onClick && c.total > 0 ? () => onClick(c) : undefined}
+          disabled={c.total === 0}
+          className="group flex h-full flex-1 flex-col justify-end"
+          title={`${c.cohort}: ${c.total} signups · ${c.activeLast90} still active in the last 90 days`}
         >
-          <div className="relative w-full rounded-t-sm" style={{ height: `${(c.total / max) * 82}px`, background: `${C.cyan}55` }}>
+          <span
+            className={cn(
+              'mb-1 block text-center text-[9px] tabular-nums leading-none',
+              c.total === 0 ? 'text-transparent' : 'text-zinc-400 group-hover:text-zinc-200',
+            )}
+          >
+            {c.total || '·'}
+          </span>
+          <div
+            className="relative w-full rounded-t-sm transition-all group-hover:brightness-125"
+            style={{
+              height: `${Math.max((c.total / max) * BAR_AREA, c.total > 0 ? 3 : 1)}px`,
+              background: c.total > 0 ? `${C.cyan}45` : '#27272a',
+            }}
+          >
             <div
               className="absolute bottom-0 w-full rounded-t-sm"
               style={{ height: `${c.total ? (c.activeLast90 / c.total) * 100 : 0}%`, background: C.cyan }}
             />
           </div>
-          <span className="mt-1.5 block truncate text-center text-[9px] leading-tight text-zinc-500 group-hover:text-zinc-300">
-            {c.cohort}
+          <span className="mt-1.5 block text-center text-[9px] leading-tight text-zinc-500 group-hover:text-zinc-300">
+            {Number(c.cohort) % 2 === 0 || years.length <= 12 ? c.cohort : ''}
           </span>
         </button>
       ))}
