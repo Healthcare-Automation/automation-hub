@@ -32,6 +32,9 @@ export function FunnelCascade({
           const h = barH(s.count)
           const y = mid - h / 2
           const next = stages[i + 1]
+          // Edge columns anchor their text inward so long labels don't clip at the viewBox.
+          const anchor = i === 0 ? 'start' : i === stages.length - 1 ? 'end' : 'middle'
+          const tx = i === 0 ? x : i === stages.length - 1 ? x + colW : x + colW / 2
           // Stages are often skipped in data entry (e.g. Placed without a dated Offer), which can
           // make a later stage "larger" — suppress the % rather than show a nonsense >100%.
           const rawConv = next && s.count ? Math.round((next.count / s.count) * 100) : null
@@ -54,18 +57,18 @@ export function FunnelCascade({
                 opacity={hover === null || hover === i || hover === i - 1 ? 1 : 0.55}
               />
               {/* count above */}
-              <text x={x + colW / 2} y={y - 10} textAnchor="middle" fill="#e4e4e7" fontSize={15} fontWeight={600}>
+              <text x={tx} y={y - 10} textAnchor={anchor} fill="#e4e4e7" fontSize={15} fontWeight={600}>
                 {s.count.toLocaleString()}
               </text>
               {/* label below */}
-              <text x={x + colW / 2} y={H - 26} textAnchor="middle" fill="#a1a1aa" fontSize={11}>
+              <text x={tx} y={H - 26} textAnchor={anchor} fill="#a1a1aa" fontSize={11}>
                 {s.label}
               </text>
               {/* conversion + speed on the ribbon */}
               {next && (
                 <>
                   {conv !== null && (
-                    <text x={x + colW + gap / 2} y={mid - Math.max(h, barH(next.count)) / 2 - 14} textAnchor="middle" fill="#67e8f9" fontSize={11} fontWeight={600}>
+                    <text x={x + colW + gap / 2} y={mid - (h + barH(next.count)) / 4 - 10} textAnchor="middle" fill="#67e8f9" fontSize={11} fontWeight={600}>
                       {conv}%
                     </text>
                   )}
