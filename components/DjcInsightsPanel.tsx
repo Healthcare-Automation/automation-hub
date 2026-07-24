@@ -38,22 +38,28 @@ interface Drill {
 }
 
 /** Sticky-nav sections, in page order. Conditional ones are filtered at render. */
-const NAV_ITEMS: { id: string; label: string }[] = [
-  { id: 'views', label: 'Views' },
-  { id: 'conserve', label: 'Conserve' },
-  { id: 'funnel', label: 'Funnel' },
-  { id: 'talent', label: 'Talent' },
-  { id: 'specialties', label: 'Specialties' },
-  { id: 'locations', label: 'Locations' },
-  { id: 'experience', label: 'Experience' },
-  { id: 'rating', label: 'Rating' },
-  { id: 'health', label: 'Site health' },
-  { id: 'rules', label: 'How it works' },
-]
+const NAV_BY_VIEW: Record<'candidates' | 'acquisition', { id: string; label: string }[]> = {
+  acquisition: [
+    { id: 'views', label: 'Views' },
+    { id: 'conserve', label: 'Conserve' },
+    { id: 'funnel', label: 'Funnel' },
+    { id: 'health', label: 'Site health' },
+    { id: 'rules', label: 'How it works' },
+  ],
+  candidates: [
+    { id: 'talent', label: 'Talent' },
+    { id: 'specialties', label: 'Specialties' },
+    { id: 'locations', label: 'Locations' },
+    { id: 'experience', label: 'Experience' },
+    { id: 'rating', label: 'Rating' },
+  ],
+}
 
-export default function DjcInsightsPanel({ data }: { data: DjcInsights }) {
+export default function DjcInsightsPanel({ data, view }: { data: DjcInsights; view: 'candidates' | 'acquisition' }) {
+  const showAcq = view === 'acquisition'
+  const showCand = view === 'candidates'
   const [drill, setDrill] = useState<Drill | null>(null)
-  const [activeSection, setActiveSection] = useState('views')
+  const [activeSection, setActiveSection] = useState(view === 'acquisition' ? 'views' : 'talent')
   const [query, setQuery] = useState('')
   const [showTop, setShowTop] = useState(false)
 
@@ -64,7 +70,7 @@ export default function DjcInsightsPanel({ data }: { data: DjcInsights }) {
       },
       { rootMargin: '-90px 0px -70% 0px' },
     )
-    for (const item of NAV_ITEMS) {
+    for (const item of NAV_BY_VIEW[view]) {
       const el = document.getElementById(item.id)
       if (el) observer.observe(el)
     }
@@ -74,7 +80,7 @@ export default function DjcInsightsPanel({ data }: { data: DjcInsights }) {
       observer.disconnect()
       window.removeEventListener('scroll', onScroll)
     }
-  }, [])
+  }, [view])
 
   const pct = (n: number, d: number) => (d > 0 ? Math.round((n / d) * 100) : 0)
   const factsPct = pct(data.totals.factsCoverage, data.totals.observed)
@@ -99,7 +105,7 @@ export default function DjcInsightsPanel({ data }: { data: DjcInsights }) {
       <nav className="sticky top-0 z-30 -mx-4 border-b border-zinc-800/70 bg-zinc-950/85 px-4 py-2 backdrop-blur sm:-mx-8 sm:px-8">
         <div className="flex items-center gap-3">
           <div className="flex grow gap-1 overflow-x-auto">
-            {NAV_ITEMS.filter(i => i.id !== 'conserve' || conserveActive || data.conserveSkips.total > 0).map(i => (
+            {NAV_BY_VIEW[view].filter(i => i.id !== 'conserve' || conserveActive || data.conserveSkips.total > 0).map(i => (
               <button
                 key={i.id}
                 onClick={() => jump(i.id)}
@@ -132,7 +138,8 @@ export default function DjcInsightsPanel({ data }: { data: DjcInsights }) {
         </div>
       </nav>
 
-      {/* ── Zone 1: the views question, period-scoped ─────────────────────────────── */}
+      {/* ── Zone 1: the views question, period-scoped (Acquisition) ───────────────── */}
+      {showAcq && (
       <section id="views" className="scroll-mt-16">
         <ZoneHeader
           title="Profile Views — where they went"
@@ -220,9 +227,10 @@ export default function DjcInsightsPanel({ data }: { data: DjcInsights }) {
           </>
         )}
       </section>
+      )}
 
       {/* Conserve mode — the audit trail for pre-view skips ("the losses") */}
-      {(conserveActive || data.conserveSkips.total > 0) && (
+      {showAcq && (conserveActive || data.conserveSkips.total > 0) && (
         <section id="conserve" className="mt-6 scroll-mt-16">
           <Card
             title="Conserve mode — skipped before spending a view"
@@ -279,7 +287,8 @@ export default function DjcInsightsPanel({ data }: { data: DjcInsights }) {
         </section>
       )}
 
-      {/* ── Zone 2: the funnel for the selected period ────────────────────────────── */}
+      {/* ── Zone 2: the funnel for the selected period (Acquisition) ──────────────── */}
+      {showAcq && (
       <section id="funnel" className="scroll-mt-16">
         <ZoneHeader
           title={data.period === 'quarter' ? 'Sourcing funnel — this quarter' : 'Sourcing funnel — all time'}
@@ -312,8 +321,95 @@ export default function DjcInsightsPanel({ data }: { data: DjcInsights }) {
           </div>
         </Card>
       </section>
+      )}
 
-      {/* ── Zone 3: the candidate pool (always all-time) ──────────────────────────── */}
+      {/* Site health (Acquisition) */}
+      {showAcq && (
+      <section className="scroll-mt-16">
+          <Card
+            id="health"
+            title="How good is DJC as a source?"
+            tag={
+              backfilling || historyYoung ? (
+                <GrowingTag>
+                  {backfilling && historyYoung
+                    ? 'signup data + daily history filling in'
+                    : backfilling
+                      ? 'signup data filling in'
+                      : 'daily history accumulating'}
+                </GrowingTag>
+              ) : undefined
+            }
+            sub="Supply freshness: how fast new profiles arrive and how long people stay active after signing up."
+          >
+            <div className="space-y-6">
+              {data.registeredCohorts.length > 0 && (() => {
+                const total = data.registeredCohorts.reduce((a, c) => a + c.total, 0)
+                const thisYear = new Date().getFullYear()
+                const recent = data.registeredCohorts
+                  .filter(c => Number(c.cohort) >= thisYear - 1)
+                  .reduce((a, c) => a + c.total, 0)
+                return (
+                  <div>
+                    <p className="mb-3 text-xs text-zinc-300">
+                      <span className="font-semibold tabular-nums text-cyan-300">{Math.round((recent / Math.max(total, 1)) * 100)}%</span>{' '}
+                      of the candidate pool signed up in {thisYear - 1}–{thisYear} — the rest is older inventory
+                      resurfacing in searches.
+                    </p>
+                    <SmallLabel>Profile signups by year · solid = still active in the last 90 days</SmallLabel>
+                    <YearBars
+                      cohorts={data.registeredCohorts}
+                      onClick={c => setDrill({ dim: 'registered_year', value: c.cohort, label: `Signed up in ${c.cohort}` })}
+                    />
+                    {data.monthlyInflow.length > 0 && (
+                      <div className="mt-5">
+                        <SmallLabel>Fresh supply: new DJC signups per month, last 12 months</SmallLabel>
+                        <BarList
+                          items={data.monthlyInflow.map(m => ({
+                            key: m.month,
+                            label: new Date(m.month + '-02').toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+                            count: m.count,
+                            color: C.emerald,
+                          }))}
+                          total={Math.max(...data.monthlyInflow.map(m => m.count), 1)}
+                          relative
+                        />
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
+              {data.dropoff.some(b => b.count > 0) && (() => {
+                const dropTotal = data.dropoff.reduce((a, b) => a + b.count, 0)
+                return (
+                  <div>
+                    <SmallLabel>Lifespan: gap between signing up and their last activity</SmallLabel>
+                    <p className="mb-2 text-[11px] leading-relaxed text-zinc-500">
+                      &ldquo;2y+&rdquo; is the good end — people still active years after joining. &ldquo;&lt;1mo&rdquo; means
+                      they signed up and went quiet within a month.
+                    </p>
+                    <BarList
+                      items={data.dropoff.map(b => ({ ...b, color: C.amber }))}
+                      total={Math.max(...data.dropoff.map(b => b.count), 1)}
+                      relative
+                      extra={data.dropoff.map(b => `${Math.round((b.count / Math.max(dropTotal, 1)) * 100)}%`)}
+                      onClick={b => setDrill({ dim: 'dropoff', value: b.key, label: `Active for ${b.label} after signup` })}
+                    />
+                  </div>
+                )
+              })()}
+              <p className="text-[11px] leading-relaxed text-zinc-500">
+                {data.sightingsSince
+                  ? `Day-by-day appearance tracking started ${fmtDay(data.sightingsSince)} — recurrence and return-rate charts sharpen as history accumulates.`
+                  : 'Day-by-day appearance tracking starts with the next scheduled run.'}
+              </p>
+            </div>
+          </Card>
+      </section>
+      )}
+
+      {/* ── Zone 3: the candidate pool (Candidates) ───────────────────────────────── */}
+      {showCand && (
       <section>
         <ZoneHeader
           title="Candidate pool — everyone we've observed"
@@ -586,89 +682,12 @@ export default function DjcInsightsPanel({ data }: { data: DjcInsights }) {
             </Card>
           </div>
 
-          <Card
-            id="health"
-            title="How good is DJC as a source?"
-            tag={
-              backfilling || historyYoung ? (
-                <GrowingTag>
-                  {backfilling && historyYoung
-                    ? 'signup data + daily history filling in'
-                    : backfilling
-                      ? 'signup data filling in'
-                      : 'daily history accumulating'}
-                </GrowingTag>
-              ) : undefined
-            }
-            sub="Supply freshness: how fast new profiles arrive and how long people stay active after signing up."
-          >
-            <div className="space-y-6">
-              {data.registeredCohorts.length > 0 && (() => {
-                const total = data.registeredCohorts.reduce((a, c) => a + c.total, 0)
-                const thisYear = new Date().getFullYear()
-                const recent = data.registeredCohorts
-                  .filter(c => Number(c.cohort) >= thisYear - 1)
-                  .reduce((a, c) => a + c.total, 0)
-                return (
-                  <div>
-                    <p className="mb-3 text-xs text-zinc-300">
-                      <span className="font-semibold tabular-nums text-cyan-300">{Math.round((recent / Math.max(total, 1)) * 100)}%</span>{' '}
-                      of the candidate pool signed up in {thisYear - 1}–{thisYear} — the rest is older inventory
-                      resurfacing in searches.
-                    </p>
-                    <SmallLabel>Profile signups by year · solid = still active in the last 90 days</SmallLabel>
-                    <YearBars
-                      cohorts={data.registeredCohorts}
-                      onClick={c => setDrill({ dim: 'registered_year', value: c.cohort, label: `Signed up in ${c.cohort}` })}
-                    />
-                    {data.monthlyInflow.length > 0 && (
-                      <div className="mt-5">
-                        <SmallLabel>Fresh supply: new DJC signups per month, last 12 months</SmallLabel>
-                        <BarList
-                          items={data.monthlyInflow.map(m => ({
-                            key: m.month,
-                            label: new Date(m.month + '-02').toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
-                            count: m.count,
-                            color: C.emerald,
-                          }))}
-                          total={Math.max(...data.monthlyInflow.map(m => m.count), 1)}
-                          relative
-                        />
-                      </div>
-                    )}
-                  </div>
-                )
-              })()}
-              {data.dropoff.some(b => b.count > 0) && (() => {
-                const dropTotal = data.dropoff.reduce((a, b) => a + b.count, 0)
-                return (
-                  <div>
-                    <SmallLabel>Lifespan: gap between signing up and their last activity</SmallLabel>
-                    <p className="mb-2 text-[11px] leading-relaxed text-zinc-500">
-                      &ldquo;2y+&rdquo; is the good end — people still active years after joining. &ldquo;&lt;1mo&rdquo; means
-                      they signed up and went quiet within a month.
-                    </p>
-                    <BarList
-                      items={data.dropoff.map(b => ({ ...b, color: C.amber }))}
-                      total={Math.max(...data.dropoff.map(b => b.count), 1)}
-                      relative
-                      extra={data.dropoff.map(b => `${Math.round((b.count / Math.max(dropTotal, 1)) * 100)}%`)}
-                      onClick={b => setDrill({ dim: 'dropoff', value: b.key, label: `Active for ${b.label} after signup` })}
-                    />
-                  </div>
-                )
-              })()}
-              <p className="text-[11px] leading-relaxed text-zinc-500">
-                {data.sightingsSince
-                  ? `Day-by-day appearance tracking started ${fmtDay(data.sightingsSince)} — recurrence and return-rate charts sharpen as history accumulates.`
-                  : 'Day-by-day appearance tracking starts with the next scheduled run.'}
-              </p>
-            </div>
-          </Card>
         </div>
       </section>
+      )}
 
-      {/* ── Plain-English reference: how the numbers actually work ────────────────── */}
+      {/* ── Plain-English reference: how the numbers actually work (Acquisition) ──── */}
+      {showAcq && (
       <section id="rules" className="scroll-mt-16">
         <ZoneHeader
           title="How this all works — plain English"
@@ -718,6 +737,7 @@ export default function DjcInsightsPanel({ data }: { data: DjcInsights }) {
           </ul>
         </Card>
       </section>
+      )}
 
       {showTop && (
         <button
@@ -745,7 +765,7 @@ function perView(got: number, spent: number): string {
   return `≈ ${(spent / got).toFixed(1)} views each`
 }
 
-function fmtDay(day: string): string {
+export function fmtDay(day: string): string {
   const d = new Date(day + 'T00:00:00')
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
@@ -1051,17 +1071,17 @@ function PeriodFilter({ period }: { period: DjcInsights['period'] }) {
     )
   return (
     <div className="inline-flex shrink-0 rounded-lg border border-zinc-700/50 bg-zinc-800/40 p-0.5">
-      <Link href="/djc/insights?period=quarter" className={opt(period === 'quarter')}>
+      <Link href="/djc/acquisition?period=quarter" className={opt(period === 'quarter')}>
         This quarter
       </Link>
-      <Link href="/djc/insights?period=all" className={opt(period === 'all')}>
+      <Link href="/djc/acquisition?period=all" className={opt(period === 'all')}>
         All time
       </Link>
     </div>
   )
 }
 
-function Card({
+export function Card({
   title, sub, tag, id, children,
 }: {
   title?: string
@@ -1088,7 +1108,7 @@ function Card({
 
 /** Marks a metric whose numbers will improve as more data arrives (backfill or daily tracking).
  *  Rendered from live coverage, so it disappears by itself once the data is complete. */
-function GrowingTag({ children }: { children: React.ReactNode }) {
+export function GrowingTag({ children }: { children: React.ReactNode }) {
   return (
     <span
       className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wide text-amber-300/90"
@@ -1103,7 +1123,7 @@ function GrowingTag({ children }: { children: React.ReactNode }) {
   )
 }
 
-function BigStat({
+export function BigStat({
   value, label, detail, accent, onClick,
 }: {
   value: number
@@ -1131,11 +1151,11 @@ function BigStat({
   )
 }
 
-function SmallLabel({ children }: { children: React.ReactNode }) {
+export function SmallLabel({ children }: { children: React.ReactNode }) {
   return <p className="mb-2 text-[10px] uppercase tracking-wide text-zinc-500">{children}</p>
 }
 
-function LegendSwatch({ color, label }: { color: string; label: string }) {
+export function LegendSwatch({ color, label }: { color: string; label: string }) {
   return (
     <span className="inline-flex items-center gap-1.5">
       <span className="h-2 w-2 rounded-[2px]" style={{ background: color }} />
@@ -1144,7 +1164,7 @@ function LegendSwatch({ color, label }: { color: string; label: string }) {
   )
 }
 
-function BarList({
+export function BarList({
   items, total, relative = false, extra, onClick,
 }: {
   items: (InsightBucket & { color: string })[]
@@ -1220,7 +1240,7 @@ function PairedBars({
   )
 }
 
-function YearBars({
+export function YearBars({
   cohorts, onClick,
 }: {
   cohorts: { cohort: string; total: number; activeLast90: number }[]

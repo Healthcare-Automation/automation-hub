@@ -231,7 +231,7 @@ export default async function Page() {
                       <p className="text-xs text-zinc-600">AI cost unavailable — could not read usage data.</p>
                     )
                   }
-                  insightsHref="/djc/insights"
+                  insightsHref="/djc/overview"
                 />
               ) : (
                 <div className="flex items-center gap-2.5 rounded-xl border border-zinc-700/40 px-5 py-4">
