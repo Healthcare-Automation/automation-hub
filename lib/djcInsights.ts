@@ -76,6 +76,7 @@ export interface DjcInsights {
     phoneFromResumeOnly: number
     factsCoverage: number // candidates with registered_on filled (near-complete via card sweeps)
     experienceCoverage: number // candidates with experience_years (profile-page only, partial)
+    newGrads: number // graduated 2025 or later (from education end-years)
   }
   monthlyInflow: { month: string; count: number }[] // new DJC signups per month, last 12 months
   conserveSkips: {
@@ -271,7 +272,8 @@ export async function getDjcInsights(period: InsightsPeriod = 'quarter'): Promis
              count(*) filter (where sf_contact_id is not null)::int as in_salesforce,
              count(*) filter (where contact_source = 'cv' and phone is not null)::int as phone_from_resume_only,
              count(*) filter (where registered_on is not null)::int as facts_coverage,
-             count(*) filter (where experience_years is not null)::int as experience_coverage
+             count(*) filter (where experience_years is not null)::int as experience_coverage,
+             count(*) filter (where grad_year >= 2025)::int as new_grads
       from djc_candidates`,
     sql<{ key: string; count: number }[]>`
       select contact_source as key, count(*)::int as count
@@ -355,6 +357,7 @@ export async function getDjcInsights(period: InsightsPeriod = 'quarter'): Promis
     phoneFromResumeOnly: Number(t.phone_from_resume_only),
     factsCoverage: Number(t.facts_coverage),
     experienceCoverage: Number(t.experience_coverage),
+    newGrads: Number(t.new_grads),
   }
 
   const [inflowRows, conserveCountRows, conserveRows] = await Promise.all([
@@ -531,6 +534,7 @@ const DRILL_BUCKET_EXPRS: Record<string, string> = {
   rating: RATING_BUCKET,
   registered_year: `to_char(registered_on, 'YYYY')`,
   grad_decade: `(floor(grad_year / 10) * 10)::int::text || 's'`,
+  new_grads: `case when grad_year >= 2025 then 'yes' else 'no' end`,
   dropoff: DROPOFF_BUCKET,
   funnel: `''`, // handled specially below
 }

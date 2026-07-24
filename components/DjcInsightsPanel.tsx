@@ -327,8 +327,16 @@ export default function DjcInsightsPanel({ data }: { data: DjcInsights }) {
             <Card
               title="Experience & education"
               tag={expPartial ? <GrowingTag>known for {expPct}% — needs profile opens to grow</GrowingTag> : undefined}
-              sub="Years of experience as stated on the profile; grad decade from the latest education end-year."
+              sub="Experience is optional on DJC — only ~13% of opened profiles state it, and never-opened candidates can't have it yet. Education end-years cover more (~46% of opened profiles), so grad year is the better new-grad signal."
             >
+              <button
+                onClick={() => setDrill({ dim: 'new_grads', value: 'yes', label: 'New grads (graduated 2025 or later)' })}
+                className="mb-4 block rounded-lg border border-emerald-600/30 bg-emerald-600/10 px-3 py-2 text-left transition-colors hover:bg-emerald-600/20"
+              >
+                <span className="text-lg font-semibold tabular-nums text-emerald-300">{data.totals.newGrads}</span>{' '}
+                <span className="text-xs text-zinc-300">known new grads</span>
+                <span className="ml-1.5 text-[10px] text-zinc-500">graduated 2025–2027 · click for the list</span>
+              </button>
               <div className="space-y-5">
                 <div>
                   <SmallLabel>Years of experience</SmallLabel>
@@ -664,6 +672,7 @@ function DrillPanel({ drill, onClose }: { drill: Drill | null; onClose: () => vo
                   ) : (
                     <th className="py-2 pr-3 font-medium">Location</th>
                   )}
+                  <th className="py-2 pr-3 text-right font-medium">Registered</th>
                   <th className="py-2 pr-3 text-right font-medium">Active</th>
                   <th className="py-2 pr-3 text-right font-medium">Rating</th>
                   <th className="py-2 font-medium">In SF</th>
@@ -706,6 +715,7 @@ function DrillRowItem({ row: r, showReason }: { row: DrillRow; showReason: boole
         ) : (
           <td className="max-w-32 truncate py-2 pr-3 text-zinc-400">{[r.city, r.state].filter(Boolean).join(', ') || '—'}</td>
         )}
+        <td className="py-2 pr-3 text-right tabular-nums">{r.registeredOn ?? '—'}</td>
         <td className="py-2 pr-3 text-right tabular-nums">{r.lastActivity ?? '—'}</td>
         <td className="py-2 pr-3 text-right tabular-nums">{r.rating ?? '—'}</td>
         <td className="py-2">
@@ -726,7 +736,7 @@ function DrillRowItem({ row: r, showReason }: { row: DrillRow; showReason: boole
       </tr>
       {open && (
         <tr className="border-t border-zinc-800/40 bg-zinc-950/50">
-          <td colSpan={6} className="px-2 py-3">
+          <td colSpan={7} className="px-2 py-3">
             <CandidateTrail candidateId={r.candidateId} />
           </td>
         </tr>
