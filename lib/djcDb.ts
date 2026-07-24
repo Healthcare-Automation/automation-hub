@@ -15,7 +15,9 @@ function createDjcSql(): ReturnType<typeof postgres> | null {
   if (!url) return null
   return postgres(url, {
     ssl: 'require',
-    max: 3,
+    // Supabase session pooler caps at 15 clients total across the hub, builds, Modal jobs, and
+    // local scripts — keep the per-instance footprint minimal (2026-07-24 EMAXCONNSESSION outage).
+    max: 2,
     idle_timeout: 20,
     max_lifetime: 1800,
     // Fail fast instead of hanging forever if the pooler is unreachable/saturated.

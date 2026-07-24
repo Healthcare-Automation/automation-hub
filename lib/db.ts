@@ -10,7 +10,9 @@ function createSql() {
   if (!url) throw new Error('DATABASE_URL environment variable is not set')
   return postgres(url, {
     ssl: 'require',
-    max: 3,
+    // Session pooler caps at 15 clients shared with builds/Modal/scripts — stay small
+    // (2026-07-24 EMAXCONNSESSION outage).
+    max: 2,
     idle_timeout: 20,
     max_lifetime: 1800,
     // Fail fast instead of hanging forever if the pooler is unreachable/saturated — a hang
