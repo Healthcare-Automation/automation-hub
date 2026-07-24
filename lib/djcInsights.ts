@@ -78,6 +78,16 @@ export interface DjcInsights {
     experienceCoverage: number // candidates with experience_years (profile-page only, partial)
     newGrads: number // graduated 2025 or later (from education end-years)
   }
+  talent: {
+    careerStages: InsightBucket[] // new grad / early / established / veteran / unknown
+    trainingOrigin: { us: number; foreign: number; unknown: number }
+    residencyTrained: number
+    topSchools: { school: string; count: number }[]
+    languages: { language: string; count: number }[] // beyond English
+    workEnvironments: InsightBucket[]
+    degrees: InsightBucket[]
+    medianExperience: number | null
+  }
   monthlyInflow: { month: string; count: number }[] // new DJC signups per month, last 12 months
   conserveSkips: {
     activeLast7d: number
@@ -154,6 +164,28 @@ const RATING_BUCKET = `case
   when ${RATING} < 20 then '0-19' when ${RATING} < 40 then '20-39'
   when ${RATING} < 60 then '40-59' when ${RATING} < 80 then '60-79'
   else '80-100' end`
+
+/** Career stage from grad year (new grads) then experience — resume-mined where the profile
+ *  didn't state it. 'unknown' = no resume and no profile statement. */
+const CAREER_STAGE = `case
+  when grad_year >= 2025 then 'new_grad'
+  when experience_years is null then 'unknown'
+  when experience_years < 5 then 'early'
+  when experience_years < 20 then 'established'
+  else 'veteran' end`
+
+const TRAINING_ORIGIN = `case
+  when grad_country is null then 'unknown'
+  when grad_country ilike 'US%' or grad_country ilike 'United States%' or grad_country ilike 'USA%'
+    then 'US-trained'
+  else 'foreign-trained' end`
+
+const RESIDENCY = `case when coalesce(cv_facts->>'specialty_training', '') <> '' then 'yes' else 'no' end`
+
+export const CAREER_STAGE_LABELS: Record<string, string> = {
+  new_grad: 'New grads (2025+)', early: 'Early career (0–4 yrs)',
+  established: 'Established (5–19 yrs)', veteran: 'Veterans (20+ yrs)', unknown: 'Unknown',
+}
 
 export const ACTIVITY_LABELS: Record<string, string> = {
   '7d': 'active in last 7 days', '30d': '8–30 days', '90d': '31–90 days',
@@ -360,6 +392,39 @@ export async function getDjcInsights(period: InsightsPeriod = 'quarter'): Promis
     newGrads: Number(t.new_grads),
   }
 
+  const [stageRows, originRows, residencyRows, schoolRows, langRows, envRows, degreeRows, medExpRows] =
+    await Promise.all([
+      sql<{ key: string; count: number }[]>`
+        select ${sql.unsafe(CAREER_STAGE)} as key, count(*)::int as count from djc_candidates group by 1`,
+      sql<{ key: string; count: number }[]>`
+        select ${sql.unsafe(TRAINING_ORIGIN)} as key, count(*)::int as count from djc_candidates group by 1`,
+      sql<{ count: number }[]>`
+        select count(*)::int as count from djc_candidates
+        where coalesce(cv_facts->>'specialty_training', '') <> ''`,
+      sql<{ school: string; count: number }[]>`
+        select initcap(lower(trim(dental_school))) as school, count(*)::int as count
+        from djc_candidates where dental_school is not null and length(trim(dental_school)) > 3
+        group by 1 having count(*) >= 3 order by 2 desc limit 12`,
+      sql<{ language: string; count: number }[]>`
+        select initcap(lower(trim(lang))) as language, count(distinct candidate_id)::int as count
+        from djc_candidates, jsonb_array_elements_text(cv_facts->'languages') as lang
+        where lower(trim(lang)) not in ('english', '') and length(trim(lang)) > 2
+        group by 1 order by 2 desc limit 10`,
+      sql<{ key: string; count: number }[]>`
+        select trim(work_environments) as key, count(*)::int as count
+        from djc_candidates where coalesce(trim(work_environments), '') <> ''
+        group by 1 order by 2 desc limit 8`,
+      sql<{ key: string; count: number }[]>`
+        select trim(degrees) as key, count(*)::int as count
+        from djc_candidates where coalesce(trim(degrees), '') <> ''
+        group by 1 order by 2 desc limit 6`,
+      sql<{ med: number | null }[]>`
+        select percentile_cont(0.5) within group (order by experience_years)::float as med
+        from djc_candidates where experience_years is not null`,
+    ])
+
+  const originMap = new Map(originRows.map(r => [r.key, Number(r.count)]))
+
   const [inflowRows, conserveCountRows, conserveRows] = await Promise.all([
     sql<{ month: string; count: number }[]>`
       select to_char(date_trunc('month', registered_on), 'YYYY-MM') as month, count(*)::int as count
@@ -458,6 +523,20 @@ export async function getDjcInsights(period: InsightsPeriod = 'quarter'): Promis
       return days.slice(start)
     })(),
     viewsLedger,
+    talent: {
+      careerStages: buckets(stageRows, ['new_grad', 'early', 'established', 'veteran', 'unknown'], CAREER_STAGE_LABELS),
+      trainingOrigin: {
+        us: originMap.get('US-trained') ?? 0,
+        foreign: originMap.get('foreign-trained') ?? 0,
+        unknown: originMap.get('unknown') ?? 0,
+      },
+      residencyTrained: Number(residencyRows[0]?.count ?? 0),
+      topSchools: schoolRows.map(r => ({ school: r.school, count: Number(r.count) })),
+      languages: langRows.map(r => ({ language: r.language, count: Number(r.count) })),
+      workEnvironments: envRows.map(r => ({ key: r.key, label: r.key, count: Number(r.count) })),
+      degrees: degreeRows.map(r => ({ key: r.key, label: r.key, count: Number(r.count) })),
+      medianExperience: medExpRows[0]?.med === null ? null : Math.round(Number(medExpRows[0]?.med)),
+    },
     monthlyInflow: inflowRows.map(r => ({ month: r.month, count: Number(r.count) })),
     conserveSkips: {
       activeLast7d: Number(conserveCountRows[0]?.last7 ?? 0),
@@ -535,6 +614,12 @@ const DRILL_BUCKET_EXPRS: Record<string, string> = {
   registered_year: `to_char(registered_on, 'YYYY')`,
   grad_decade: `(floor(grad_year / 10) * 10)::int::text || 's'`,
   new_grads: `case when grad_year >= 2025 then 'yes' else 'no' end`,
+  career_stage: CAREER_STAGE,
+  training_origin: TRAINING_ORIGIN,
+  residency: RESIDENCY,
+  school: `initcap(lower(trim(dental_school)))`,
+  work_env: `trim(work_environments)`,
+  degrees: `trim(degrees)`,
   dropoff: DROPOFF_BUCKET,
   funnel: `''`, // handled specially below
 }
@@ -559,6 +644,14 @@ const OUTCOME_WHERE: Record<string, string> = {
 export async function drillDjcCandidates(dim: string, value: string): Promise<DrillRow[] | null> {
   const sql = djcSql
   if (!sql) return null
+
+  // Language drill: candidates whose resume lists the language (jsonb array, case-insensitive).
+  if (dim === 'language') {
+    if (!/^[\w .'-]{2,40}$/.test(value)) return null
+    return drillSelect(sql, sql`exists (
+      select 1 from jsonb_array_elements_text(cv_facts->'languages') l
+      where lower(trim(l)) = lower(${value}))`)
+  }
 
   // Candidates first observed on/after a date (the quarter-scoped funnel's top stage).
   if (dim === 'first_seen_since') {

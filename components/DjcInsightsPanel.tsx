@@ -256,6 +256,107 @@ export default function DjcInsightsPanel({ data }: { data: DjcInsights }) {
           </Card>
 
           <Card
+            title="Who these candidates are"
+            tag={<GrowingTag>resume-mined · covers ~{pct(data.totals.experienceCoverage, data.totals.observed) > 45 ? 'half' : `${pct(data.totals.experienceCoverage, data.totals.observed)}%`} of the pool</GrowingTag>}
+            sub="Career facts extracted from the resumes stored in Salesforce — no DJC views spent. Every number opens its people."
+          >
+            <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <BigStat
+                value={data.totals.newGrads}
+                label="new grads"
+                detail="graduated 2025 or later"
+                accent="text-emerald-300"
+                onClick={() => setDrill({ dim: 'new_grads', value: 'yes', label: 'New grads (graduated 2025+)' })}
+              />
+              <BigStat
+                value={data.talent.residencyTrained}
+                label="residency / specialty trained"
+                detail="GPR, AEGD, or specialty programs"
+                accent="text-cyan-300"
+                onClick={() => setDrill({ dim: 'residency', value: 'yes', label: 'Residency / specialty-trained candidates' })}
+              />
+              <BigStat
+                value={data.talent.trainingOrigin.us}
+                label="US-trained"
+                detail="first dental degree in the US"
+                onClick={() => setDrill({ dim: 'training_origin', value: 'US-trained', label: 'US-trained candidates' })}
+              />
+              <BigStat
+                value={data.talent.trainingOrigin.foreign}
+                label="foreign-trained"
+                detail="often need state licensure paths"
+                accent="text-violet-300"
+                onClick={() => setDrill({ dim: 'training_origin', value: 'foreign-trained', label: 'Foreign-trained candidates' })}
+              />
+            </div>
+
+            <div className="mb-5">
+              <SmallLabel>
+                Career stage · median {data.talent.medianExperience ?? '—'} years of experience
+              </SmallLabel>
+              <BarList
+                items={data.talent.careerStages.map(b => ({
+                  ...b,
+                  color: b.key === 'new_grad' ? C.emerald : b.key === 'unknown' ? C.neutral : C.cyan,
+                }))}
+                total={Math.max(...data.talent.careerStages.map(b => b.count), 1)}
+                relative
+                onClick={b => setDrill({ dim: 'career_stage', value: b.key, label: b.label })}
+              />
+            </div>
+
+            <div className="grid gap-6 lg:grid-cols-2">
+              {data.talent.topSchools.length > 0 && (
+                <div>
+                  <SmallLabel>Top dental schools in the pool</SmallLabel>
+                  <BarList
+                    items={data.talent.topSchools.map(s => ({ key: s.school, label: s.school, count: s.count, color: C.violet }))}
+                    total={Math.max(...data.talent.topSchools.map(s => s.count), 1)}
+                    relative
+                    onClick={b => setDrill({ dim: 'school', value: b.key, label: `Trained at ${b.label}` })}
+                  />
+                </div>
+              )}
+              {data.talent.languages.length > 0 && (
+                <div>
+                  <SmallLabel>Languages beyond English (from resumes)</SmallLabel>
+                  <BarList
+                    items={data.talent.languages.map(l => ({ key: l.language, label: l.language, count: l.count, color: C.emerald }))}
+                    total={Math.max(...data.talent.languages.map(l => l.count), 1)}
+                    relative
+                    onClick={b => setDrill({ dim: 'language', value: b.key, label: `Speaks ${b.label}` })}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 grid gap-6 lg:grid-cols-2">
+              {data.talent.workEnvironments.length > 0 && (
+                <div>
+                  <SmallLabel>Preferred work environments (from DJC cards)</SmallLabel>
+                  <BarList
+                    items={data.talent.workEnvironments.map(b => ({ ...b, color: C.cyan }))}
+                    total={Math.max(...data.talent.workEnvironments.map(b => b.count), 1)}
+                    relative
+                    onClick={b => setDrill({ dim: 'work_env', value: b.key, label: `Prefers: ${b.label}` })}
+                  />
+                </div>
+              )}
+              {data.talent.degrees.length > 0 && (
+                <div>
+                  <SmallLabel>Degrees (from DJC cards)</SmallLabel>
+                  <BarList
+                    items={data.talent.degrees.map(b => ({ ...b, color: C.violet }))}
+                    total={Math.max(...data.talent.degrees.map(b => b.count), 1)}
+                    relative
+                    onClick={b => setDrill({ dim: 'degrees', value: b.key, label: `Degree: ${b.label}` })}
+                  />
+                </div>
+              )}
+            </div>
+          </Card>
+
+          <Card
             title="Specialty breakdown"
             sub="Click a specialty for its candidates."
             tag={expPartial ? <GrowingTag>avg experience known for {expPct}% of profiles</GrowingTag> : undefined}
