@@ -468,14 +468,16 @@ export default function DjcInsightsPanel({ data, view }: { data: DjcInsights; vi
               <SmallLabel>
                 Career stage · median {data.talent.medianExperience ?? '—'} years of experience
               </SmallLabel>
-              <BarList
-                items={data.talent.careerStages.map(b => ({
-                  ...b,
-                  color: b.key === 'new_grad' ? C.emerald : b.key === 'unknown' ? C.neutral : C.cyan,
+              <SegmentBar
+                segments={data.talent.careerStages.map(b => ({
+                  key: b.key, label: b.label, count: b.count,
+                  color: b.key === 'new_grad' ? C.emerald : b.key === 'unknown' ? '#3f3f46'
+                    : b.key === 'early' ? '#22d3ee' : b.key === 'established' ? C.cyan : '#155e75',
                 }))}
-                total={Math.max(...data.talent.careerStages.map(b => b.count), 1)}
-                relative
-                onClick={b => setDrill({ dim: 'career_stage', value: b.key, label: b.label })}
+                onClick={k => {
+                  const b = data.talent.careerStages.find(x => x.key === k)
+                  if (b) setDrill({ dim: 'career_stage', value: b.key, label: b.label })
+                }}
               />
             </div>
 
@@ -488,7 +490,8 @@ export default function DjcInsightsPanel({ data, view }: { data: DjcInsights; vi
                     total={Math.max(...data.talent.topSchools.map(s => s.count), 1)}
                     relative
                     onClick={b => setDrill({ dim: 'school', value: b.key, label: `Trained at ${b.label}` })}
-                  />
+                    maxVisible={6}
+              />
                 </div>
               )}
               {data.talent.languages.length > 0 && (
@@ -499,7 +502,8 @@ export default function DjcInsightsPanel({ data, view }: { data: DjcInsights; vi
                     total={Math.max(...data.talent.languages.map(l => l.count), 1)}
                     relative
                     onClick={b => setDrill({ dim: 'language', value: b.key, label: `Speaks ${b.label}` })}
-                  />
+                    maxVisible={6}
+              />
                 </div>
               )}
             </div>
@@ -513,7 +517,8 @@ export default function DjcInsightsPanel({ data, view }: { data: DjcInsights; vi
                     total={Math.max(...data.talent.workEnvironments.map(b => b.count), 1)}
                     relative
                     onClick={b => setDrill({ dim: 'work_env', value: b.key, label: `Prefers: ${b.label}` })}
-                  />
+                    maxVisible={6}
+              />
                 </div>
               )}
               {data.talent.degrees.length > 0 && (
@@ -524,7 +529,8 @@ export default function DjcInsightsPanel({ data, view }: { data: DjcInsights; vi
                     total={Math.max(...data.talent.degrees.map(b => b.count), 1)}
                     relative
                     onClick={b => setDrill({ dim: 'degrees', value: b.key, label: `Degree: ${b.label}` })}
-                  />
+                    maxVisible={6}
+              />
                 </div>
               )}
             </div>
@@ -586,6 +592,7 @@ export default function DjcInsightsPanel({ data, view }: { data: DjcInsights; vi
                 relative
                 extra={data.states.filter(s => s.state !== 'Unknown').map(s => `${s.netNew} new`)}
                 onClick={b => setDrill({ dim: 'state', value: b.key, label: `Candidates in ${b.label}` })}
+                maxVisible={6}
               />
               {(() => {
                 const unknown = data.states.find(s => s.state === 'Unknown')
@@ -1165,7 +1172,7 @@ export function LegendSwatch({ color, label }: { color: string; label: string })
 }
 
 export function BarList({
-  items, total, relative = false, extra, onClick,
+  items, total, relative = false, extra, onClick, maxVisible,
 }: {
   items: (InsightBucket & { color: string })[]
   total: number
@@ -1173,11 +1180,15 @@ export function BarList({
   relative?: boolean
   extra?: string[]
   onClick?: (b: InsightBucket) => void
+  /** Show only the top N rows with a "show all" toggle — long lists stay scannable. */
+  maxVisible?: number
 }) {
+  const [expanded, setExpanded] = useState(false)
   const denom = relative ? Math.max(...items.map(i => i.count), 1) : Math.max(total, 1)
+  const visible = maxVisible && !expanded ? items.slice(0, maxVisible) : items
   return (
     <div className="space-y-2">
-      {items.map((b, i) => (
+      {visible.map((b, i) => (
         <button
           key={b.key}
           onClick={onClick ? () => onClick(b) : undefined}
@@ -1197,6 +1208,52 @@ export function BarList({
           {extra && <span className="w-14 shrink-0 text-right text-[10px] tabular-nums text-zinc-500">{extra[i]}</span>}
         </button>
       ))}
+      {maxVisible && items.length > maxVisible && (
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="text-[11px] text-zinc-500 transition-colors hover:text-zinc-300"
+        >
+          {expanded ? '▴ show top ' + maxVisible : `▾ show all ${items.length}`}
+        </button>
+      )}
+    </div>
+  )
+}
+
+/** One-line segmented composition bar with an inline legend — for reading a whole split at a
+ *  glance (career stages, training origin) instead of scanning row lists. */
+export function SegmentBar({
+  segments, onClick,
+}: {
+  segments: { key: string; label: string; count: number; color: string }[]
+  onClick?: (key: string) => void
+}) {
+  const total = Math.max(segments.reduce((a, s) => a + s.count, 0), 1)
+  return (
+    <div>
+      <div className="flex h-5 w-full gap-0.5 overflow-hidden rounded-md">
+        {segments.filter(s => s.count > 0).map(s => (
+          <button
+            key={s.key}
+            onClick={onClick ? () => onClick(s.key) : undefined}
+            className="transition-all hover:brightness-125"
+            style={{ width: `${(s.count / total) * 100}%`, background: s.color }}
+            title={`${s.label}: ${s.count.toLocaleString()} (${Math.round((s.count / total) * 100)}%)`}
+          />
+        ))}
+      </div>
+      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+        {segments.map(s => (
+          <button
+            key={s.key}
+            onClick={onClick ? () => onClick(s.key) : undefined}
+            className="inline-flex items-center gap-1.5 text-[11px] text-zinc-400 transition-colors hover:text-zinc-200"
+          >
+            <span className="h-2 w-2 rounded-[2px]" style={{ background: s.color }} />
+            {s.label} <span className="tabular-nums text-zinc-500">{s.count.toLocaleString()} · {Math.round((s.count / total) * 100)}%</span>
+          </button>
+        ))}
+      </div>
     </div>
   )
 }

@@ -23,6 +23,8 @@ export interface DjcOverview {
 
 export interface DjcPipelineData {
   stages: { stage: string; count: number }[]
+  reached: { label: string; count: number }[] // true funnel: applications that reached each dated stage
+  quarterly: { quarter: string; count: number }[] // placements per quarter since 2022
   staleContacts: { neverApplied: number; total: number }
   automationEra: { applications: number; placedOrExtended: number; placements: number }
   placementsPerYear: { year: string; count: number }[]
@@ -113,7 +115,7 @@ export async function getDjcPipeline(): Promise<DjcPipelineData | null> {
   const sql = djcSql
   if (!sql) return null
 
-  const [stageRows, staleRows, autoRows, yearRows, repeatRows, recentRows, flightRows] =
+  const [stageRows, staleRows, autoRows, yearRows, repeatRows, recentRows, flightRows, reachedRows, quarterRows] =
     await Promise.all([
       sql<{ stage: string; count: number }[]>`
         select stage, count(*)::int as count from djc_sf_applications
@@ -150,11 +152,33 @@ export async function getDjcPipeline(): Promise<DjcPipelineData | null> {
         from djc_sf_applications
         where stage in ('Interview', 'Offer', 'Submittal', 'Name Clear', 'Internal Review')
         order by synced_at desc, created_on desc nulls last limit 25`,
+      sql<Record<string, number>[]>`
+        select count(*)::int as apps,
+               count(submittal_on)::int as submitted,
+               count(interview_on)::int as interviewed,
+               count(offer_on)::int as offered,
+               count(placed_on)::int as placed
+        from djc_sf_applications`,
+      sql<{ quarter: string; count: number }[]>`
+        select to_char(date_trunc('quarter', placed_on), 'YYYY "Q"Q') as quarter, count(*)::int as count
+        from djc_sf_applications
+        where stage in ('Placed','Extended','Extension Request') and placed_on >= '2022-01-01'
+        group by date_trunc('quarter', placed_on)
+        order by date_trunc('quarter', placed_on)`,
     ])
 
   const byStage = new Map(stageRows.map(r => [r.stage, Number(r.count)]))
+  const rr = reachedRows[0]
   return {
     stages: STAGE_ORDER.map(s => ({ stage: s, count: byStage.get(s) ?? 0 })),
+    reached: [
+      { label: 'Application', count: Number(rr.apps) },
+      { label: 'Submittal', count: Number(rr.submitted) },
+      { label: 'Interview', count: Number(rr.interviewed) },
+      { label: 'Offer', count: Number(rr.offered) },
+      { label: 'Placed', count: Number(rr.placed) },
+    ],
+    quarterly: quarterRows.map(r => ({ quarter: r.quarter, count: Number(r.count) })),
     staleContacts: {
       neverApplied: Number(staleRows[0]?.never_applied ?? 0),
       total: Number(staleRows[0]?.total ?? 0),

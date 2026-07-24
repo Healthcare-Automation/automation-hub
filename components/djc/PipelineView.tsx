@@ -2,6 +2,8 @@
 
 import { Card, BarList, SmallLabel } from '@/components/DjcInsightsPanel'
 import type { DjcPipelineData } from '@/lib/djcPipeline'
+import { FunnelCascade, ForestPlot, QuarterlyTrend } from '@/components/djc/science'
+import { APPLIED_FACTORS, PLACED_FACTORS, SCIENCE_META, STAGE_VELOCITY, TIME_TO_PLACE } from '@/lib/djcScience'
 
 const CYAN = '#0891b2'
 const EMERALD = '#059669'
@@ -24,30 +26,58 @@ export default function PipelineView({ data }: { data: DjcPipelineData }) {
         <Stat value={`${stalePct}%`} label="of Salesforce candidates never got an application" detail={`${data.staleContacts.neverApplied.toLocaleString()} of ${data.staleContacts.total.toLocaleString()} — the funnel's biggest opportunity`} accent="text-amber-300" />
       </div>
 
-      {/* Funnel */}
+      {/* The actual pipeline */}
       <Card
-        title="Application funnel — every stage on record"
-        sub="How DJC-origin applications distribute across the recruiting stages (all time)."
+        title="The pipeline — every application's journey"
+        sub="Applications that reached each dated stage, conversion between stages, and the median days per hop. Placed can exceed Offer because recruiters often skip stages in data entry — percentages are only shown where the math is clean. Hover a stage to trace its flow."
       >
-        <div className="space-y-2">
-          {data.stages.map((s, i) => (
-            <div key={s.stage} className="flex items-center gap-3">
-              <span className="w-36 shrink-0 text-xs text-zinc-400">{s.stage}</span>
-              <div className="h-3 grow rounded-sm bg-zinc-800">
-                <div
-                  className="h-3 rounded-sm"
-                  style={{
-                    width: `${Math.max((s.count / maxStage) * 100, s.count > 0 ? 1.5 : 0)}%`,
-                    background: s.stage === 'Placed' || s.stage === 'Extended' ? EMERALD : CYAN,
-                    opacity: s.stage === 'Placed' || s.stage === 'Extended' ? 1 : 1 - i * 0.06,
-                  }}
-                />
-              </div>
-              <span className="w-14 shrink-0 text-right text-xs tabular-nums text-zinc-300">
-                {s.count.toLocaleString()}
-              </span>
-            </div>
-          ))}
+        <FunnelCascade
+          stages={data.reached}
+          medianDays={[null, STAGE_VELOCITY.submittalToInterview, STAGE_VELOCITY.interviewToOffer, STAGE_VELOCITY.offerToPlaced]}
+        />
+        <p className="mt-2 text-[11px] leading-relaxed text-zinc-500">
+          Once an application is placed, the median journey took just{' '}
+          <span className="font-medium text-zinc-300">{STAGE_VELOCITY.applicationToPlaced.median} days</span>{' '}
+          (middle half: {STAGE_VELOCITY.applicationToPlaced.p25}–{STAGE_VELOCITY.applicationToPlaced.p75} days) —{' '}
+          {TIME_TO_PLACE[0].count} of {TIME_TO_PLACE.reduce((a, t) => a + t.count, 0)} placements landed within 30 days
+          of the application. Speed of recruiter follow-up is everything.
+        </p>
+      </Card>
+
+      {/* Placements momentum */}
+      <Card
+        title="Placement momentum — quarterly"
+        sub="DJC-sourced placements per quarter — 2026 Q2 set the all-time record (72). The final point is the current quarter in progress, not a decline."
+      >
+        <QuarterlyTrend series={data.quarterly} />
+      </Card>
+
+      {/* What predicts a hire */}
+      <Card
+        title="What actually leads to a hire — the evidence"
+        sub={`Odds ratios with 95% confidence intervals over ${SCIENCE_META.universe.toLocaleString()} linked candidates (${SCIENCE_META.applied} worked by recruiters, ${SCIENCE_META.placed} placed). A dot right of the dashed line = the trait makes the outcome more likely; whiskers crossing the line = no detectable effect. ✓ = statistically significant (p<0.05). Associations, not causation — computed ${SCIENCE_META.computedOn}.`}
+      >
+        <div className="space-y-6">
+          <div>
+            <SmallLabel>Stage 1 — who gets recruiter attention (≥1 application)</SmallLabel>
+            <ForestPlot factors={APPLIED_FACTORS} />
+          </div>
+          <div>
+            <SmallLabel>Stage 2 — who converts to a placement, once worked</SmallLabel>
+            <ForestPlot factors={PLACED_FACTORS} />
+          </div>
+          <div className="rounded-lg border border-zinc-700/40 bg-zinc-900/40 p-4 text-xs leading-relaxed text-zinc-400">
+            <p className="mb-1.5 font-semibold text-zinc-200">What the evidence says, in one breath:</p>
+            <p>
+              <span className="text-zinc-200">Specialty demand drives everything</span> — General Dentists are 3.3× more
+              likely to get worked and 3.8× more likely to place once worked.{' '}
+              <span className="text-zinc-200">Experience gets attention but doesn&apos;t close</span> — 10+ years doubles the
+              odds of being worked, yet shows no effect on placing afterward; recruiters may be over-selecting on it.{' '}
+              <span className="text-zinc-200">Hygienists and assistants are the untapped pool</span> — only 3% ever get an
+              application versus 21% of everyone else. Credentials (residency, US training, languages) show no detectable
+              effect at current sample sizes.
+            </p>
+          </div>
         </div>
       </Card>
 
