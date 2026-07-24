@@ -5,13 +5,14 @@ import Link from 'next/link'
 import { Card, SmallLabel } from '@/components/DjcInsightsPanel'
 import { FunnelCascade, QuarterlyTrend, ColumnChart } from '@/components/djc/science'
 import type { DjcOverview } from '@/lib/djcPipeline'
+import type { KimedicsSnapshot } from '@/lib/impactScience'
 
 const CYAN = '#0891b2'
 const EMERALD = '#059669'
 
 /** The daily pulse: everything a stakeholder needs at a glance, each block linking one level
  *  deeper. Data refreshes with every hourly automation run. */
-export default function OverviewView({ data }: { data: DjcOverview }) {
+export default function OverviewView({ data, kimedics }: { data: DjcOverview; kimedics?: KimedicsSnapshot | null }) {
   const runOk = data.lastRun.status === 'ok'
   return (
     <div className="space-y-8">
@@ -112,6 +113,29 @@ export default function OverviewView({ data }: { data: DjcOverview }) {
         </Card>
       </div>
 
+      {/* The other automation, at a glance */}
+      {kimedics && (
+        <Link
+          href="/impact"
+          className="block rounded-xl border border-zinc-700/40 bg-zinc-900/40 p-4 transition-colors hover:border-emerald-800/50 hover:bg-zinc-800/40 sm:p-5"
+        >
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <p className="text-[13px] font-semibold text-zinc-100">Kimedics automation</p>
+            <span className="text-[11px] text-emerald-400">full impact analysis →</span>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
+            <KimStat v={`${kimedics.hoursSaved} hrs`} l="manual work returned" accent="text-emerald-300" />
+            <KimStat v={kimedics.jobsTracked.toLocaleString()} l={`jobs tracked · ${kimedics.jobsInSf} in Salesforce`} />
+            <KimStat v={kimedics.emails.toLocaleString()} l="job emails handled" />
+            <KimStat
+              v={String(kimedics.failuresThisMonth)}
+              l="sync failures this month"
+              accent={kimedics.failuresThisMonth === 0 ? 'text-emerald-300' : 'text-amber-300'}
+            />
+          </div>
+        </Link>
+      )}
+
       {/* Where to dig */}
       <div className="grid gap-3 sm:grid-cols-3">
         <DigCard
@@ -210,6 +234,15 @@ function Hero({
       <div className="mt-2 text-xs font-medium text-zinc-200">{label}</div>
       <div className="mt-1 text-[11px] leading-snug text-zinc-500">{detail}</div>
     </Link>
+  )
+}
+
+function KimStat({ v, l, accent }: { v: string; l: string; accent?: string }) {
+  return (
+    <div>
+      <div className={`text-lg font-semibold tabular-nums ${accent ?? 'text-zinc-100'}`}>{v}</div>
+      <div className="mt-0.5 text-[10.5px] leading-snug text-zinc-500">{l}</div>
+    </div>
   )
 }
 

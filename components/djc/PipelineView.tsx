@@ -143,8 +143,8 @@ export default function PipelineView({ data }: { data: DjcPipelineData }) {
 
         {/* Recent placements */}
         <Card title="Recent placements" sub="⚡ = candidate sourced by the automation.">
-          <div className="max-h-72 overflow-y-auto">
-            <table className="w-full text-xs">
+          <div className="max-h-72 overflow-y-auto overflow-x-auto">
+            <table className="w-full min-w-[420px] text-xs">
               <tbody>
                 {data.recentPlacements.map((p, i) => (
                   <tr key={i} className="border-t border-zinc-800/70 text-zinc-300 first:border-t-0">
@@ -170,8 +170,8 @@ export default function PipelineView({ data }: { data: DjcPipelineData }) {
         title="In flight right now"
         sub="Applications currently moving through review, submittal, interview, or offer. ⚡ = automation-sourced."
       >
-        <div className="max-h-96 overflow-y-auto">
-          <table className="w-full text-xs">
+        <div className="max-h-96 overflow-y-auto overflow-x-auto">
+          <table className="w-full min-w-[600px] text-xs">
             <thead className="sticky top-0 bg-zinc-900">
               <tr className="text-left text-[10px] uppercase tracking-wide text-zinc-500">
                 <th className="py-1.5 pr-3 font-medium">Candidate</th>

@@ -25,8 +25,8 @@ export function FunnelCascade({
   const mid = H - 60
 
   return (
-    <div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: 280 }}>
+    <div className="overflow-x-auto">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full min-w-[540px]" style={{ maxHeight: 280 }}>
         {stages.map((s, i) => {
           const x = i * (colW + gap)
           const h = barH(s.count)
@@ -100,7 +100,8 @@ export function ForestPlot({ factors }: { factors: OddsFactor[] }) {
   const x = (v: number) => X0 + ((Math.log(Math.max(v, 0.05)) - LOG_MIN) / (LOG_MAX - LOG_MIN)) * (X1 - X0)
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
+    <div className="overflow-x-auto">
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full min-w-[560px]">
       {/* reference line at OR = 1 */}
       <line x1={x(1)} y1={4} x2={x(1)} y2={H - 28} stroke="#52525b" strokeDasharray="3 3" />
       <text x={x(1)} y={H - 14} textAnchor="middle" fill="#71717a" fontSize={10}>no effect (OR 1)</text>
@@ -126,6 +127,7 @@ export function ForestPlot({ factors }: { factors: OddsFactor[] }) {
         )
       })}
     </svg>
+    </div>
   )
 }
 
