@@ -28,6 +28,9 @@ export function AutomationTabs({
         {candidateBank && (
           <button onClick={() => setTab('candidateBank')} className={cls(tab === 'candidateBank')}>Candidate Bank</button>
         )}
+        <a href="/djc/overview" className={`${cls(false)} text-cyan-400 hover:text-cyan-300`}>
+          Intelligence ↗
+        </a>
       </div>
       <div>{tab === 'kimedics' ? kimedics : tab === 'candidateBank' ? candidateBank : djc}</div>
     </div>
