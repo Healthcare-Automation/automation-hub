@@ -645,6 +645,14 @@ export async function drillDjcCandidates(dim: string, value: string): Promise<Dr
   const sql = djcSql
   if (!sql) return null
 
+  // Free-text search drill: name / DJC id / school — powers the dashboard's search box.
+  if (dim === 'search') {
+    const q = value.trim()
+    if (q.length < 2 || q.length > 60) return null
+    const like = `%${q}%`
+    return drillSelect(sql, sql`(name ilike ${like} or candidate_id ilike ${like} or dental_school ilike ${like})`)
+  }
+
   // Language drill: candidates whose resume lists the language (jsonb array, case-insensitive).
   if (dim === 'language') {
     if (!/^[\w .'-]{2,40}$/.test(value)) return null

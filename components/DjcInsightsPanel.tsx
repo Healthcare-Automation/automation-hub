@@ -37,8 +37,44 @@ interface Drill {
   label: string
 }
 
+/** Sticky-nav sections, in page order. Conditional ones are filtered at render. */
+const NAV_ITEMS: { id: string; label: string }[] = [
+  { id: 'views', label: 'Views' },
+  { id: 'conserve', label: 'Conserve' },
+  { id: 'funnel', label: 'Funnel' },
+  { id: 'talent', label: 'Talent' },
+  { id: 'specialties', label: 'Specialties' },
+  { id: 'locations', label: 'Locations' },
+  { id: 'experience', label: 'Experience' },
+  { id: 'rating', label: 'Rating' },
+  { id: 'health', label: 'Site health' },
+  { id: 'rules', label: 'How it works' },
+]
+
 export default function DjcInsightsPanel({ data }: { data: DjcInsights }) {
   const [drill, setDrill] = useState<Drill | null>(null)
+  const [activeSection, setActiveSection] = useState('views')
+  const [query, setQuery] = useState('')
+  const [showTop, setShowTop] = useState(false)
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      entries => {
+        for (const e of entries) if (e.isIntersecting) setActiveSection(e.target.id)
+      },
+      { rootMargin: '-90px 0px -70% 0px' },
+    )
+    for (const item of NAV_ITEMS) {
+      const el = document.getElementById(item.id)
+      if (el) observer.observe(el)
+    }
+    const onScroll = () => setShowTop(window.scrollY > 900)
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('scroll', onScroll)
+    }
+  }, [])
 
   const pct = (n: number, d: number) => (d > 0 ? Math.round((n / d) * 100) : 0)
   const factsPct = pct(data.totals.factsCoverage, data.totals.observed)
@@ -53,10 +89,51 @@ export default function DjcInsightsPanel({ data }: { data: DjcInsights }) {
 
   const L = data.viewsLedger
 
+  const jump = (id: string) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   return (
     <div className="space-y-10">
+      {/* Sticky navigator: section pills + candidate search */}
+      <nav className="sticky top-0 z-30 -mx-4 border-b border-zinc-800/70 bg-zinc-950/85 px-4 py-2 backdrop-blur sm:-mx-8 sm:px-8">
+        <div className="flex items-center gap-3">
+          <div className="flex grow gap-1 overflow-x-auto">
+            {NAV_ITEMS.filter(i => i.id !== 'conserve' || conserveActive || data.conserveSkips.total > 0).map(i => (
+              <button
+                key={i.id}
+                onClick={() => jump(i.id)}
+                className={cn(
+                  'shrink-0 rounded-full px-3 py-1 text-[11px] font-medium transition-colors',
+                  activeSection === i.id
+                    ? 'bg-cyan-600/20 text-cyan-200'
+                    : 'text-zinc-500 hover:bg-zinc-800/60 hover:text-zinc-200',
+                )}
+              >
+                {i.label}
+              </button>
+            ))}
+          </div>
+          <form
+            onSubmit={e => {
+              e.preventDefault()
+              if (query.trim().length >= 2)
+                setDrill({ dim: 'search', value: query.trim(), label: `Search: “${query.trim()}”` })
+            }}
+            className="shrink-0"
+          >
+            <input
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Find a candidate…"
+              className="w-40 rounded-full border border-zinc-700/60 bg-zinc-900 px-3 py-1 text-[11px] text-zinc-200 placeholder-zinc-600 outline-none transition-all focus:w-56 focus:border-cyan-700"
+            />
+          </form>
+        </div>
+      </nav>
+
       {/* ── Zone 1: the views question, period-scoped ─────────────────────────────── */}
-      <section>
+      <section id="views" className="scroll-mt-16">
         <ZoneHeader
           title="Profile Views — where they went"
           description={
@@ -146,7 +223,7 @@ export default function DjcInsightsPanel({ data }: { data: DjcInsights }) {
 
       {/* Conserve mode — the audit trail for pre-view skips ("the losses") */}
       {(conserveActive || data.conserveSkips.total > 0) && (
-        <section className="mt-6">
+        <section id="conserve" className="mt-6 scroll-mt-16">
           <Card
             title="Conserve mode — skipped before spending a view"
             tag={
@@ -203,7 +280,7 @@ export default function DjcInsightsPanel({ data }: { data: DjcInsights }) {
       )}
 
       {/* ── Zone 2: the funnel for the selected period ────────────────────────────── */}
-      <section>
+      <section id="funnel" className="scroll-mt-16">
         <ZoneHeader
           title={data.period === 'quarter' ? 'Sourcing funnel — this quarter' : 'Sourcing funnel — all time'}
           description="Each stage is clickable — see exactly who advanced and who dropped, and why."
@@ -256,6 +333,7 @@ export default function DjcInsightsPanel({ data }: { data: DjcInsights }) {
           </Card>
 
           <Card
+            id="talent"
             title="Who these candidates are"
             tag={<GrowingTag>resume-mined · covers ~{pct(data.totals.experienceCoverage, data.totals.observed) > 45 ? 'half' : `${pct(data.totals.experienceCoverage, data.totals.observed)}%`} of the pool</GrowingTag>}
             sub="Career facts extracted from the resumes stored in Salesforce — no DJC views spent. Every number opens its people."
@@ -357,6 +435,7 @@ export default function DjcInsightsPanel({ data }: { data: DjcInsights }) {
           </Card>
 
           <Card
+            id="specialties"
             title="Specialty breakdown"
             sub="Click a specialty for its candidates."
             tag={expPartial ? <GrowingTag>avg experience known for {expPct}% of profiles</GrowingTag> : undefined}
@@ -404,7 +483,7 @@ export default function DjcInsightsPanel({ data }: { data: DjcInsights }) {
           </Card>
 
           <div className="grid gap-6 lg:grid-cols-2">
-            <Card title="Location breakdown" sub="By mailing state. Click a state for its candidates.">
+            <Card id="locations" title="Location breakdown" sub="By mailing state. Click a state for its candidates.">
               <BarList
                 items={data.states.filter(s => s.state !== 'Unknown').map(s => ({ key: s.state, label: s.state, count: s.total, color: C.cyan }))}
                 total={Math.max(...data.states.filter(s => s.state !== 'Unknown').map(s => s.total), 1)}
@@ -426,6 +505,7 @@ export default function DjcInsightsPanel({ data }: { data: DjcInsights }) {
             </Card>
 
             <Card
+              id="experience"
               title="Experience & education"
               tag={expPartial ? <GrowingTag>known for {expPct}% — needs profile opens to grow</GrowingTag> : undefined}
               sub="Experience is optional on DJC — only ~13% of opened profiles state it, and never-opened candidates can't have it yet. Education end-years cover more (~46% of opened profiles), so grad year is the better new-grad signal."
@@ -467,6 +547,7 @@ export default function DjcInsightsPanel({ data }: { data: DjcInsights }) {
 
           <div className="grid gap-6 lg:grid-cols-2">
             <Card
+              id="rating"
               title="Candidate rating"
               tag={expPartial ? <GrowingTag>experience factor known for {expPct}%</GrowingTag> : undefined}
               sub="Transparent 0–100 score: phone 25 · email 15 · resume 20 · experience up to 20 · recent activity up to 20."
@@ -506,6 +587,7 @@ export default function DjcInsightsPanel({ data }: { data: DjcInsights }) {
           </div>
 
           <Card
+            id="health"
             title="How good is DJC as a source?"
             tag={
               backfilling || historyYoung ? (
@@ -587,7 +669,7 @@ export default function DjcInsightsPanel({ data }: { data: DjcInsights }) {
       </section>
 
       {/* ── Plain-English reference: how the numbers actually work ────────────────── */}
-      <section>
+      <section id="rules" className="scroll-mt-16">
         <ZoneHeader
           title="How this all works — plain English"
           description="The rules of the road behind these numbers, so anyone reading this page knows what's free, what costs money, and why."
@@ -636,6 +718,16 @@ export default function DjcInsightsPanel({ data }: { data: DjcInsights }) {
           </ul>
         </Card>
       </section>
+
+      {showTop && (
+        <button
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          className="fixed bottom-5 right-5 z-30 rounded-full border border-zinc-700 bg-zinc-900/90 px-3 py-2 text-[11px] text-zinc-300 shadow-lg backdrop-blur transition-colors hover:text-white"
+          aria-label="Back to top"
+        >
+          ↑ Top
+        </button>
+      )}
 
       <DrillPanel drill={drill} onClose={() => setDrill(null)} />
     </div>
@@ -970,15 +1062,16 @@ function PeriodFilter({ period }: { period: DjcInsights['period'] }) {
 }
 
 function Card({
-  title, sub, tag, children,
+  title, sub, tag, id, children,
 }: {
   title?: string
   sub?: string
   tag?: React.ReactNode
+  id?: string
   children: React.ReactNode
 }) {
   return (
-    <section className="rounded-xl border border-zinc-700/50 bg-zinc-800/30 p-5">
+    <section id={id} className="scroll-mt-16 rounded-xl border border-zinc-700/50 bg-zinc-800/30 p-5">
       {title && (
         <div className="mb-4">
           <h3 className="flex flex-wrap items-center gap-2 text-[13px] font-semibold text-zinc-100">
