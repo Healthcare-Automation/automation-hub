@@ -43,6 +43,10 @@ export default function DjcInsightsPanel({ data }: { data: DjcInsights }) {
   const pct = (n: number, d: number) => (d > 0 ? Math.round((n / d) * 100) : 0)
   const factsPct = pct(data.totals.factsCoverage, data.totals.observed)
   const backfilling = factsPct < 95
+  // Experience only exists on opened profile pages (partial by design until views allow more).
+  const expPct = pct(data.totals.experienceCoverage, data.totals.observed)
+  const expPartial = expPct < 95
+  const conserveActive = data.conserveSkips.activeLast7d > 0
   const historyYoung =
     !data.sightingsSince ||
     (Date.now() - new Date(data.sightingsSince).getTime()) / 86400000 < 14
@@ -140,6 +144,64 @@ export default function DjcInsightsPanel({ data }: { data: DjcInsights }) {
         )}
       </section>
 
+      {/* Conserve mode — the audit trail for pre-view skips ("the losses") */}
+      {(conserveActive || data.conserveSkips.total > 0) && (
+        <section className="mt-6">
+          <Card
+            title="Conserve mode — skipped before spending a view"
+            tag={
+              conserveActive ? (
+                <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wide text-cyan-300">
+                  active · reverts Aug 15
+                </span>
+              ) : undefined
+            }
+            sub={`While views are scarce, candidates whose full name already matches a Salesforce contact are set aside WITHOUT paying for their profile. Historically this rule catches 84% of would-be wasted views and wrongly holds back roughly 1 in 70. Every skip is listed here with the matched contact — nothing is silently lost, and all of them can be processed after the Aug 15 refill.`}
+          >
+            {data.conserveSkips.rows.length === 0 ? (
+              <p className="text-xs text-zinc-500">No candidates skipped yet.</p>
+            ) : (
+              <div className="max-h-72 overflow-y-auto">
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 bg-zinc-900">
+                    <tr className="text-left text-[10px] uppercase tracking-wide text-zinc-500">
+                      <th className="py-1.5 pr-3 font-medium">Candidate (DJC)</th>
+                      <th className="py-1.5 pr-3 font-medium">Specialty</th>
+                      <th className="py-1.5 pr-3 font-medium">Location</th>
+                      <th className="py-1.5 pr-3 text-right font-medium">Signed up</th>
+                      <th className="py-1.5 pr-3 text-right font-medium">Skipped</th>
+                      <th className="py-1.5 font-medium">Matched contact</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.conserveSkips.rows.map(r => (
+                      <tr key={r.candidateId} className="border-t border-zinc-800/70 text-zinc-300">
+                        <td className="max-w-40 truncate py-2 pr-3">
+                          <a href={`https://www.dentistjobcafe.com/company/candidate/${r.candidateId}`} target="_blank" rel="noreferrer" className="text-cyan-300 hover:underline">
+                            {r.name ?? r.candidateId}
+                          </a>
+                        </td>
+                        <td className="max-w-32 truncate py-2 pr-3 text-zinc-400">{r.target ?? '—'}</td>
+                        <td className="max-w-32 truncate py-2 pr-3 text-zinc-400">{r.location ?? '—'}</td>
+                        <td className="py-2 pr-3 text-right tabular-nums">{r.registeredOn ?? '—'}</td>
+                        <td className="py-2 pr-3 text-right tabular-nums">{r.skippedOn ?? '—'}</td>
+                        <td className="py-2">
+                          {r.sfContactId ? (
+                            <a href={sfContactUrl(r.sfContactId)} target="_blank" rel="noreferrer" className="text-emerald-400 hover:underline">
+                              open in Salesforce ↗
+                            </a>
+                          ) : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+        </section>
+      )}
+
       {/* ── Zone 2: the funnel for the selected period ────────────────────────────── */}
       <section>
         <ZoneHeader
@@ -196,7 +258,7 @@ export default function DjcInsightsPanel({ data }: { data: DjcInsights }) {
           <Card
             title="Specialty breakdown"
             sub="Click a specialty for its candidates."
-            tag={backfilling ? <GrowingTag>avg experience filling in — {factsPct}% of profiles</GrowingTag> : undefined}
+            tag={expPartial ? <GrowingTag>avg experience known for {expPct}% of profiles</GrowingTag> : undefined}
           >
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
@@ -264,7 +326,7 @@ export default function DjcInsightsPanel({ data }: { data: DjcInsights }) {
 
             <Card
               title="Experience & education"
-              tag={backfilling ? <GrowingTag>filling in — {factsPct}% of profiles</GrowingTag> : undefined}
+              tag={expPartial ? <GrowingTag>known for {expPct}% — needs profile opens to grow</GrowingTag> : undefined}
               sub="Years of experience as stated on the profile; grad decade from the latest education end-year."
             >
               <div className="space-y-5">
@@ -297,7 +359,7 @@ export default function DjcInsightsPanel({ data }: { data: DjcInsights }) {
           <div className="grid gap-6 lg:grid-cols-2">
             <Card
               title="Candidate rating"
-              tag={backfilling ? <GrowingTag>experience factor filling in</GrowingTag> : undefined}
+              tag={expPartial ? <GrowingTag>experience factor known for {expPct}%</GrowingTag> : undefined}
               sub="Transparent 0–100 score: phone 25 · email 15 · resume 20 · experience up to 20 · recent activity up to 20."
             >
               <div className="flex items-start gap-6">
@@ -368,6 +430,21 @@ export default function DjcInsightsPanel({ data }: { data: DjcInsights }) {
                       cohorts={data.registeredCohorts}
                       onClick={c => setDrill({ dim: 'registered_year', value: c.cohort, label: `Signed up in ${c.cohort}` })}
                     />
+                    {data.monthlyInflow.length > 0 && (
+                      <div className="mt-5">
+                        <SmallLabel>Fresh supply: new DJC signups per month, last 12 months</SmallLabel>
+                        <BarList
+                          items={data.monthlyInflow.map(m => ({
+                            key: m.month,
+                            label: new Date(m.month + '-02').toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+                            count: m.count,
+                            color: C.emerald,
+                          }))}
+                          total={Math.max(...data.monthlyInflow.map(m => m.count), 1)}
+                          relative
+                        />
+                      </div>
+                    )}
                   </div>
                 )
               })()}
@@ -398,6 +475,57 @@ export default function DjcInsightsPanel({ data }: { data: DjcInsights }) {
             </div>
           </Card>
         </div>
+      </section>
+
+      {/* ── Plain-English reference: how the numbers actually work ────────────────── */}
+      <section>
+        <ZoneHeader
+          title="How this all works — plain English"
+          description="The rules of the road behind these numbers, so anyone reading this page knows what's free, what costs money, and why."
+        />
+        <Card>
+          <ul className="space-y-2.5 text-xs leading-relaxed text-zinc-400">
+            <li>
+              <span className="font-medium text-zinc-200">Opening a candidate's profile costs 1 Profile View.</span>{' '}
+              The quarterly allowance is 750. Search-list pages are free — that's where the signup dates,
+              degrees, locations, and activity dates on this page come from, refreshed hourly at no cost.
+            </li>
+            <li>
+              <span className="font-medium text-zinc-200">A view's outcome is only knowable after paying.</span>{' '}
+              Historically each 100 opens bought ~49 new candidates, ~26 people already in Salesforce, and
+              ~25 with no reachable contact info.
+            </li>
+            <li>
+              <span className="font-medium text-zinc-200">"Already viewed" doesn't carry over.</span>{' '}
+              DJC only remembers a profile as viewed if its phone-reveal button was clicked, and that memory
+              is wiped at every quota refill (~the 15th). Practically: never re-open a profile — the
+              automation never does.
+            </li>
+            <li>
+              <span className="font-medium text-zinc-200">Conserve mode (temporary, until Aug 15):</span>{' '}
+              with views scarce, candidates whose full name already matches a Salesforce contact are set
+              aside before paying. They're all listed in the "Conserve mode" section above with their
+              matched contact — reviewable anytime, processable after the refill.
+            </li>
+            <li>
+              <span className="font-medium text-zinc-200">Quota-blocked candidates aren't lost.</span>{' '}
+              When views run out, newly found candidates are recorded and automatically eligible for
+              processing once views return.
+            </li>
+            <li>
+              <span className="font-medium text-zinc-200">The automation is one fixed "location."</span>{' '}
+              DJC locks the shared account for a day when 3+ IP addresses log in; the automation always
+              signs in from its dedicated proxy IP, leaving two slots for people. Please keep manual
+              logins to one location per day.
+            </li>
+            <li>
+              <span className="font-medium text-zinc-200">Amber "known for X%" badges</span> mark numbers
+              still growing as data arrives; they disappear on their own at full coverage. Signup dates are
+              ~91% complete (free, from list pages); years-of-experience only exists on paid profile opens,
+              so its coverage grows only as views allow.
+            </li>
+          </ul>
+        </Card>
       </section>
 
       <DrillPanel drill={drill} onClose={() => setDrill(null)} />

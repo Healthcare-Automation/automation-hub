@@ -74,7 +74,22 @@ export interface DjcInsights {
     inSalesforce: number
     createdByAutomation: number
     phoneFromResumeOnly: number
-    factsCoverage: number // candidates with registered_on filled (backfill progress)
+    factsCoverage: number // candidates with registered_on filled (near-complete via card sweeps)
+    experienceCoverage: number // candidates with experience_years (profile-page only, partial)
+  }
+  monthlyInflow: { month: string; count: number }[] // new DJC signups per month, last 12 months
+  conserveSkips: {
+    activeLast7d: number
+    total: number
+    rows: {
+      candidateId: string
+      name: string | null
+      target: string | null
+      location: string | null
+      registeredOn: string | null
+      sfContactId: string | null
+      skippedOn: string | null
+    }[]
   }
   funnel: { key: string; label: string; count: number; note: string }[]
   contactSources: InsightBucket[]
@@ -255,7 +270,8 @@ export async function getDjcInsights(period: InsightsPeriod = 'quarter'): Promis
              count(*) filter (where dedup_status = 'new')::int as net_new,
              count(*) filter (where sf_contact_id is not null)::int as in_salesforce,
              count(*) filter (where contact_source = 'cv' and phone is not null)::int as phone_from_resume_only,
-             count(*) filter (where registered_on is not null)::int as facts_coverage
+             count(*) filter (where registered_on is not null)::int as facts_coverage,
+             count(*) filter (where experience_years is not null)::int as experience_coverage
       from djc_candidates`,
     sql<{ key: string; count: number }[]>`
       select contact_source as key, count(*)::int as count
@@ -338,7 +354,30 @@ export async function getDjcInsights(period: InsightsPeriod = 'quarter'): Promis
     createdByAutomation: 0, // filled below from run counters
     phoneFromResumeOnly: Number(t.phone_from_resume_only),
     factsCoverage: Number(t.facts_coverage),
+    experienceCoverage: Number(t.experience_coverage),
   }
+
+  const [inflowRows, conserveCountRows, conserveRows] = await Promise.all([
+    sql<{ month: string; count: number }[]>`
+      select to_char(date_trunc('month', registered_on), 'YYYY-MM') as month, count(*)::int as count
+      from djc_candidates
+      where registered_on >= date_trunc('month', current_date) - interval '11 months'
+      group by 1 order by 1`,
+    sql<{ total: number; last7: number }[]>`
+      select count(*)::int as total,
+             count(*) filter (where updated_at >= now() - interval '7 days')::int as last7
+      from djc_candidates where dedup_reason = 'name_conserve'`,
+    sql<{
+      candidate_id: string; name: string | null; target: string | null
+      card_location: string | null; registered_on: string | null
+      sf_contact_id: string | null; skipped_on: string | null
+    }[]>`
+      select candidate_id, name, target, card_location,
+             to_char(registered_on, 'YYYY-MM-DD') as registered_on,
+             sf_contact_id, to_char(updated_at, 'YYYY-MM-DD') as skipped_on
+      from djc_candidates where dedup_reason = 'name_conserve'
+      order by updated_at desc limit 100`,
+  ])
   const [created] = await sql<{ created: number }[]>`
     select coalesce(sum(created), 0)::int as created from djc_runs`
   totals.createdByAutomation = Number(created.created)
@@ -416,6 +455,16 @@ export async function getDjcInsights(period: InsightsPeriod = 'quarter'): Promis
       return days.slice(start)
     })(),
     viewsLedger,
+    monthlyInflow: inflowRows.map(r => ({ month: r.month, count: Number(r.count) })),
+    conserveSkips: {
+      activeLast7d: Number(conserveCountRows[0]?.last7 ?? 0),
+      total: Number(conserveCountRows[0]?.total ?? 0),
+      rows: conserveRows.map(r => ({
+        candidateId: r.candidate_id, name: r.name, target: r.target,
+        location: r.card_location, registeredOn: r.registered_on,
+        sfContactId: r.sf_contact_id, skippedOn: r.skipped_on,
+      })),
+    },
     sightingsSince: sightRows[0]?.first_day ?? null,
   }
 }
