@@ -183,11 +183,11 @@ export default function DjcInsightsPanel({ data }: { data: DjcInsights }) {
                         </td>
                         <td className="max-w-32 truncate py-2 pr-3 text-zinc-400">{r.target ?? '—'}</td>
                         <td className="max-w-32 truncate py-2 pr-3 text-zinc-400">{r.location ?? '—'}</td>
-                        <td className="py-2 pr-3 text-right tabular-nums">{r.registeredOn ?? '—'}</td>
-                        <td className="py-2 pr-3 text-right tabular-nums">{r.skippedOn ?? '—'}</td>
+                        <td className="whitespace-nowrap py-2 pr-3 text-right tabular-nums">{r.registeredOn ?? '—'}</td>
+                        <td className="whitespace-nowrap py-2 pr-3 text-right tabular-nums">{r.skippedOn ?? '—'}</td>
                         <td className="py-2">
                           {r.sfContactId ? (
-                            <a href={sfContactUrl(r.sfContactId)} target="_blank" rel="noreferrer" className="text-emerald-400 hover:underline">
+                            <a href={sfContactUrl(r.sfContactId)} target="_blank" rel="noreferrer" className="whitespace-nowrap text-emerald-400 hover:underline">
                               open in Salesforce ↗
                             </a>
                           ) : '—'}
@@ -659,7 +659,7 @@ function DrillPanel({ drill, onClose }: { drill: Drill | null; onClose: () => vo
             </svg>
           </button>
         </div>
-        <div className="grow overflow-y-auto px-5 py-2">
+        <div className="grow overflow-y-auto px-5 pb-2">
           {rows && rows.length === 0 && !loading && <p className="py-6 text-xs text-zinc-500">No candidates match.</p>}
           {rows && rows.length > 0 && (
             <table className="w-full text-xs">
@@ -715,8 +715,8 @@ function DrillRowItem({ row: r, showReason }: { row: DrillRow; showReason: boole
         ) : (
           <td className="max-w-32 truncate py-2 pr-3 text-zinc-400">{[r.city, r.state].filter(Boolean).join(', ') || '—'}</td>
         )}
-        <td className="py-2 pr-3 text-right tabular-nums">{r.registeredOn ?? '—'}</td>
-        <td className="py-2 pr-3 text-right tabular-nums">{r.lastActivity ?? '—'}</td>
+        <td className="whitespace-nowrap py-2 pr-3 text-right tabular-nums">{r.registeredOn ?? '—'}</td>
+        <td className="whitespace-nowrap py-2 pr-3 text-right tabular-nums">{r.lastActivity ?? '—'}</td>
         <td className="py-2 pr-3 text-right tabular-nums">{r.rating ?? '—'}</td>
         <td className="py-2">
           {r.sfContactId ? (
@@ -725,7 +725,7 @@ function DrillRowItem({ row: r, showReason }: { row: DrillRow; showReason: boole
               target="_blank"
               rel="noreferrer"
               onClick={e => e.stopPropagation()}
-              className="text-emerald-400 hover:underline"
+              className="whitespace-nowrap text-emerald-400 hover:underline"
             >
               open ↗
             </a>
