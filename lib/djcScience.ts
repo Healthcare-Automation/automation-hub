@@ -65,3 +65,50 @@ export const TIME_TO_PLACE = [
   { bucket: '121–180d', count: 4 },
   { bucket: '180d+', count: 3 },
 ]
+
+/** Historical P(placed) for applications that reached each stage — the base rates behind the
+ *  in-flight probability scores. Monotonic and computed from the full mirror (2026-07-24). */
+export const STAGE_PLACEMENT_RATES: Record<string, { rate: number; n: number; placed: number }> = {
+  Application: { rate: 0.19, n: 3062, placed: 612 },
+  'Internal Review': { rate: 0.19, n: 3062, placed: 612 },
+  'Name Clear': { rate: 0.19, n: 3062, placed: 612 },
+  Submittal: { rate: 0.31, n: 1895, placed: 605 },
+  Interview: { rate: 0.46, n: 422, placed: 194 },
+  Offer: { rate: 0.87, n: 377, placed: 331 },
+}
+
+/** Calibrated specialty tilt: GD converts at 3.76× odds (✓ p=0.003); applications are ~83% GD,
+ *  so the tilt is OR^(x − 0.83) on the odds scale — keeps the blended rate calibrated. */
+export const GD_TILT = { or: 3.76, share: 0.83 }
+
+export function placementProbability(stage: string | null, isGeneralDentistry: boolean | null): {
+  p: number
+  base: number
+  baseN: number
+  tilt: 'up' | 'down' | 'none'
+} | null {
+  const base = STAGE_PLACEMENT_RATES[stage ?? '']
+  if (!base) return null
+  if (isGeneralDentistry === null) return { p: base.rate, base: base.rate, baseN: base.n, tilt: 'none' }
+  const exp = (isGeneralDentistry ? 1 : 0) - GD_TILT.share
+  const odds = (base.rate / (1 - base.rate)) * Math.pow(GD_TILT.or, exp)
+  return {
+    p: odds / (1 + odds),
+    base: base.rate,
+    baseN: base.n,
+    tilt: isGeneralDentistry ? 'up' : 'down',
+  }
+}
+
+/** Specialty attention vs conversion (candidates with SF links, n≥40 per specialty). */
+export const SPECIALTY_OUTCOMES = [
+  { specialty: 'General Dentistry', n: 1247, workedPct: 24, placedOfWorkedPct: 22 },
+  { specialty: 'Oral & Maxillofacial', n: 43, workedPct: 20, placedOfWorkedPct: 22 },
+  { specialty: 'Pediatrics', n: 213, workedPct: 10, placedOfWorkedPct: 4 },
+  { specialty: 'Orthodontics', n: 103, workedPct: 8, placedOfWorkedPct: 11 },
+  { specialty: 'Dental Assistant', n: 174, workedPct: 4, placedOfWorkedPct: 0 },
+  { specialty: 'Dental Hygienist', n: 92, workedPct: 1, placedOfWorkedPct: 0 },
+]
+
+/** The database flywheel: signups typically convert YEARS later. n=58 placed with known signup. */
+export const SIGNUP_TO_PLACEMENT = { n: 58, medianDays: 1245, within90d: 8, within1y: 19 }

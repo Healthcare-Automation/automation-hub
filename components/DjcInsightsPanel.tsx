@@ -417,6 +417,10 @@ export default function DjcInsightsPanel({ data, view }: { data: DjcInsights; vi
         />
 
         <div className="space-y-6">
+          <SectionHeader
+            title="Who they are"
+            sub="Training, career stage, languages, and how we recovered their contact info."
+          />
           <Card
             title="How contact info was recovered"
             sub={`Of the ${data.totals.opened.toLocaleString()} profiles opened so far.`}
@@ -536,6 +540,10 @@ export default function DjcInsightsPanel({ data, view }: { data: DjcInsights; vi
             </div>
           </Card>
 
+          <SectionHeader
+            title="The breakdowns — specialty, location, experience"
+            sub="Every number clicks through to its list of candidates."
+          />
           <Card
             id="specialties"
             title="Specialty breakdown"
@@ -648,6 +656,10 @@ export default function DjcInsightsPanel({ data, view }: { data: DjcInsights; vi
             </Card>
           </div>
 
+          <SectionHeader
+            title="Quality & engagement"
+            sub="How complete each profile is and how recently candidates were active."
+          />
           <div className="grid gap-6 lg:grid-cols-2">
             <Card
               id="rating"
@@ -1051,6 +1063,19 @@ function CandidateTrail({ candidateId }: { candidateId: string }) {
 }
 
 // ── building blocks ───────────────────────────────────────────────────────────────────────────
+
+/** Subordinate divider inside a zone — segments card groups without competing with ZoneHeader. */
+function SectionHeader({ title, sub }: { title: string; sub?: string }) {
+  return (
+    <div className="pt-2">
+      <div className="flex items-center gap-3">
+        <h3 className="shrink-0 text-[13px] font-semibold uppercase tracking-wide text-zinc-300">{title}</h3>
+        <div className="h-px grow bg-zinc-800" />
+      </div>
+      {sub && <p className="mt-1 text-[11px] text-zinc-500">{sub}</p>}
+    </div>
+  )
+}
 
 function ZoneHeader({
   title, description, filter,

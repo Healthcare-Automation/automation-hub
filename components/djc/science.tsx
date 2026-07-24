@@ -169,3 +169,38 @@ export function QuarterlyTrend({ series }: { series: { quarter: string; count: n
     </div>
   )
 }
+
+
+/** Vertical column chart for short monthly series — time reads left→right, values labeled. */
+export function ColumnChart({
+  series, color = CYAN,
+}: {
+  series: { label: string; count: number }[]
+  color?: string
+}) {
+  const [hover, setHover] = useState<number | null>(null)
+  const W = 560
+  const H = 150
+  const max = Math.max(...series.map(s => s.count), 1)
+  const colW = (W - 8 * (series.length - 1)) / series.length
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" onMouseLeave={() => setHover(null)}>
+      {series.map((s, i) => {
+        const h = Math.max((s.count / max) * (H - 44), 3)
+        const x = i * (colW + 8)
+        return (
+          <g key={s.label} onMouseEnter={() => setHover(i)}>
+            <rect x={x} y={H - 24 - h} width={colW} height={h} rx={4}
+              fill={color} opacity={hover === null || hover === i ? 0.95 : 0.45} />
+            <text x={x + colW / 2} y={H - 30 - h} textAnchor="middle" fill="#d4d4d8" fontSize={11.5} fontWeight={600}>
+              {s.count}
+            </text>
+            <text x={x + colW / 2} y={H - 8} textAnchor="middle" fill="#71717a" fontSize={9.5}>
+              {series.length > 8 && i % 2 === 1 && hover !== i ? '' : s.label}
+            </text>
+          </g>
+        )
+      })}
+    </svg>
+  )
+}

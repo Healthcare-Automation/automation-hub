@@ -19,6 +19,9 @@ export interface DjcOverview {
   placementsPerYear: { year: string; count: number }[]
   monthlySignups: { month: string; count: number }[]
   conserveActive: boolean
+  glance: { linked: number; worked: number; placed: number } // the whole operation in 3 numbers
+  quarterly: { quarter: string; count: number }[] // placements per quarter
+  execSummary: { id: number; text: string; generatedAt: string } | null // auto-written weekly assessment
 }
 
 export interface DjcPipelineData {
@@ -29,8 +32,8 @@ export interface DjcPipelineData {
   automationEra: { applications: number; placedOrExtended: number; placements: number }
   placementsPerYear: { year: string; count: number }[]
   repeatPlacements: { people: number; placements: number }
-  recentPlacements: { person: string | null; job: string | null; placedOn: string | null; automationEra: boolean }[]
-  inFlight: { person: string | null; job: string | null; stage: string | null; since: string | null; automationEra: boolean }[]
+  recentPlacements: { person: string | null; job: string | null; placedOn: string | null; automationEra: boolean; sfAddedOn: string | null }[]
+  inFlight: { person: string | null; job: string | null; stage: string | null; since: string | null; automationEra: boolean; sfAddedOn: string | null; specialty: string | null }[]
 }
 
 const STAGE_ORDER = [
@@ -42,7 +45,7 @@ export async function getDjcOverview(): Promise<DjcOverview | null> {
   const sql = djcSql
   if (!sql) return null
 
-  const [heroRows, autoRows, quarterRows, viewsRows, runRows, yearRows, signupRows, conserveRows] =
+  const [heroRows, autoRows, quarterRows, viewsRows, runRows, yearRows, signupRows, conserveRows, glanceRows, qtrRows, summaryRows] =
     await Promise.all([
       sql<Record<string, number>[]>`
         select (select count(*) from djc_sf_applications
@@ -88,6 +91,24 @@ export async function getDjcOverview(): Promise<DjcOverview | null> {
       sql<{ c: number }[]>`
         select count(*)::int as c from djc_candidates
         where dedup_reason = 'name_conserve' and updated_at >= now() - interval '7 days'`,
+      sql<Record<string, number>[]>`
+        select count(*)::int as linked,
+               count(*) filter (where exists (select 1 from djc_sf_applications a
+                 where a.applicant_sf_id = c.sf_contact_id))::int as worked,
+               count(*) filter (where exists (select 1 from djc_sf_applications a
+                 where a.applicant_sf_id = c.sf_contact_id
+                 and a.stage in ('Placed','Extended','Extension Request')))::int as placed
+        from djc_candidates c where c.sf_contact_id is not null`,
+      sql<{ quarter: string; count: number }[]>`
+        select to_char(date_trunc('quarter', placed_on), 'YYYY "Q"Q') as quarter, count(*)::int as count
+        from djc_sf_applications
+        where stage in ('Placed','Extended','Extension Request') and placed_on >= '2022-01-01'
+        group by date_trunc('quarter', placed_on)
+        order by date_trunc('quarter', placed_on)`,
+      sql<{ id: number; text: string; generated_at: string }[]>`
+        select id, summary as text,
+               to_char(generated_at at time zone 'America/New_York', 'Mon DD, YYYY') as generated_at
+        from djc_exec_summary order by id desc limit 1`,
     ])
 
   const h = heroRows[0]
@@ -108,6 +129,15 @@ export async function getDjcOverview(): Promise<DjcOverview | null> {
     placementsPerYear: yearRows.map(r => ({ year: r.year, count: Number(r.count) })),
     monthlySignups: signupRows.map(r => ({ month: r.month, count: Number(r.count) })),
     conserveActive: Number(conserveRows[0]?.c ?? 0) > 0,
+    glance: {
+      linked: Number(glanceRows[0]?.linked ?? 0),
+      worked: Number(glanceRows[0]?.worked ?? 0),
+      placed: Number(glanceRows[0]?.placed ?? 0),
+    },
+    quarterly: qtrRows.map(r => ({ quarter: r.quarter, count: Number(r.count) })),
+    execSummary: summaryRows[0]
+      ? { id: Number(summaryRows[0].id), text: summaryRows[0].text, generatedAt: summaryRows[0].generated_at }
+      : null,
   }
 }
 
@@ -140,18 +170,24 @@ export async function getDjcPipeline(): Promise<DjcPipelineData | null> {
         select count(*)::int as people, coalesce(sum(n), 0)::int as placements from (
           select person_sf_id, count(*) as n from djc_sf_placements
           group by 1 having count(*) > 1) t`,
-      sql<{ person: string | null; job: string | null; placed: string | null; auto: boolean }[]>`
+      sql<{ person: string | null; job: string | null; placed: string | null; auto: boolean; added: string | null }[]>`
         select person_name as person, job_name as job,
                to_char(coalesce(placed_on, start_on), 'YYYY-MM-DD') as placed,
-               automation_era as auto
+               automation_era as auto,
+               to_char(person_added_on, 'YYYY-MM-DD') as added
         from djc_sf_placements order by coalesce(placed_on, start_on) desc nulls last limit 15`,
-      sql<{ person: string | null; job: string | null; stage: string | null; since: string | null; auto: boolean }[]>`
-        select applicant_name as person, job_name as job, stage,
-               to_char(greatest(coalesce(interview_on, created_on), coalesce(offer_on, created_on)), 'YYYY-MM-DD') as since,
-               automation_era as auto
-        from djc_sf_applications
-        where stage in ('Interview', 'Offer', 'Submittal', 'Name Clear', 'Internal Review')
-        order by synced_at desc, created_on desc nulls last limit 25`,
+      sql<{ person: string | null; job: string | null; stage: string | null; since: string | null; auto: boolean; added: string | null; specialty: string | null }[]>`
+        select a.applicant_name as person, a.job_name as job, a.stage,
+               to_char(greatest(coalesce(a.interview_on, a.created_on), coalesce(a.offer_on, a.created_on)), 'YYYY-MM-DD') as since,
+               a.automation_era as auto,
+               to_char(a.applicant_added_on, 'YYYY-MM-DD') as added,
+               max(c.target) as specialty
+        from djc_sf_applications a
+        left join djc_candidates c on c.sf_contact_id = a.applicant_sf_id
+        where a.stage in ('Interview', 'Offer', 'Submittal', 'Name Clear', 'Internal Review')
+        group by a.sf_id, a.applicant_name, a.job_name, a.stage, a.interview_on, a.created_on,
+                 a.offer_on, a.automation_era, a.applicant_added_on, a.synced_at
+        order by a.synced_at desc, a.created_on desc nulls last limit 25`,
       sql<Record<string, number>[]>`
         select count(*)::int as apps,
                count(submittal_on)::int as submitted,
@@ -194,10 +230,11 @@ export async function getDjcPipeline(): Promise<DjcPipelineData | null> {
       placements: Number(repeatRows[0]?.placements ?? 0),
     },
     recentPlacements: recentRows.map(r => ({
-      person: r.person, job: r.job, placedOn: r.placed, automationEra: r.auto,
+      person: r.person, job: r.job, placedOn: r.placed, automationEra: r.auto, sfAddedOn: r.added,
     })),
     inFlight: flightRows.map(r => ({
       person: r.person, job: r.job, stage: r.stage, since: r.since, automationEra: r.auto,
+      sfAddedOn: r.added, specialty: r.specialty,
     })),
   }
 }
