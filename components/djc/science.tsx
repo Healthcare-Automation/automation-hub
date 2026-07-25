@@ -21,8 +21,12 @@ export function FunnelCascade({
   const colW = 64
   const gap = (W - stages.length * colW) / (stages.length - 1)
   const max = Math.max(...stages.map(s => s.count), 1)
-  const barH = (c: number) => Math.max((c / max) * (H - 90), 6)
-  const mid = H - 60
+  // Bars live strictly between the count labels (top) and stage labels (bottom) so the
+  // tallest bar can never run over its own caption.
+  const TOP = 26
+  const BOT = H - 46
+  const barH = (c: number) => Math.max((c / max) * (BOT - TOP), 6)
+  const mid = (TOP + BOT) / 2
 
   return (
     <div className="overflow-x-auto">

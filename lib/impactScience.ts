@@ -44,6 +44,51 @@ export const DJC_LAG = {
 /** Historical flywheel (from the hire analysis): placements arrive years after signup. */
 export const FLYWHEEL = { n: 58, medianYears: 3.4, within1yPct: 14 }
 
+/** DJC contacts entering Salesforce per month (2026), split manual-era vs automation-created.
+ *  July: 97% of all candidate inflow came from the automation — the manual import workflow
+ *  is effectively retired. (SF totals + automation attribution computed 2026-07-25.) */
+export const DJC_INFLOW_MONTHLY = [
+  { month: 'Jan', total: 305, auto: 0 },
+  { month: 'Feb', total: 285, auto: 0 },
+  { month: 'Mar', total: 358, auto: 0 },
+  { month: 'Apr', total: 316, auto: 0 },
+  { month: 'May', total: 309, auto: 0 },
+  { month: 'Jun', total: 294, auto: 142 },
+  { month: 'Jul', total: 187, auto: 181 },
+]
+
+/** Kimedics-side Job__c records created in Salesforce per month, 2026 (automation live Apr 9).
+ *  Volume is set by the market, not by us — the automation's gain is speed and completeness. */
+export const KIM_JOBS_MONTHLY = [
+  { month: 'Jan', count: 43 },
+  { month: 'Feb', count: 42 },
+  { month: 'Mar', count: 54 },
+  { month: 'Apr', count: 83 },
+  { month: 'May', count: 63 },
+  { month: 'Jun', count: 55 },
+  { month: 'Jul', count: 39 },
+]
+
+/** The placement question, answered with controls (computed 2026-07-25).
+ *  Post go-live (Jun 16 – Jul 25): 22 placements in 39 days. Same calendar window 2025: 23
+ *  (2024: 11) — flat year-over-year. Vs the 8 weeks before go-live (spring surge incl. the Q2
+ *  record push): Poisson rate ratio 0.64, 95% CI 0.39–1.05 — a non-significant slowdown. */
+export const PLACEMENT_VERDICT = {
+  post: 22,
+  postDays: 39,
+  pre: 50,
+  preDays: 56,
+  rr: 0.64,
+  lo: 0.39,
+  hi: 1.05,
+  sameWindow: { y2024: 11, y2025: 23, y2026: 22 },
+}
+
+/** Conservative manual-minutes model for the DJC side (disclosed on the page):
+ *  screening + dedup cross-check per candidate, data entry per created contact,
+ *  and reading a resume to pull grad year / experience. */
+export const DJC_TIME_MODEL = { minPerScreen: 1, minPerCreate: 6, minPerResume: 3 }
+
 export interface ImpactData {
   kim: {
     emails: number
