@@ -3,9 +3,9 @@
 import { useRef, useState } from 'react'
 import Link from 'next/link'
 import { Card, SmallLabel } from '@/components/DjcInsightsPanel'
-import { FunnelCascade, QuarterlyTrend, ColumnChart } from '@/components/djc/science'
+import { QuarterlyTrend, ColumnChart } from '@/components/djc/science'
 import type { DjcOverview } from '@/lib/djcPipeline'
-import type { KimedicsSnapshot } from '@/lib/impactScience'
+import { DJC_TIME_MODEL, type KimedicsSnapshot } from '@/lib/impactScience'
 
 const CYAN = '#0891b2'
 const EMERALD = '#059669'
@@ -14,6 +14,12 @@ const EMERALD = '#059669'
  *  deeper. Data refreshes with every hourly automation run. */
 export default function OverviewView({ data, kimedics }: { data: DjcOverview; kimedics?: KimedicsSnapshot | null }) {
   const runOk = data.lastRun.status === 'ok'
+  const djcHours = Math.round(
+    (data.automation.observed * DJC_TIME_MODEL.minPerScreen +
+      data.automation.candidatesCreated * DJC_TIME_MODEL.minPerCreate +
+      data.automation.resumesMined * DJC_TIME_MODEL.minPerResume) / 60,
+  )
+  const totalHours = (kimedics?.hoursSaved ?? 0) + djcHours
   return (
     <div className="space-y-8">
       {/* Status line */}
@@ -52,10 +58,14 @@ export default function OverviewView({ data, kimedics }: { data: DjcOverview; ki
           href="/djc/pipeline"
         />
         <Hero
-          big={data.automation.placedOrExtended}
-          label="placements from automation-sourced candidates"
-          detail={`${data.automation.candidatesCreated} candidates sourced · ${data.automation.applications} applications since mid-June`}
-          href="/djc/pipeline"
+          big={`~${totalHours} hrs`}
+          label="manual work returned"
+          detail={
+            kimedics
+              ? `${kimedics.hoursSaved} Kimedics + ~${djcHours} DJC — the impact story in full`
+              : `DJC sourcing alone — the impact story in full`
+          }
+          href="/impact"
           accent="text-emerald-300"
         />
         <Hero
@@ -69,21 +79,6 @@ export default function OverviewView({ data, kimedics }: { data: DjcOverview; ki
           href="/djc/acquisition"
         />
       </div>
-
-      {/* The whole operation in one graphic */}
-      <Card
-        title="The operation at a glance"
-        sub="Every DJC candidate in Salesforce, how many recruiters have worked, and how many placed. Full detail on the Pipeline tab."
-      >
-        <FunnelCascade
-          stages={[
-            { label: 'In Salesforce', count: data.glance.linked },
-            { label: 'Worked by recruiters', count: data.glance.worked },
-            { label: 'Placed', count: data.glance.placed },
-          ]}
-          medianDays={[null, null]}
-        />
-      </Card>
 
       {/* Trends */}
       <div className="grid gap-6 lg:grid-cols-2">
@@ -137,7 +132,7 @@ export default function OverviewView({ data, kimedics }: { data: DjcOverview; ki
       )}
 
       {/* Where to dig */}
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <DigCard
           href="/djc/pipeline"
           title="Pipeline"
@@ -152,6 +147,11 @@ export default function OverviewView({ data, kimedics }: { data: DjcOverview; ki
           href="/djc/acquisition"
           title="Acquisition"
           text="Where every profile view went, the sourcing funnel, and how good DJC is as a source."
+        />
+        <DigCard
+          href="/impact"
+          title="Impact"
+          text="Jobs in minutes, intake automated, the honest placement verdict, and the hours returned — with the math."
         />
       </div>
     </div>
@@ -217,7 +217,7 @@ function ExecSummary({ initial }: { initial: { id: number; text: string; generat
 function Hero({
   big, label, detail, href, accent,
 }: {
-  big: number
+  big: number | string
   label: string
   detail: string
   href: string
@@ -226,10 +226,10 @@ function Hero({
   return (
     <Link
       href={href}
-      className="rounded-xl border border-zinc-700/50 bg-zinc-800/30 p-5 transition-colors hover:border-zinc-600 hover:bg-zinc-800/60"
+      className="min-w-0 rounded-xl border border-zinc-700/50 bg-zinc-800/30 p-5 transition-colors hover:border-zinc-600 hover:bg-zinc-800/60"
     >
       <div className={`text-3xl font-semibold leading-none tabular-nums ${accent ?? 'text-zinc-100'}`}>
-        {big.toLocaleString()}
+        {typeof big === 'number' ? big.toLocaleString() : big}
       </div>
       <div className="mt-2 text-xs font-medium text-zinc-200">{label}</div>
       <div className="mt-1 text-[11px] leading-snug text-zinc-500">{detail}</div>

@@ -12,7 +12,13 @@ export interface DjcOverview {
   placementsAllTime: number
   peoplePlaced: number
   activeApplications: number // in-flight: not yet placed/extended
-  automation: { candidatesCreated: number; applications: number; placedOrExtended: number }
+  automation: {
+    candidatesCreated: number
+    applications: number
+    placedOrExtended: number
+    observed: number
+    resumesMined: number
+  }
   netNewThisQuarter: number
   viewsRemaining: number | null
   lastRun: { at: string | null; status: string | null }
@@ -60,7 +66,10 @@ export async function getDjcOverview(): Promise<DjcOverview | null> {
                 where dedup_status = 'new' and sf_contact_id is not null)::int as created,
                (select count(*) from djc_sf_applications where automation_era)::int as apps,
                (select count(*) from djc_sf_applications
-                where automation_era and stage in ('Placed','Extended'))::int as placed`,
+                where automation_era and stage in ('Placed','Extended'))::int as placed,
+               (select count(*) from djc_candidates)::int as observed,
+               (select count(*) from djc_candidates
+                where grad_year is not null or experience_years is not null)::int as resumes`,
       sql<{ c: number }[]>`
         with reset as (
           select max(day) as d from (
@@ -122,6 +131,8 @@ export async function getDjcOverview(): Promise<DjcOverview | null> {
       candidatesCreated: Number(a.created),
       applications: Number(a.apps),
       placedOrExtended: Number(a.placed),
+      observed: Number(a.observed),
+      resumesMined: Number(a.resumes),
     },
     netNewThisQuarter: Number(quarterRows[0]?.c ?? 0),
     viewsRemaining: viewsRows[0]?.remaining === undefined ? null : Number(viewsRows[0].remaining),
