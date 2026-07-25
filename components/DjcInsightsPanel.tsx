@@ -1069,8 +1069,8 @@ function SectionHeader({ title, sub }: { title: string; sub?: string }) {
   return (
     <div className="pt-2">
       <div className="flex items-center gap-3">
-        <h3 className="shrink-0 text-[13px] font-semibold uppercase tracking-wide text-zinc-300">{title}</h3>
-        <div className="h-px grow bg-zinc-800" />
+        <h3 className="min-w-0 text-[13px] font-semibold uppercase tracking-wide text-zinc-300">{title}</h3>
+        <div className="h-px min-w-6 grow bg-zinc-800" />
       </div>
       {sub && <p className="mt-1 text-[11px] text-zinc-500">{sub}</p>}
     </div>
@@ -1123,7 +1123,7 @@ export function Card({
   children: React.ReactNode
 }) {
   return (
-    <section id={id} className="scroll-mt-16 rounded-xl border border-zinc-700/50 bg-zinc-800/30 p-5">
+    <section id={id} className="min-w-0 scroll-mt-16 rounded-xl border border-zinc-700/50 bg-zinc-800/30 p-5">
       {title && (
         <div className="mb-4">
           <h3 className="flex flex-wrap items-center gap-2 text-[13px] font-semibold text-zinc-100">
@@ -1339,7 +1339,8 @@ export function YearBars({
   const max = Math.max(...years.map(c => c.total), 1)
   const BAR_AREA = 120
   return (
-    <div className="flex items-end gap-1" style={{ height: BAR_AREA + 40 }}>
+    <div className="overflow-x-auto">
+    <div className="flex min-w-[480px] items-end gap-1" style={{ height: BAR_AREA + 40 }}>
       {years.map(c => (
         <button
           key={c.cohort}
@@ -1373,6 +1374,7 @@ export function YearBars({
           </span>
         </button>
       ))}
+    </div>
     </div>
   )
 }
