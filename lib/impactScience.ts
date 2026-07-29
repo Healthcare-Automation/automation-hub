@@ -59,15 +59,34 @@ export const DJC_INFLOW_MONTHLY = [
 
 /** Kimedics-side Job__c records created in Salesforce per month, 2026 (automation live Apr 9).
  *  Volume is set by the market, not by us — the automation's gain is speed and completeness. */
+/**
+ * Jobs the automation actually handled, per month.
+ *
+ * Was previously every job entering Salesforce (Jan 43, Feb 42 ... Jul 39). The automation did not
+ * go live until 31 Mar, so January and February could not have been its work at all, and even after
+ * go-live most of that volume arrives through other routes. Charting it under an automation heading
+ * claimed credit for the whole market's activity.
+ *
+ * These are distinct jobs the automation scraped, matched and pushed to Salesforce — the ones it
+ * genuinely touched. There is no Jan/Feb bar because there was no automation.
+ */
 export const KIM_JOBS_MONTHLY = [
-  { month: 'Jan', count: 43 },
-  { month: 'Feb', count: 42 },
-  { month: 'Mar', count: 54 },
-  { month: 'Apr', count: 83 },
-  { month: 'May', count: 63 },
-  { month: 'Jun', count: 55 },
-  { month: 'Jul', count: 39 },
+  { month: 'Mar', count: 111 },
+  { month: 'Apr', count: 112 },
+  { month: 'May', count: 129 },
+  { month: 'Jun', count: 140 },
+  { month: 'Jul', count: 133 },
 ]
+
+/** What it did to those jobs. Creating a job is rare — the work is keeping existing ones correct. */
+export const KIM_JOB_WORK = {
+  processed: 511,
+  linkedToSf: 506,
+  created: 18,
+  worksitesCreated: 137,
+  fieldPatches: 1704,
+  selfHealed: 89,
+}
 
 /** The placement question, answered with controls (computed 2026-07-25).
  *  Post go-live (Jun 16 – Jul 25): 22 placements in 39 days. Same calendar window 2025: 23
@@ -87,6 +106,44 @@ export const PLACEMENT_VERDICT = {
 /** Conservative manual-minutes model for the DJC side (disclosed on the page):
  *  screening + dedup cross-check per candidate, data entry per created contact,
  *  and reading a resume to pull grad year / experience. */
+/**
+ * DJC time saved, per task, measured against what the automation actually did.
+ *
+ * Replaces a three-rate model applied to loose totals. Rates are for a recruiter doing the job by
+ * hand, and each is deliberately at the low end.
+ *
+ * DELIBERATELY CONSERVATIVE on duplicate checks: the automation ran 2,827 of them, but a person
+ * would only check the candidates they had opened (1,257), not every listing. Charging the full
+ * 2,827 would inflate the total by about 5 hours a week for work a human would never have done.
+ *
+ * Counts are all-time, scheduled runs only — backfills and manual test runs are excluded.
+ */
+export const DJC_TIME_TASKS = [
+  { label: 'scan a listing and decide', count: 3431, minutes: 0.25 },
+  { label: 'open and read a profile', count: 1257, minutes: 1.5 },
+  { label: 'read a resume for contact details', count: 431, minutes: 3 },
+  { label: 'search Salesforce for a duplicate', count: 1257, minutes: 1.5, note: 'the automation ran 2,827 — charged only for the profiles a person would have checked' },
+  { label: 'create a contact and attach the CV', count: 337, minutes: 6 },
+] as const
+
+/** Weeks the automation has been live on its schedule (5 Jun to 28 Jul 2026). */
+export const DJC_WEEKS_LIVE = 7.6
+
+/**
+ * Hours returned per month, from the same per-task rates applied to that month's actual volumes.
+ *
+ * YTD rather than all-time because that is how the business reads every other number on the board,
+ * and a cumulative-since-launch figure only ever goes up — it cannot show whether the automation is
+ * doing more or less work than it was.
+ */
+export const DJC_HOURS_MONTHLY = [
+  { month: '2026-06', hours: 66 },
+  { month: '2026-07', hours: 67 },
+] as const
+
+/** Proxi's own pre-automation estimate, kept as the reference point. */
+export const DJC_BASELINE_HOURS_PER_WEEK = 10
+
 export const DJC_TIME_MODEL = { minPerScreen: 1, minPerCreate: 6, minPerResume: 3 }
 
 export interface ImpactData {

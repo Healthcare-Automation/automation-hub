@@ -1,22 +1,20 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
 
 type View = 'ops' | 'cost'
 
 /**
- * Partitions one automation's tab into [Operations] [AI Cost] (+ an [Insights ↗] link when the
+ * Partitions one automation's tab into [Operations] [AI Cost]. The old [Insights ↗] link was
+ * removed once the Intelligence pages superseded it (2026-07-27).
  * automation has a full-page analytics report) so each concern stays clean.
  */
 export function AutomationView({
   operations,
   cost,
-  insightsHref,
 }: {
   operations: React.ReactNode
   cost: React.ReactNode
-  insightsHref?: string
 }) {
   const [view, setView] = useState<View>('ops')
   const btn = (active: boolean) =>
@@ -32,11 +30,6 @@ export function AutomationView({
         <button onClick={() => setView('cost')} className={btn(view === 'cost')}>
           AI Cost
         </button>
-        {insightsHref ? (
-          <Link href={insightsHref} className={btn(false)}>
-            Insights ↗
-          </Link>
-        ) : null}
       </div>
       {view === 'ops' ? operations : cost}
     </div>

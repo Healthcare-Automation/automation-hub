@@ -31,3 +31,8 @@ Client-facing status dashboard for the Proxi automations (Kimedics → SF, DJC �
 - Unset `DJC_DATABASE_URL` hides the DJC card entirely (same pattern for Candidate Bank). "Missing data" may just be a missing env var.
 - Slack channel is stored by ID (`SLACK_ALERT_CHANNEL_ID`), not name — keep it that way.
 - Next.js 16: consult `node_modules/next/dist/docs/` before writing framework code (per AGENTS.md).
+
+## Client board (required)
+This is a client-facing project. After any meaningful change — a deploy, a fix, a behaviour or cost
+change, a blocker hit or cleared — update the Notion To Dos board via the `hub-progress-tracker` skill.
+One sentence, under 200 characters, in the client's words. Update existing rows only.

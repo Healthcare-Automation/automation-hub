@@ -5,13 +5,19 @@ import { Card } from '@/components/DjcInsightsPanel'
 import { ColumnChart } from '@/components/djc/science'
 import {
   DJC_INFLOW_MONTHLY, DJC_TIME_MODEL, FLYWHEEL, IMPACT_META, KIM_ERRORS_MONTHLY, KIM_ERROR_RR,
-  KIM_JOBS_MONTHLY, KIM_LATENCY, PLACEMENT_VERDICT, TIME_MODEL,
+  KIM_JOBS_MONTHLY, KIM_JOB_WORK, KIM_LATENCY, PLACEMENT_VERDICT, TIME_MODEL,
+  DJC_TIME_TASKS, DJC_WEEKS_LIVE, DJC_BASELINE_HOURS_PER_WEEK, DJC_HOURS_MONTHLY,
   type ImpactData,
 } from '@/lib/impactScience'
 
 const EMERALD = '#059669'
 const AMBER = '#d97706'
 const CYAN = '#0891b2'
+
+/** Sum of the per-task model — computed once so the card and the summary cannot disagree. */
+const DJC_HOURS_TOTAL = Math.round(
+  DJC_TIME_TASKS.reduce((a, t) => a + (t.count * t.minutes) / 60, 0),
+)
 const VIOLET = '#8b5cf6'
 
 /** One causal story, told in order: jobs come in faster → candidates come in automatically →
@@ -30,6 +36,15 @@ export default function ImpactView({ data }: { data: ImpactData }) {
 
   return (
     <div className="space-y-10">
+      <header className="max-w-3xl">
+        <h1 className="text-[20px] font-semibold text-zinc-100">What the automations have produced</h1>
+        <p className="mt-2 text-[13px] leading-relaxed text-zinc-400">
+          Both automations, end to end: what changed for jobs, what changed for candidates, whether
+          placements moved, and the hours returned regardless. Every claim carries how it was
+          measured — including the ones that do not flatter us.
+        </p>
+      </header>
+
       {/* The story in one box */}
       <div className="rounded-xl border border-cyan-800/40 bg-gradient-to-br from-cyan-950/30 to-zinc-900/40 p-5">
         <p className="text-[13px] font-semibold text-zinc-100">The whole story, in four sentences</p>
@@ -69,13 +84,13 @@ export default function ImpactView({ data }: { data: ImpactData }) {
       <section>
         <ImpactHeader
           n={1}
-          title="Jobs: acquired at the same volume — but in minutes, dependably"
-          sub="Job volume is set by the market, so the win isn't more jobs. It's that every job is in Salesforce minutes after it exists, with nobody watching an inbox — and the pipeline stopped breaking."
+          title="Jobs: kept correct in minutes, dependably"
+          sub="The automation does not source jobs — it takes the ones arriving by email and makes sure Salesforce matches them, in minutes, without anyone watching an inbox. The win is speed and accuracy, not volume."
         />
         <div className="grid gap-4 lg:grid-cols-2">
           <Card
-            title="Jobs entering Salesforce per month"
-            sub="2026, automation live Apr 9. Volume tracks the market before and after — speed and completeness are what changed."
+            title="Jobs the automation handled each month"
+            sub="Only jobs it actually processed — scraped, matched to Salesforce and kept in sync. It went live 31 Mar, so there is nothing before that."
           >
             <ColumnChart series={KIM_JOBS_MONTHLY.map(m => ({ label: m.month, count: m.count }))} color={CYAN} />
             <div className="mt-3 flex flex-wrap gap-x-8 gap-y-2">
@@ -83,6 +98,15 @@ export default function ImpactView({ data }: { data: ImpactData }) {
               <BigPair v={kim.sfPatches.toLocaleString()} l="silent field corrections applied" />
               <BigPair v={String(kim.autoRetries)} l="failures self-healed" />
             </div>
+            {/* Stated outright: the earlier chart counted every job entering Salesforce, which read
+                as though the automation had produced all of them. */}
+            <p className="mt-3 text-[12px] leading-relaxed text-zinc-400">
+              Across {KIM_JOB_WORK.processed} jobs it has handled, it created{' '}
+              <span className="text-zinc-200">{KIM_JOB_WORK.created}</span> outright and{' '}
+              <span className="text-zinc-200">{KIM_JOB_WORK.worksitesCreated}</span> worksites — most
+              jobs already exist, and the job is keeping them right. Other jobs reach Salesforce by
+              other routes; they are not counted here.
+            </p>
             <p className="mt-3 text-[12px] leading-relaxed text-zinc-400">
               The before-state can&apos;t be timed precisely — nobody logged when a human got around to an
               email — but it was bounded by inbox attention: hours to days, interrupted by everything
@@ -153,6 +177,35 @@ export default function ImpactView({ data }: { data: ImpactData }) {
           sub="This is the question that matters, so it gets the straight answer."
         />
         <div className="grid gap-4 lg:grid-cols-2">
+          {/* Moved here from the Overview: the automation's own funnel is the mechanism behind
+              the verdict beside it, so the two belong together rather than on separate tabs. */}
+          <Card title="Why: the automation's own funnel stalls early"
+                sub="Every candidate the automation created, and how far each got.">
+            <div className="space-y-2">
+              {[
+                { label: 'added to Salesforce', n: djc.created, tone: 'bg-cyan-400/70' },
+                { label: 'put forward for a job', n: djc.autoApps, tone: 'bg-violet-400/70' },
+                { label: 'placed', n: djc.autoPlaced, tone: 'bg-emerald-400/80' },
+              ].map(s => (
+                <div key={s.label} className="flex items-center gap-3">
+                  <span className="w-40 shrink-0 text-[12px] text-zinc-300">{s.label}</span>
+                  <span className="relative h-5 grow rounded bg-zinc-800/50">
+                    <span className={`absolute inset-y-0 left-0 rounded ${s.tone}`}
+                          style={{ width: `${Math.max((s.n / (djc.created || 1)) * 100, 0.6)}%` }} />
+                  </span>
+                  <span className="w-14 shrink-0 text-right text-[12px] font-semibold tabular-nums text-zinc-200">
+                    {s.n.toLocaleString()}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <p className="mt-4 text-[12px] leading-relaxed text-zinc-400">
+              The gap is between sourcing and being worked, not sourcing itself. Until more of these
+              candidates are put forward, the automation cannot show up in the placement numbers —
+              it is filling a top-of-funnel nobody is drawing from.
+            </p>
+          </Card>
+
           <Card title="The honest verdict: not yet">
             <div className="flex flex-wrap gap-x-8 gap-y-3">
               <BigPair v={String(v.sameWindow.y2026)} l={`placements, first ${v.postDays} automation days`} accent="text-amber-300" />
@@ -215,18 +268,71 @@ export default function ImpactView({ data }: { data: ImpactData }) {
             </p>
           </Card>
           <Card
-            title={`DJC: ~${djcHours} hours since June 16`}
-            sub={`${DJC_TIME_MODEL.minPerScreen} min to screen + dedup-check a candidate, ${DJC_TIME_MODEL.minPerCreate} min to create a contact by hand, ${DJC_TIME_MODEL.minPerResume} min to read a resume for career facts.`}
+            title={`DJC: ~${DJC_HOURS_TOTAL} hours since June 5`}
+            sub={`Per-task rates for doing the same work by hand, applied to what the automation actually did. Every rate is at the low end.`}
           >
-            <div className="space-y-2.5">
-              <ModelRow n={djc.observed} unit={`× ${DJC_TIME_MODEL.minPerScreen} min`} label="candidates screened & cross-checked" color={CYAN} frac={djc.observed * DJC_TIME_MODEL.minPerScreen} max={djc.resumesMined * DJC_TIME_MODEL.minPerResume} />
-              <ModelRow n={djc.created} unit={`× ${DJC_TIME_MODEL.minPerCreate} min`} label="contacts created with full data entry" color={EMERALD} frac={djc.created * DJC_TIME_MODEL.minPerCreate} max={djc.resumesMined * DJC_TIME_MODEL.minPerResume} />
-              <ModelRow n={djc.resumesMined} unit={`× ${DJC_TIME_MODEL.minPerResume} min`} label="resumes read for grad year & experience" color={VIOLET} frac={djc.resumesMined * DJC_TIME_MODEL.minPerResume} max={djc.resumesMined * DJC_TIME_MODEL.minPerResume} />
+            <div className="space-y-2">
+              {DJC_TIME_TASKS.map(task => {
+                const hours = (task.count * task.minutes) / 60
+                return (
+                  <div key={task.label} className="flex items-center gap-3">
+                    <span className="w-48 shrink-0 text-[11px] leading-tight text-zinc-400">
+                      {task.label}
+                      {'note' in task && task.note && (
+                        <span className="block text-[10px] text-zinc-600">{task.note}</span>
+                      )}
+                    </span>
+                    <span className="relative h-4 grow rounded bg-zinc-800/50">
+                      <span className="absolute inset-y-0 left-0 rounded bg-cyan-400/60"
+                            style={{ width: `${(hours / DJC_HOURS_TOTAL) * 100}%` }} />
+                    </span>
+                    <span className="w-32 shrink-0 text-right text-[11px] tabular-nums text-zinc-500">
+                      {task.count.toLocaleString()} × {task.minutes} min
+                    </span>
+                    <span className="w-14 shrink-0 text-right text-[12px] font-semibold tabular-nums text-zinc-200">
+                      {hours.toFixed(0)}h
+                    </span>
+                  </div>
+                )
+              })}
             </div>
             <p className="mt-4 text-[12px] leading-relaxed text-zinc-400">
-              Combined with Kimedics: <span className="font-semibold text-zinc-100">~{totalHours} hours</span>{' '}
-              of manual work returned — about {Math.round(totalHours / 8)} working days — before counting
-              a single extra placement.
+              That is{' '}
+              <span className="font-semibold text-cyan-300">
+                {(DJC_HOURS_TOTAL / DJC_WEEKS_LIVE).toFixed(1)} hours a week
+              </span>{' '}
+              — against the {DJC_BASELINE_HOURS_PER_WEEK} hours a week Proxi estimated before any of
+              this existed. The gap is volume: the automation reviews far more candidates a week than
+              anyone was reviewing by hand.
+            </p>
+            {/* Monthly, because a cumulative-since-launch figure only ever rises and cannot show
+                whether the automation is doing more work than it was. */}
+            <div className="mt-4 border-t border-zinc-800 pt-3">
+              <p className="mb-2 text-[11px] uppercase tracking-wide text-zinc-600">Hours returned per month</p>
+              <div className="flex items-end gap-2">
+                {DJC_HOURS_MONTHLY.map(m => {
+                  const max = Math.max(...DJC_HOURS_MONTHLY.map(x => x.hours), 1)
+                  return (
+                    <div key={m.month} className="flex flex-1 flex-col items-center gap-1">
+                      <span className="text-[11px] font-semibold tabular-nums text-zinc-100">{m.hours}h</span>
+                      <div className="flex h-16 w-full items-end">
+                        <div className="w-full rounded-t bg-cyan-400/50"
+                             style={{ height: `${(m.hours / max) * 100}%` }} />
+                      </div>
+                      <span className="text-[10px] text-zinc-600">
+                        {new Date(m.month + '-02').toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' })}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            <p className="mt-3 text-[12px] leading-relaxed text-zinc-400">
+              Combined with Kimedics:{' '}
+              <span className="font-semibold text-zinc-100">~{kim.hoursSaved + Math.round(DJC_HOURS_TOTAL)} hours</span>{' '}
+              of manual work returned — about{' '}
+              {Math.round((kim.hoursSaved + DJC_HOURS_TOTAL) / 8)} working days.
             </p>
           </Card>
         </div>

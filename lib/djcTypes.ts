@@ -44,6 +44,7 @@ export interface DjcRunDetail {
   warnCount: number
   errorCount: number
   quotaBlocked: number // candidates whose DJC profile couldn't be viewed — Profile Views quota hit
+  viewsSpent: number // profiles actually opened, i.e. Profile Views charged for this run
 }
 
 export type DjcEventLevel = 'info' | 'warn' | 'error'
@@ -67,6 +68,16 @@ export interface DjcCandidateRow {
   phone: string | null
   email: string | null
   contactSource: string | null // profile | cv | profile+cv | none
+  // True when the Profile Views wall stopped the contact reveal. Without it, contact_source
+  // 'none' is ambiguous — 'we looked and found nothing' and 'we were never allowed to look'
+  // are indistinguishable, and the UI showed both as "Skipped — no contact info".
+  quotaBlocked?: boolean
+  // Per-run facts. The flag above is lifetime state and must not be used inside a run view — a
+  // candidate blocked in an earlier run but opened in this one is not "blocked" here.
+  blockedThisRun?: boolean
+  openedThisRun?: boolean
+  createdThisRun?: boolean
+  matchedThisRun?: boolean
   mailingCity: string | null
   mailingState: string | null
   mailingPostalCode: string | null
@@ -92,6 +103,9 @@ export interface DjcProfileViews {
   used: number
   total: number
   remaining: number
+  // True when used > total: an add-on pack is in play, so remaining is unknown from this page but
+  // definitely NOT zero. Rendering "0 left" here reads as an outage when views are available.
+  addonActive: boolean
   checkedAt: string
 }
 
@@ -110,3 +124,53 @@ export interface DjcSummary extends DjcTotals {
   lastRunAt: string | null
 }
 
+
+/** One candidate the Profile Views quota blocked. `resolution` is DB-only — see getDjcQuotaBlocked. */
+export type DjcQuotaBlockedResolution = 'already_in_sf' | 'needs_view' | 'checked_empty' | 'gone'
+
+export interface DjcQuotaBlockedRow {
+  candidateId: string
+  displayName: string | null
+  nameMasked: boolean // true = DJC only ever showed initials; we can't dedup-check them yet
+  target: string | null
+  profileUrl: string | null
+  sfContactId: string | null
+  firstBlocked: string
+  lastBlocked: string
+  blockCount: number
+  stillListed: boolean // present in the most recent (view-free) list scan
+  // Everything the free search card gives us. Not enough to dedup on (measured: initials + state
+  // + specialty recalls only ~75% of known Salesforce contacts), but it is what makes a manual
+  // check possible without opening the profile.
+  cardLocation: string | null
+  registeredOn: string | null
+  degrees: string | null
+  lastActivity: string | null
+  resolution: DjcQuotaBlockedResolution
+}
+
+/** One day of Profile View efficiency: what each view bought. */
+export interface DjcViewEfficiencyDay {
+  day: string
+  views: number      // profiles actually opened (a view was charged)
+  created: number    // new Salesforce contacts that came from them
+  freeSkips: number  // duplicates caught without spending a view
+}
+
+/** One week of Profile View conversion — the headline efficiency trend. */
+export interface DjcViewEfficiencyWeek {
+  week: string
+  views: number    // views actually paid for
+  created: number  // how many became a Salesforce contact
+  freeSkips: number // duplicates caught without spending a view
+  rate: number     // created / views, as a percentage
+}
+
+/** Time windows for the pipeline funnel. Kept here (no DB imports) so client components can use it. */
+export type PipelineRange = '7d' | '30d' | 'all'
+
+export const PIPELINE_RANGES: { key: PipelineRange; label: string }[] = [
+  { key: '7d', label: 'Past 7 days' },
+  { key: '30d', label: 'Past month' },
+  { key: 'all', label: 'All time' },
+]

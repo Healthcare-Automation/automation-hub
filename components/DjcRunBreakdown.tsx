@@ -36,18 +36,46 @@ const DEDUP_COPY: Record<string, string> = {
   'name+link': 'matched by name + profile', link: 'matched by profile link',
 }
 
-type OutcomeKind = 'new' | 'exists' | 'skipped' | 'created'
-function candidateOutcome(c: DjcCandidateRow): { kind: OutcomeKind; label: string; sub?: string } {
+type OutcomeKind = 'new' | 'exists' | 'skipped' | 'created' | 'blocked' | 'error'
+
+/**
+ * Did this candidate actually cost a Profile View?
+ *
+ * A view is spent only when we OPEN the profile. Candidates matched by profile link or by the
+ * conserve name pre-check are decided from list-view data and cost nothing; quota-blocked ones were
+ * walled off before the reveal, so they cost nothing either. Reading this off contact_source alone
+ * is what made "already checked" and "never checked" indistinguishable all day.
+ */
+function viewSpent(c: DjcCandidateRow): boolean {
+  // Per-run, from this run's event log. Using the lifetime flags made the funnel disagree with the
+  // run's own header — one said 0 views spent while the other said 2.
+  return !!c.openedThisRun && !c.blockedThisRun
+}
+function candidateOutcome(c: DjcCandidateRow, events: DjcEvent[] = []): { kind: OutcomeKind; label: string; sub?: string } {
+  // All judged on what happened IN THIS RUN, so the groups reconcile with the funnel above them.
+  if (c.blockedThisRun) return { kind: 'blocked', label: 'Blocked', sub: 'Profile Views quota — not checked' }
+  if (c.createdThisRun) return { kind: 'created', label: 'Added to Salesforce' }
+  if (c.matchedThisRun) return { kind: 'exists', label: 'Already in Salesforce', sub: DEDUP_COPY[c.dedupReason ?? ''] }
+  // A step errored before this candidate was decided (page timeout, résumé parse failure, …).
+  // Without this branch they fell through to "no contact details found" — a data verdict the
+  // run never actually reached.
+  const err = events.find(e => e.level === 'error')
+  if (err) return { kind: 'error', label: 'Error', sub: EVENT_COPY[err.eventType] ?? err.eventType.replace(/_/g, ' ') }
+  if (c.dedupStatus === 'new' && !c.sfContactId) return { kind: 'new', label: 'Ready for Salesforce', sub: 'held — test mode' }
   if (c.sfContactId && c.dedupStatus === 'new') return { kind: 'created', label: 'Added to Salesforce' }
-  if (c.dedupStatus === 'new') return { kind: 'new', label: 'Ready for Salesforce', sub: 'held — test mode' }
   if (c.dedupStatus === 'duplicate') return { kind: 'exists', label: 'Already in Salesforce', sub: DEDUP_COPY[c.dedupReason ?? ''] }
-  return { kind: 'skipped', label: 'Skipped', sub: 'no contact info' }
+  // A quota-blocked candidate was never actually checked — the reveal was walled off, so their
+  // empty contact fields say nothing about them. Labelling that "no contact info" reads as a
+  // finished verdict and hides real pending work.
+  return { kind: 'skipped', label: 'Skipped', sub: 'no contact details found' }
 }
 const OUTCOME_STYLE: Record<OutcomeKind, string> = {
   new: 'text-cyan-300 bg-cyan-500/10 ring-cyan-500/25',
   created: 'text-emerald-300 bg-emerald-500/10 ring-emerald-500/25',
   exists: 'text-zinc-400 bg-zinc-600/15 ring-zinc-500/20',
   skipped: 'text-amber-300 bg-amber-500/10 ring-amber-500/25',
+  blocked: 'text-sky-300 bg-sky-500/10 ring-sky-500/25',
+  error: 'text-red-300 bg-red-500/10 ring-red-500/25',
 }
 
 /* ── Small pieces ─────────────────────────────────────────────────────── */
@@ -106,7 +134,7 @@ function contactSourceCopy(s: string | null): string | null {
 /* ── Candidate row + detail ───────────────────────────────────────────── */
 
 function CandidateDetail({ c, events }: { c: DjcCandidateRow; events: DjcEvent[] }) {
-  const out = candidateOutcome(c)
+  const out = candidateOutcome(c, events)
   const willSend = out.kind === 'new' || out.kind === 'created'
   return (
     <div className="border-t border-zinc-800/80 px-4 pb-4 pt-3">
@@ -146,9 +174,39 @@ function CandidateDetail({ c, events }: { c: DjcCandidateRow; events: DjcEvent[]
   )
 }
 
+
+const TONES: Record<string, string> = {
+  emerald: 'bg-emerald-400/70 text-emerald-300',
+  amber: 'bg-amber-400/70 text-amber-300',
+  cyan: 'bg-cyan-400/70 text-cyan-300',
+  zinc: 'bg-zinc-500/60 text-zinc-400',
+  red: 'bg-red-400/70 text-red-300',
+}
+
+/** One funnel line: label, count, and a bar showing its share — so the split reads at a glance. */
+function FunnelRow({ label, n, total, tone, sub }: {
+  label: string; n: number; total: number; tone: string; sub?: string
+}) {
+  const pct = total > 0 ? Math.round((n / total) * 100) : 0
+  const [bar, text] = (TONES[tone] ?? TONES.zinc).split(' ')
+  return (
+    <div>
+      <div className="flex items-baseline gap-2">
+        <span className={cn('w-8 shrink-0 text-right text-[13px] font-semibold tabular-nums', text)}>{n}</span>
+        <span className="min-w-0 flex-1 truncate text-[12px] text-zinc-300">{label}</span>
+        <span className="shrink-0 text-[10px] tabular-nums text-zinc-600">{pct}%</span>
+      </div>
+      <div className="ml-10 mt-0.5 h-1 overflow-hidden rounded-full bg-zinc-700/40">
+        <div className={cn('h-full rounded-full', bar)} style={{ width: `${pct}%` }} />
+      </div>
+      {sub && <p className="ml-10 mt-0.5 text-[10px] leading-snug text-zinc-600">{sub}</p>}
+    </div>
+  )
+}
+
 function CandidateRow({ c, events }: { c: DjcCandidateRow; events: DjcEvent[] }) {
   const [open, setOpen] = useState(false)
-  const out = candidateOutcome(c)
+  const out = candidateOutcome(c, events)
   return (
     <div className="overflow-hidden rounded-lg bg-zinc-800/30 ring-1 ring-zinc-700/40">
       <div className="flex items-center gap-3 px-4 py-2.5">
@@ -161,6 +219,21 @@ function CandidateRow({ c, events }: { c: DjcCandidateRow; events: DjcEvent[] })
         </button>
         <ProfileLink url={c.profileUrl} />
         <SfLink id={c.sfContactId} />
+        {viewSpent(c) ? (
+          <span
+            className="shrink-0 whitespace-nowrap rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300 ring-1 ring-amber-500/25"
+            title="A Profile View was spent on this candidate"
+          >
+            1 VIEW
+          </span>
+        ) : (
+          <span
+            className="shrink-0 whitespace-nowrap rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300 ring-1 ring-emerald-500/25"
+            title="Decided from free list-view data — no Profile View spent"
+          >
+            FREE
+          </span>
+        )}
         <div className="flex shrink-0 flex-col items-end">
           <span className={cn('rounded-md px-2 py-0.5 text-[11px] font-medium ring-1', OUTCOME_STYLE[out.kind])}>{out.label}</span>
           {out.sub && <span className="mt-0.5 text-[10px] text-zinc-600">{out.sub}</span>}
@@ -174,7 +247,7 @@ function CandidateRow({ c, events }: { c: DjcCandidateRow; events: DjcEvent[] })
 /* Collapsible outcome group — collapsed by default so runs stay short/scannable. */
 function CandidateGroup({ kind, title, rows, eventsBy }: { kind: OutcomeKind; title: string; rows: DjcCandidateRow[]; eventsBy: Map<string, DjcEvent[]> }) {
   const [open, setOpen] = useState(false)
-  const dot = kind === 'new' ? 'bg-cyan-400' : kind === 'created' ? 'bg-emerald-400' : kind === 'skipped' ? 'bg-amber-400' : 'bg-zinc-500'
+  const dot = kind === 'new' ? 'bg-cyan-400' : kind === 'created' ? 'bg-emerald-400' : kind === 'skipped' ? 'bg-amber-400' : kind === 'error' ? 'bg-red-400' : 'bg-zinc-500'
   return (
     <div>
       <button onClick={() => setOpen(!open)} className="flex w-full items-center gap-2 rounded-md px-1 py-1.5 text-left transition-colors hover:bg-zinc-700/20">
@@ -193,28 +266,80 @@ function CandidateGroup({ kind, title, rows, eventsBy }: { kind: OutcomeKind; ti
 function RunDetailBody({ run, bundle }: { run: DjcRunDetail; bundle: DjcRunDetailBundle }) {
   const eventsBy = new Map<string, DjcEvent[]>()
   for (const e of bundle.events) { if (!e.candidateId) continue; const a = eventsBy.get(e.candidateId) ?? []; a.push(e); eventsBy.set(e.candidateId, a) }
+  // Every OutcomeKind must have a group. 'blocked' was missing, so quota-blocked candidates fell
+  // through find() and vanished — the groups then failed to sum to the number processed.
   const groups: { key: OutcomeKind; title: string; rows: DjcCandidateRow[] }[] = [
-    { key: 'new', title: 'New — ready for Salesforce', rows: [] },
+    { key: 'error', title: 'Errored — not checked', rows: [] },
     { key: 'created', title: 'Added to Salesforce', rows: [] },
-    { key: 'exists', title: 'Already in Salesforce', rows: [] },
-    { key: 'skipped', title: 'Skipped — no contact', rows: [] },
+    { key: 'exists', title: 'Already in Salesforce — no view needed', rows: [] },
+    { key: 'skipped', title: 'No contact details found', rows: [] },
+    { key: 'blocked', title: 'Blocked by the views quota — not checked', rows: [] },
+    { key: 'new', title: 'Ready for Salesforce (held — test mode)', rows: [] },
   ]
-  for (const c of bundle.candidates) groups.find(g => g.key === candidateOutcome(c).kind)?.rows.push(c)
+  for (const c of bundle.candidates) groups.find(g => g.key === candidateOutcome(c, eventsBy.get(c.candidateId) ?? []).kind)?.rows.push(c)
+  const errorRows = groups[0].rows
+  const processed = bundle.candidates.length
+  const viewsUsed = bundle.candidates.filter(viewSpent).length
+  // Errored candidates were never decided, so they belong in neither "decided free" nor the
+  // view-spent branches — without pulling them out, a page timeout read as a free decision.
+  const erroredFree = errorRows.filter(c => !viewSpent(c)).length
+  const erroredPaid = errorRows.length - erroredFree
+  const freeDecisions = processed - viewsUsed - erroredFree
+  const paid = bundle.candidates.filter(viewSpent)
+  const addedCount = paid.filter(c => c.createdThisRun).length
+  const dupAfterView = paid.filter(c => c.matchedThisRun && !c.createdThisRun).length
+  const noContact = paid.length - addedCount - dupAfterView - erroredPaid
   const specialties = run.targets ? run.targets.split(',').length : 0
 
   return (
     <div className="space-y-4">
       <div className="rounded-lg bg-zinc-900/50 px-4 py-4 ring-1 ring-zinc-700/40">
+        {/* One funnel, derived from the SAME candidate list as the groups below, so every number
+            here reconciles. The run's own rollup counters are deliberately not mixed in — they
+            count different things and reading them side by side is what made this unreadable. */}
+        {run.status === 'running' && !run.finishedAt && (
+          <p className="mb-3 rounded-md border border-cyan-500/25 bg-cyan-500/[0.07] px-3 py-2 text-[12px] text-cyan-200">
+            This run is still going — the numbers below are partial and will keep changing.
+          </p>
+        )}
         <p className="text-[13px] leading-relaxed text-zinc-300">
-          Reviewed <span className="font-semibold text-white">{run.candidatesSeen}</span> candidates
-          {specialties ? <> across <span className="font-semibold text-white">{specialties}</span> specialties</> : null}.{' '}
-          {run.createSkippedGuard + run.created > 0 ? <>Found <span className="font-semibold text-cyan-300">{run.createSkippedGuard + run.created}</span> new for Salesforce. </> : <>No new candidates this run. </>}
+          Scanned <span className="font-semibold text-white">{run.candidatesSeen.toLocaleString()}</span> listings
+          {specialties ? <> across <span className="font-semibold text-white">{specialties}</span> specialties</> : null}
+          {' '}(free) → worked through <span className="font-semibold text-white">{processed}</span> candidate{processed === 1 ? '' : 's'}.
         </p>
-        <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
+
+        <div className="mt-3 space-y-1.5">
+          <FunnelRow
+            label="Decided free — no Profile View spent"
+            n={freeDecisions}
+            total={processed}
+            tone="emerald"
+            sub="already in Salesforce by profile link or name, or blocked before the reveal"
+          />
+          {errorRows.length > 0 && (
+            <FunnelRow
+              label="Errored — not checked"
+              n={errorRows.length}
+              total={processed}
+              tone="red"
+              sub="a page failed to load or a step errored partway — nothing was decided"
+            />
+          )}
+          <FunnelRow
+            label="Profile Views spent"
+            n={viewsUsed}
+            total={processed}
+            tone="amber"
+            sub="the only step that costs — one view each"
+          />
+          <div className="border-l-2 border-zinc-700/60 pl-3 ml-1 space-y-1.5 pt-0.5">
+            <FunnelRow label="→ added to Salesforce" n={addedCount} total={viewsUsed || 1} tone="cyan" />
+            <FunnelRow label="→ turned out already on file" n={dupAfterView} total={viewsUsed || 1} tone="zinc" />
+            <FunnelRow label="→ no contact details found" n={noContact} total={viewsUsed || 1} tone="zinc" />
+          </div>
+        </div>
+        <div className="mt-4 hidden grid-cols-2 gap-4 sm:grid-cols-4">
           <Metric value={run.candidatesSeen} label="reviewed" />
-          <Metric value={run.created + run.createSkippedGuard} label={run.writeMode === 'live' ? 'added' : 'new (held)'} tone="cyan" />
-          <Metric value={run.duplicates} label="already in SF" />
-          <Metric value={run.uncontactable} label="no contact" tone="amber" />
         </div>
         {run.writeMode !== 'live' && <p className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-amber-500/10 px-2 py-1 text-[11px] text-amber-300/90 ring-1 ring-amber-500/20"><span className="h-1.5 w-1.5 rounded-full bg-amber-400" />Test mode — no records were created or changed in Salesforce</p>}
       </div>
@@ -268,6 +393,7 @@ function RunRow({ run, label }: { run: DjcRunDetail; label: string }) {
   const [loading, setLoading] = useState(false)
   const newCount = run.created + run.createSkippedGuard
   const interrupted = run.status === 'error' || run.status === 'session_expired'
+  const running = run.status === 'running' && !run.finishedAt
 
   async function toggle() {
     const next = !open; setOpen(next)
@@ -288,12 +414,24 @@ function RunRow({ run, label }: { run: DjcRunDetail; label: string }) {
         <span className="min-w-0 flex-1 truncate text-[12px]">
           {interrupted ? (
             <span className="text-red-400">Did not finish — {run.errorCount > 0 ? 'errored partway' : 'interrupted'}</span>
+          ) : running ? (
+            /* A run in flight has counters that are still filling in. Reporting "no new candidates"
+               against a half-written row read as a finished, empty run while the detail below
+               already showed nine people added. */
+            <span className="text-cyan-300">
+              Running now
+              <span className="text-zinc-500"> · {run.viewsSpent > 0 ? `${run.viewsSpent} view${run.viewsSpent === 1 ? '' : 's'} so far` : 'counting…'}</span>
+            </span>
           ) : (
             <>
               {newCount > 0 ? <span className="font-semibold text-cyan-300">{newCount} new</span>
                 : <span className="text-zinc-600">no new candidates</span>}
               {run.duplicates > 0 && <span className="text-zinc-500"> · {run.duplicates} in SF</span>}
+              {run.viewsSpent > 0 && (
+                <span className="text-amber-300/80"> · {run.viewsSpent} view{run.viewsSpent === 1 ? '' : 's'}</span>
+              )}
               {run.uncontactable > 0 && <span className="text-zinc-500"> · {run.uncontactable} no contact</span>}
+              {run.errorCount > 0 && <span className="text-red-400"> · {run.errorCount} error{run.errorCount === 1 ? '' : 's'}</span>}
             </>
           )}
         </span>
@@ -371,6 +509,7 @@ export default function DjcRunBreakdown({ runs }: { runs: DjcRunDetail[] }) {
           {groupRunsByDay(runs).map(g => {
             const dayNew = g.runs.reduce((s, r) => s + r.created + r.createSkippedGuard, 0)
             const dayDup = g.runs.reduce((s, r) => s + r.duplicates, 0)
+            const dayViews = g.runs.reduce((s, r) => s + r.viewsSpent, 0)
             return (
               <div key={g.key} className="space-y-1.5">
                 <div className="flex items-center gap-2 px-1">
@@ -379,6 +518,9 @@ export default function DjcRunBreakdown({ runs }: { runs: DjcRunDetail[] }) {
                   <span className="text-[11px] text-zinc-700">· {g.runs.length} run{g.runs.length === 1 ? '' : 's'}</span>
                   {dayNew > 0 && <span className="text-[11px] font-medium text-cyan-300">· {dayNew} new</span>}
                   {dayDup > 0 && <span className="text-[11px] text-zinc-600">· {dayDup} in SF</span>}
+                  {dayViews > 0 && (
+                    <span className="text-[11px] text-amber-300/80">· {dayViews} views spent</span>
+                  )}
                   <div className="ml-1 h-px flex-1 bg-zinc-800/70" />
                 </div>
                 <div className="overflow-hidden rounded-xl ring-1 ring-zinc-700/40 divide-y divide-zinc-800/70">

@@ -1,12 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import type { DjcDayStatus, DjcRunDetail, DjcSummary, DjcProfileViews } from '@/lib/djcTypes'
+import type { DjcDayStatus, DjcRunDetail, DjcSummary, DjcProfileViews, DjcQuotaBlockedRow } from '@/lib/djcTypes'
 import { cn, STATUS_DOT_COLORS, STATUS_COLORS, STATUS_LABELS, formatShortDate } from '@/lib/utils'
 import DjcStatusBarChart from './DjcStatusBarChart'
 import DjcRunBreakdown from './DjcRunBreakdown'
 import MetricStrip from './MetricStrip'
 import SendReportButton from './SendReportButton'
+import DjcQuotaBlockedPanel from './DjcQuotaBlockedPanel'
+import DjcHowItWorks from './DjcHowItWorks'
 
 // Date the scheduled run flipped from preview/testing to live Salesforce writes.
 const DJC_GO_LIVE = '2026-06-16'
@@ -16,6 +18,7 @@ interface Props {
   recentRuns: DjcRunDetail[]
   summary: DjcSummary
   profileViews: DjcProfileViews | null
+  quotaBlocked: DjcQuotaBlockedRow[]
 }
 
 /** Cyan tooth avatar — same slot/size as the Kimedics avatar, different color/icon. */
@@ -37,13 +40,16 @@ function ChevronDown({ className }: { className?: string }) {
   )
 }
 
-export default function DjcAutomationCard({ dailyStatus, recentRuns, summary, profileViews }: Props) {
+export default function DjcAutomationCard({ dailyStatus, recentRuns, summary, profileViews, quotaBlocked }: Props) {
   const [expanded, setExpanded] = useState(false)
+  const [showBlocked, setShowBlocked] = useState(false)
   const lastRun = recentRuns[0]
-  // Candidates whose DJC profile couldn't be viewed because the account's Profile Views quota was
-  // hit — summed across the runs we show. Surfaces the shared-quota wall instead of hiding it in
-  // the "uncontactable" count.
-  const quotaBlockedRecent = recentRuns.reduce((a, r) => a + (r.quotaBlocked || 0), 0)
+  // DISTINCT candidates the Profile Views quota blocked, and how many would actually cost a view.
+  // This used to sum `quotaBlocked` across the displayed runs, which counted a candidate once per
+  // run they were blocked in and dropped anyone outside the run window — it read "46" when there
+  // were 90 distinct candidates, most of which turned out not to need a view at all.
+  const blockedTotal = quotaBlocked.length
+  const blockedNeedingView = quotaBlocked.filter(r => r.resolution === 'needs_view').length
   const statusKind = lastRun
     ? lastRun.status === 'error' || lastRun.status === 'session_expired'
       ? 'outage'
@@ -79,24 +85,51 @@ export default function DjcAutomationCard({ dailyStatus, recentRuns, summary, pr
 
   return (
     <div className="overflow-hidden rounded-xl border border-zinc-700/50 bg-zinc-800/30">
-      {quotaBlockedRecent > 0 && (
-        <div className="flex items-start gap-2 border-b border-amber-500/30 bg-amber-500/10 px-5 py-2.5 text-[12px] leading-relaxed text-amber-200">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 shrink-0">
-            <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" /><path d="M12 9v4m0 4h.01" />
-          </svg>
-          <span>
-            <span className="font-semibold">Profile Views quota reached.</span>{' '}
-            {quotaBlockedRecent.toLocaleString()} candidate{quotaBlockedRecent === 1 ? '' : 's'} couldn’t be viewed across recent runs — their contact info and résumé stay blank until DentistJobCafe’s quarterly Profile Views reset.
-          </span>
+      {blockedNeedingView > 0 && (
+        <div className="border-b border-amber-500/30 bg-amber-500/10 px-5 py-2.5 text-[12px] leading-relaxed text-amber-200">
+          <div className="flex items-start gap-2">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 shrink-0">
+              <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" /><path d="M12 9v4m0 4h.01" />
+            </svg>
+            <span>
+              <span className="font-semibold">
+                {profileViews?.addonActive ? 'Backlog from the quota wall.' : 'Profile Views quota reached.'}
+              </span>{' '}
+              {blockedTotal.toLocaleString()} distinct candidate{blockedTotal === 1 ? '' : 's'} couldn’t be viewed —{' '}
+              <span className="font-semibold">{blockedNeedingView.toLocaleString()}</span> of them still need a Profile
+              View. Their profiles scraped, but the quota wall blocked the contact reveal, so nothing was learned about
+              them.{' '}
+              {profileViews?.addonActive
+                ? 'Views are available now, so the automation picks these up on its next run — no action needed.'
+                : 'They are picked up automatically once the allowance refills on the 15th, or sooner if views are topped up.'}{' '}
+              <button
+                onClick={() => setShowBlocked(v => !v)}
+                className="font-semibold underline underline-offset-2 hover:text-amber-100"
+              >
+                {showBlocked ? 'Hide the list' : 'See who'}
+              </button>
+            </span>
+          </div>
+          {showBlocked && (
+            <div className="mt-3 border-t border-amber-500/20 pt-3">
+              <DjcQuotaBlockedPanel rows={quotaBlocked} />
+            </div>
+          )}
         </div>
       )}
       {profileViews && (
         <div className="flex items-center justify-between border-b border-zinc-800/60 bg-zinc-900/30 px-5 py-1.5 text-[11px]">
           <span className="text-zinc-500">DentistJobCafe Profile Views</span>
           <span className="tabular-nums">
-            <span className={cn('font-medium', profileViews.remaining <= 15 ? 'text-amber-300' : 'text-zinc-300')}>
-              {profileViews.remaining.toLocaleString()} left
-            </span>
+            {profileViews.addonActive ? (
+              <span className="font-medium text-emerald-300" title="Add-on pack in use — DJC counts past the base allowance rather than raising the total, so the exact remaining figure isn't readable from their page">
+                add-on pack active
+              </span>
+            ) : (
+              <span className={cn('font-medium', profileViews.remaining <= 15 ? 'text-amber-300' : 'text-zinc-300')}>
+                {profileViews.remaining.toLocaleString()} left
+              </span>
+            )}
             <span className="text-zinc-600"> · {profileViews.used.toLocaleString()}/{profileViews.total.toLocaleString()} used</span>
           </span>
         </div>

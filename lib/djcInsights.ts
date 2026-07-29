@@ -125,17 +125,43 @@ const LAST_ACT = `case when last_activity ~ '^[0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4}$'
 const OPENED = `contact_source is not null and contact_source not like 'skipped%'`
 
 /**
- * Transparent 0–100 candidate rating. Weights (shown verbatim in the UI):
- * phone 25 · email 15 · CV 20 · experience up to 20 (1/yr, capped) · activity 20/10/0 (≤30d/≤90d).
+ * Fitted 0-100 likelihood score: how likely a recruiter is to work this candidate.
+ *
+ * Replaces a hand-assigned scheme (phone 25 / email 15 / resume 20 / experience / activity) whose
+ * weights were never fitted to an outcome. Two problems with that scheme:
+ *
+ *  1. 60 of its 100 points came from phone, email and resume — fields that are only populated when
+ *     WE open a profile, and we only open profiles for people not already in Salesforce. It was
+ *     largely scoring our own scraping process, not the candidate. (corr(field present, already in
+ *     Salesforce) = -0.57 to -0.59.)
+ *  2. Nothing about it predicted anything. Its bands were flat against real outcomes.
+ *
+ * These weights are logistic-regression coefficients fitted on 2,103 candidates against whether a
+ * recruiter ever worked them (383 did, 18.2%), scaled to integer points. Cross-validated AUC 0.76
+ * (95% CI 0.73-0.78) — statistically indistinguishable from a gradient-boosted model on the same
+ * features (0.757), so the simple version is used since it computes in SQL.
+ *
+ * Note the counter-intuitive signs: a dental school on file and a stated experience figure both
+ * REDUCE the odds. Profile completeness does not predict being worked. That is exactly the
+ * assumption the old score was built on, and the data does not support it.
  */
-const RATING = `(
-    case when phone is not null then 25 else 0 end
-  + case when email is not null then 15 else 0 end
-  + case when coalesce(cv_bytes_len, 0) > 0 or cv_uploaded then 20 else 0 end
-  + least(coalesce(experience_years, 0), 20)
-  + case when ${LAST_ACT} >= current_date - 30 then 20
-         when ${LAST_ACT} >= current_date - 90 then 10 else 0 end
+const RATING_POINTS = `(
+    case when target in ('General Dentistry','Oral and Maxillofacial','Endodontist','Prosthodontics') then 13 else 0 end
+  + case when target in ('Dental Assistant','Dental Hygienist') then -20 else 0 end
+  + case when cv_uploaded then 12 else 0 end
+  + case when experience_years is null then 8 else 0 end
+  + case when experience_years >= 10 then 4 else 0 end
+  + case when grad_year is not null and grad_year <= 2011 then 6 else 0 end
+  + case when registered_on <= current_date - 365 then 6 else 0 end
+  + case when position_types ilike '%Locums%' then 5 else 0 end
+  + case when coalesce(array_length(string_to_array(state_licenses, ','), 1), 0) >= 2 then 1 else 0 end
+  + case when ${LAST_ACT} >= current_date - 30 then -3 else 0 end
+  + case when dental_school is not null then -11 else 0 end
+  + case when grad_country is not null and lower(grad_country) not like '%united states%' then -5 else 0 end
 )`
+
+/** Points span -27..47; rescaled so the UI keeps a familiar 0-100 range. */
+const RATING = `greatest(0, least(100, round((${RATING_POINTS} + 27) / 74.0 * 100)))`
 
 const EXPERIENCE_BUCKET = `case
   when experience_years is null then 'unknown'
@@ -217,7 +243,12 @@ async function viewsUsedByDay(sql: NonNullable<typeof djcSql>): Promise<{ day: s
   return rows.map(r => ({ day: r.day, used: Number(r.used), total: Number(r.total) }))
 }
 
-/** First day of the current quota period = the last day the used-counter dropped (quarterly reset). */
+/**
+ * First day of the current quota period = the last day the used-counter dropped (the monthly refill,
+ * on the 15th). The `quarter*` identifiers here are legacy names from when the allowance was believed
+ * to be quarterly — the logic never assumed a calendar quarter, it keys off the observed reset, so it
+ * stayed correct. Names kept because `?period=quarter` is a live URL parameter.
+ */
 function quarterStartOf(days: { day: string; used: number }[]): string | null {
   if (!days.length) return null
   let start = 0

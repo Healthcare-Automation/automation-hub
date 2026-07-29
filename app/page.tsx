@@ -1,5 +1,6 @@
+import { unstable_cache } from 'next/cache'
 import { getDailyStatus, getRecentRuns, getWeeklySummary, getPipelineBacklog } from '@/lib/queries'
-import { getDjcDailyStatus, getDjcRecentRuns, getDjcSummary, getDjcProfileViews } from '@/lib/djcQueries'
+import { getDjcDailyStatus, getDjcRecentRuns, getDjcSummary, getDjcProfileViews, getDjcQuotaBlocked } from '@/lib/djcQueries'
 import { isDjcConfigured } from '@/lib/djcDb'
 import { getCandidateBankBundle } from '@/lib/candidateBankQueries'
 import { isCandidateBankConfigured } from '@/lib/candidateBankDb'
@@ -9,6 +10,8 @@ import type { Phase, OverallStatus } from '@/lib/types'
 import StatusHeader from '@/components/StatusHeader'
 import AutomationCard from '@/components/AutomationCard'
 import DjcAutomationCard from '@/components/DjcAutomationCard'
+import DjcHowItWorks from '@/components/DjcHowItWorks'
+import { withDbRetry } from '@/lib/dbRetry'
 import { AutomationTabs } from '@/components/AutomationTabs'
 import { AutomationView } from '@/components/AutomationView'
 import { AiCostPanel } from '@/components/AiCostPanel'
@@ -46,14 +49,35 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   )
 }
 
-async function loadDjc() {
-  const [dailyStatus, recentRuns, summary, profileViews] = await Promise.all([
-    getDjcDailyStatus(),
-    getDjcRecentRuns(20),
-    getDjcSummary(),
-    getDjcProfileViews(),
+const EMPTY_PERIOD = { totalRuns: 0, candidatesSeen: 0, contactable: 0, duplicates: 0, wouldCreate: 0, created: 0, errors: 0 }
+/** Rendered when the summary query alone fails, so one bad query cannot blank the whole card. */
+const EMPTY_SUMMARY = { ...EMPTY_PERIOD, last7: { ...EMPTY_PERIOD }, lastRunAt: null }
+
+const loadDjcCached = unstable_cache(
+  () => loadDjcUncached(),
+  ['djc-dashboard-bundle'],
+  { revalidate: 45 },
+)
+
+async function loadDjcUncached() {
+  // Each query retries past transient pooler saturation and then degrades to an empty result
+  // INDEPENDENTLY. Previously one saturated connection rejected the whole Promise.all, which took
+  // the entire dashboard down — a busy database rendered as a blank page rather than a slow one.
+  const settle = <T,>(p: Promise<T>, fallback: T) =>
+    withDbRetry(() => p).catch(err => {
+      console.error('DJC query failed:', err)
+      return fallback
+    })
+  const [dailyStatus, recentRuns, summary, profileViews, quotaBlocked] = await Promise.all([
+    settle(getDjcDailyStatus(), []),
+    settle(getDjcRecentRuns(20), []),
+    settle(getDjcSummary(), null as Awaited<ReturnType<typeof getDjcSummary>> | null),
+    settle(getDjcProfileViews(), null),
+    settle(getDjcQuotaBlocked(), []),
   ])
-  return { dailyStatus, recentRuns, summary, profileViews }
+  // A transient pooler failure must not blank the whole card — fall back to an empty summary so
+  // the automation still renders, with whatever loaded successfully.
+  return { dailyStatus, recentRuns, summary, profileViews, quotaBlocked, degraded: !summary }
 }
 
 export default async function Page() {
@@ -106,7 +130,7 @@ export default async function Page() {
       // during the July 2 incident while 19 updates sat stuck.
       getPipelineBacklog().catch(() => null),
       isDjcConfigured
-        ? loadDjc().catch(err => {
+        ? loadDjcCached().catch((err: unknown) => {
             console.error('Failed to load DJC status data:', err)
             return null
           })
@@ -217,12 +241,14 @@ export default async function Page() {
               djcData ? (
                 <AutomationView
                   operations={
-                    <DjcAutomationCard
+                    <><DjcAutomationCard
                       dailyStatus={djcData.dailyStatus}
                       recentRuns={djcData.recentRuns}
-                      summary={djcData.summary}
+                      summary={djcData.summary ?? EMPTY_SUMMARY}
                       profileViews={djcData.profileViews}
+                      quotaBlocked={djcData.quotaBlocked}
                     />
+                    <div className="mt-3"><DjcHowItWorks /></div></>
                   }
                   cost={
                     djcUsage ? (
@@ -231,7 +257,6 @@ export default async function Page() {
                       <p className="text-xs text-zinc-600">AI cost unavailable — could not read usage data.</p>
                     )
                   }
-                  insightsHref="/djc/overview"
                 />
               ) : (
                 <div className="flex items-center gap-2.5 rounded-xl border border-zinc-700/40 px-5 py-4">
@@ -239,7 +264,9 @@ export default async function Page() {
                     <circle cx="12" cy="12" r="10" /><path d="M12 8v4m0 4h.01" />
                   </svg>
                   <span className="text-xs text-zinc-600">
-                    DJC → Salesforce automation — set <code className="text-zinc-500">DJC_DATABASE_URL</code> to show it here
+                    {isDjcConfigured
+                      ? 'DJC → Salesforce data is temporarily unavailable (the database was busy). Refresh in a few seconds — the automation itself is unaffected.'
+                      : <>DJC → Salesforce automation — set <code className="text-zinc-500">DJC_DATABASE_URL</code> to show it here</>}
                   </span>
                 </div>
               )

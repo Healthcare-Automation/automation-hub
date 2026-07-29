@@ -1,5 +1,7 @@
 'use client'
 
+import DjcViewEfficiencyChart from '@/components/DjcViewEfficiencyChart'
+import type { DjcViewEfficiencyDay, DjcViewEfficiencyWeek } from '@/lib/djcTypes'
 import { useRef, useState } from 'react'
 import Link from 'next/link'
 import { Card, SmallLabel } from '@/components/DjcInsightsPanel'
@@ -12,7 +14,7 @@ const EMERALD = '#059669'
 
 /** The daily pulse: everything a stakeholder needs at a glance, each block linking one level
  *  deeper. Data refreshes with every hourly automation run. */
-export default function OverviewView({ data, kimedics }: { data: DjcOverview; kimedics?: KimedicsSnapshot | null }) {
+export default function OverviewView({ data, kimedics, viewEfficiency = [], viewEfficiencyWeekly = [] }: { data: DjcOverview; kimedics?: KimedicsSnapshot | null; viewEfficiency?: DjcViewEfficiencyDay[]; viewEfficiencyWeekly?: DjcViewEfficiencyWeek[] }) {
   const runOk = data.lastRun.status === 'ok'
   const djcHours = Math.round(
     (data.automation.observed * DJC_TIME_MODEL.minPerScreen +
@@ -20,6 +22,14 @@ export default function OverviewView({ data, kimedics }: { data: DjcOverview; ki
       data.automation.resumesMined * DJC_TIME_MODEL.minPerResume) / 60,
   )
   const totalHours = (kimedics?.hoursSaved ?? 0) + djcHours
+  // Headline efficiency: of the views we actually PAID for, how many became a candidate.
+  const conversionViews = viewEfficiencyWeekly.reduce((a, w) => a + w.views, 0)
+  const conversionMade = viewEfficiencyWeekly.reduce((a, w) => a + w.created, 0)
+  const conversionRate = conversionViews > 0 ? Math.round((conversionMade / conversionViews) * 100) : null
+  // The chart takes a single point shape; weekly buckets map straight onto it.
+  const weeklyAsDays = viewEfficiencyWeekly.map(w => ({
+    day: w.week, views: w.views, created: w.created, freeSkips: w.freeSkips,
+  }))
   return (
     <div className="space-y-8">
       {/* Status line */}
@@ -29,13 +39,16 @@ export default function OverviewView({ data, kimedics }: { data: DjcOverview; ki
         </span>
         <span>last sync {data.lastRun.at ?? '—'} ET · refreshes hourly</span>
         {data.conserveActive && (
-          <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-cyan-300">
-            view-conserve mode active
+          <span
+            className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-cyan-300"
+            title="Duplicates are matched on their profile link, or on name confirmed by registration date, before any Profile View is spent. Nothing is skipped on a guess — an unconfirmed match is always paid for and checked properly."
+          >
+            duplicate pre-checks active
           </span>
         )}
         {data.viewsRemaining !== null && data.viewsRemaining === 0 && (
           <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-amber-300">
-            profile views exhausted — refills Aug 15
+            profile views exhausted — refills on the 15th
           </span>
         )}
       </div>
@@ -52,10 +65,15 @@ export default function OverviewView({ data, kimedics }: { data: DjcOverview; ki
           accent="text-cyan-300"
         />
         <Hero
-          big={data.placementsAllTime}
-          label="placements all-time"
-          detail={`across ${data.peoplePlaced} professionals — many placed repeatedly`}
-          href="/djc/pipeline"
+          big={conversionRate !== null ? `${conversionRate}%` : '—'}
+          label="of paid views became a candidate"
+          detail={
+            conversionRate !== null
+              ? `${conversionMade.toLocaleString()} candidates from ${conversionViews.toLocaleString()} Profile Views bought`
+              : 'no Profile View activity yet'
+          }
+          href="/djc/acquisition"
+          accent="text-cyan-300"
         />
         <Hero
           big={`~${totalHours} hrs`}
@@ -70,7 +88,7 @@ export default function OverviewView({ data, kimedics }: { data: DjcOverview; ki
         />
         <Hero
           big={data.netNewThisQuarter}
-          label="net-new candidates this quarter"
+          label="net-new candidates this cycle"
           detail={
             data.viewsRemaining !== null
               ? `${data.viewsRemaining} profile views remaining`
@@ -79,6 +97,17 @@ export default function OverviewView({ data, kimedics }: { data: DjcOverview; ki
           href="/djc/acquisition"
         />
       </div>
+
+      {/* Efficiency gets its own row — it is the number the client is judging us on. */}
+      <Card
+        title="Profile View efficiency"
+        sub="Bars are the views we paid for each week; the line is the share that became a Salesforce candidate."
+      >
+        <DjcViewEfficiencyChart weekly days={weeklyAsDays} />
+        <Link href="/djc/acquisition" className="mt-3 inline-block text-[11px] text-cyan-400 hover:underline">
+          Where every view went →
+        </Link>
+      </Card>
 
       {/* Trends */}
       <div className="grid gap-6 lg:grid-cols-2">
@@ -158,7 +187,7 @@ export default function OverviewView({ data, kimedics }: { data: DjcOverview; ki
   )
 }
 
-/** Auto-written weekly assessment (Claude reads the 7d/30d/quarter numbers every Friday).
+/** Auto-written weekly assessment (Claude reads the 7d/30d/cycle numbers every Friday).
  *  Refresh re-generates upstream (~30s), then we poll the live endpoint for the new row. */
 function ExecSummary({ initial }: { initial: { id: number; text: string; generatedAt: string } }) {
   const [summary, setSummary] = useState(initial)

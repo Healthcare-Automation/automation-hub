@@ -1,8 +1,11 @@
 'use client'
 
+import { useState } from 'react'
+
 import { Card, BarList, SmallLabel } from '@/components/DjcInsightsPanel'
-import type { DjcPipelineData } from '@/lib/djcPipeline'
-import { FunnelCascade, ForestPlot, QuarterlyTrend } from '@/components/djc/science'
+import { PIPELINE_RANGES, type PipelineRange } from '@/lib/djcTypes'
+import type { DjcPipelineData, SpecialtyOutcomesByRange } from '@/lib/djcPipeline'
+import { ForestPlot } from '@/components/djc/science'
 import {
   APPLIED_FACTORS, PLACED_FACTORS, SCIENCE_META, STAGE_VELOCITY, TIME_TO_PLACE,
   SPECIALTY_OUTCOMES, SIGNUP_TO_PLACEMENT, placementProbability,
@@ -14,13 +17,31 @@ const AMBER = '#d97706'
 
 /** What happens AFTER a candidate lands in Salesforce: stages, placements, momentum, and the
  *  stall points. Mirrored from Salesforce after every hourly run. */
-export default function PipelineView({ data }: { data: DjcPipelineData }) {
+export default function PipelineView({
+  data, funnel, range = 'all', outcomes = null,
+}: {
+  data: DjcPipelineData
+  funnel?: { label: string; count: number }[] | null
+  range?: PipelineRange
+  outcomes?: SpecialtyOutcomesByRange | null
+}) {
+  const [evidenceOpen, setEvidenceOpen] = useState(false)
   const stalePct = data.staleContacts.total
     ? Math.round((data.staleContacts.neverApplied / data.staleContacts.total) * 100)
     : 0
-  const maxStage = Math.max(...data.stages.map(s => s.count), 1)
   return (
     <div className="space-y-8">
+      {/* States the tab's job outright: the Overview answers "how are we doing", this answers
+          "why", and without a header saying so it reads as a second Overview. */}
+      <header className="max-w-3xl">
+        <h1 className="text-[20px] font-semibold text-zinc-100">Why candidates do or don&rsquo;t get placed</h1>
+        <p className="mt-2 text-[13px] leading-relaxed text-zinc-400">
+          The Overview shows what happened. This is the mechanism underneath it — which candidates
+          recruiters work, what actually predicts a hire, what is moving right now, and how long the
+          pool takes to convert.
+        </p>
+      </header>
+
       {/* Headline stats */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat value={data.automationEra.applications} label="applications from automation-sourced candidates" accent="text-emerald-300" />
@@ -30,63 +51,18 @@ export default function PipelineView({ data }: { data: DjcPipelineData }) {
       </div>
 
       {/* The actual pipeline */}
-      <Card
-        title="The pipeline — every application's journey"
-        sub="Applications that reached each dated stage, conversion between stages, and the median days per hop. Placed can exceed Offer because recruiters often skip stages in data entry — percentages are only shown where the math is clean. Hover a stage to trace its flow."
-      >
-        <FunnelCascade
-          stages={data.reached}
-          medianDays={[null, STAGE_VELOCITY.submittalToInterview, STAGE_VELOCITY.interviewToOffer, STAGE_VELOCITY.offerToPlaced]}
-        />
-        <p className="mt-2 text-[11px] leading-relaxed text-zinc-500">
-          Once an application is placed, the median journey took just{' '}
-          <span className="font-medium text-zinc-300">{STAGE_VELOCITY.applicationToPlaced.median} days</span>{' '}
-          (middle half: {STAGE_VELOCITY.applicationToPlaced.p25}–{STAGE_VELOCITY.applicationToPlaced.p75} days) —{' '}
-          {TIME_TO_PLACE[0].count} of {TIME_TO_PLACE.reduce((a, t) => a + t.count, 0)} placements landed within 30 days
-          of the application. Speed of recruiter follow-up is everything.
-        </p>
-      </Card>
+      {/* Removed: the Overview owns the funnel. This tab is the application-level detail behind it,
+            not a second copy of the same chart. */}
 
       {/* Placements momentum */}
-      <Card
-        title="Placement momentum — quarterly"
-        sub="DJC-sourced placements per quarter — 2026 Q2 set the all-time record (72). The final point is the current quarter in progress, not a decline."
-      >
-        <QuarterlyTrend series={data.quarterly} />
-      </Card>
+      {/* Removed: placements by quarter live on the Overview, which compares them year-on-year. */}
 
       {/* Candidates x outcomes */}
       <Card
-        title="Attention vs conversion, by specialty"
-        sub="For each specialty: how often recruiters work the candidates (cyan) and how often worked candidates place (emerald). Gaps between the dots are the strategy map — high conversion + low attention = untapped."
+        title="Which specialties recruiters actually work"
+        sub="The wide bar is how many a recruiter works; the bright bar inside it is how many get placed. Placed people are a subset of worked people, so the bars nest and read straight across."
       >
-        <div className="space-y-3">
-          {SPECIALTY_OUTCOMES.map(sp => (
-            <div key={sp.specialty} className="flex items-center gap-3">
-              <span className="w-44 shrink-0 truncate text-xs text-zinc-400">{sp.specialty}
-                <span className="ml-1 text-[10px] text-zinc-600">n={sp.n}</span>
-              </span>
-              <div className="relative h-6 grow">
-                <div className="absolute top-1/2 h-px w-full -translate-y-1/2 bg-zinc-800" />
-                <div
-                  className="absolute top-1/2 h-px -translate-y-1/2 bg-zinc-600"
-                  style={{ left: `${Math.min(sp.workedPct, sp.placedOfWorkedPct) * 2.2}%`, width: `${Math.abs(sp.workedPct - sp.placedOfWorkedPct) * 2.2}%` }}
-                />
-                <span className="absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full" title={`${sp.workedPct}% worked by recruiters`}
-                  style={{ left: `calc(${sp.workedPct * 2.2}% - 6px)`, background: '#0891b2' }} />
-                <span className="absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full" title={`${sp.placedOfWorkedPct}% of worked candidates placed`}
-                  style={{ left: `calc(${sp.placedOfWorkedPct * 2.2}% - 6px)`, background: '#059669' }} />
-              </div>
-              <span className="w-28 shrink-0 text-right text-[11px] tabular-nums text-zinc-400">
-                {sp.workedPct}% → {sp.placedOfWorkedPct}%
-              </span>
-            </div>
-          ))}
-          <div className="flex gap-4 pt-1 text-[10px] text-zinc-500">
-            <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ background: '#0891b2' }} /> % worked by recruiters</span>
-            <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ background: '#059669' }} /> % of worked who placed</span>
-          </div>
-        </div>
+        <SpecialtyOutcomes outcomes={outcomes} />
       </Card>
 
       <Card
@@ -105,8 +81,52 @@ export default function PipelineView({ data }: { data: DjcPipelineData }) {
       {/* What predicts a hire */}
       <Card
         title="What actually leads to a hire — the evidence"
-        sub={`Odds ratios with 95% confidence intervals over ${SCIENCE_META.universe.toLocaleString()} linked candidates (${SCIENCE_META.applied} worked by recruiters, ${SCIENCE_META.placed} placed). A dot right of the dashed line = the trait makes the outcome more likely; whiskers crossing the line = no detectable effect. ✓ = statistically significant (p<0.05). Associations, not causation — computed ${SCIENCE_META.computedOn}.`}
+        sub="Which candidate traits actually move the odds of being worked, and then placed."
+        action={
+          <button
+            onClick={() => setEvidenceOpen(v => !v)}
+            className="rounded-md border border-zinc-700/60 bg-zinc-800/40 px-2.5 py-1 text-[11px] font-medium text-zinc-400 transition-colors hover:text-zinc-200"
+          >
+            {evidenceOpen ? 'Hide' : 'Show'}
+          </button>
+        }
       >
+        {!evidenceOpen ? (
+          <p className="text-[12px] leading-relaxed text-zinc-500">
+            {SCIENCE_META.universe.toLocaleString()} linked candidates · {SCIENCE_META.applied} worked
+            by recruiters · {SCIENCE_META.placed} placed. Strongest signals:{' '}
+            <span className="text-emerald-300">General Dentistry</span>,{' '}
+            <span className="text-emerald-300">open to locums</span> and{' '}
+            <span className="text-emerald-300">10+ years&rsquo; experience</span> all raise the odds
+            of being worked; <span className="text-amber-300">hygienists and assistants</span> are
+            far less likely to be. Open for the full analysis and its caveats.
+          </p>
+        ) : (
+        <>
+        <div className="mb-5 rounded-lg border border-zinc-700/40 bg-zinc-900/40 p-4 text-[11px] leading-relaxed text-zinc-400">
+          <p className="mb-1.5 font-medium text-zinc-300">How to read this, and how it was computed</p>
+          <p>
+            Each row is an <span className="text-zinc-300">odds ratio</span> with a 95% confidence
+            interval. A dot to the right of the dashed line means the trait makes the outcome more
+            likely; whiskers crossing the line mean no detectable effect. ✓ marks p&lt;0.05.
+          </p>
+          <p className="mt-1.5">
+            <span className="text-zinc-300">Complete-case per trait.</span> A candidate only enters a
+            comparison when that trait is actually known for them — several are parsed from résumés
+            and known for half the pool. Counting “unknown” as “doesn’t have it” compares different
+            populations, and did previously reverse the sign on experience.
+          </p>
+          <p className="mt-1.5">
+            <span className="text-zinc-300">Traits deliberately excluded.</span> Job availability
+            nearby looked like a strong negative, but 99% of the candidates it is known for were
+            added by the automation, and those are worked 4% of the time versus 21% for everyone
+            else — it measured how someone was sourced, not their prospects.
+          </p>
+          <p className="mt-1.5 text-zinc-500">
+            Associations, not causation. Univariate, so traits that travel together are not separated
+            — specialty and role overlap in particular. Computed {SCIENCE_META.computedOn}.
+          </p>
+        </div>
         <div className="space-y-6">
           <div>
             <SmallLabel>Stage 1 — who gets recruiter attention (≥1 application)</SmallLabel>
@@ -129,22 +149,29 @@ export default function PipelineView({ data }: { data: DjcPipelineData }) {
             </p>
           </div>
         </div>
+        </>
+        )}
       </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Placements per year */}
-        <Card title="Placements per year" sub="Momentum: 71 → 107 → 164 → 134 so far this year.">
-          <BarList
-            items={data.placementsPerYear.slice(-9).map(y => ({ key: y.year, label: y.year, count: y.count, color: CYAN }))}
-            total={Math.max(...data.placementsPerYear.map(y => y.count), 1)}
-            relative
-          />
-        </Card>
+        {/* Removed: same series as the Overview's placement chart, one aggregation coarser. */}
 
         {/* Recent placements */}
-        <Card title="Recent placements" sub="⚡ = candidate sourced by the automation.">
+        <Card
+          title="Recent placements"
+          sub="⚡ = sourced by the automation. Almost none carry it yet: people placed now typically joined Salesforce ~255 days ago, long before the automation existed."
+        >
           <div className="max-h-72 overflow-y-auto overflow-x-auto">
-            <table className="w-full min-w-[420px] text-xs">
+            <table className="w-full min-w-[460px] text-xs">
+              <thead className="sticky top-0 bg-zinc-900/95 backdrop-blur">
+                <tr className="text-left text-[10px] uppercase tracking-wide text-zinc-500">
+                  <th className="py-1.5 pr-3 font-medium">Person</th>
+                  <th className="py-1.5 pr-3 font-medium">Job</th>
+                  <th className="py-1.5 pr-3 text-right font-medium">Added to Salesforce</th>
+                  <th className="py-1.5 text-right font-medium">Placed</th>
+                </tr>
+              </thead>
               <tbody>
                 {data.recentPlacements.map((p, i) => (
                   <tr key={i} className="border-t border-zinc-800/70 text-zinc-300 first:border-t-0">
@@ -153,8 +180,8 @@ export default function PipelineView({ data }: { data: DjcPipelineData }) {
                       {p.person ?? '—'}
                     </td>
                     <td className="max-w-56 truncate py-2 pr-3 text-zinc-500">{p.job ?? '—'}</td>
-                    <td className="whitespace-nowrap py-2 pr-3 text-right tabular-nums text-zinc-500" title="added to Salesforce">
-                      +{p.sfAddedOn ?? '—'}
+                    <td className="whitespace-nowrap py-2 pr-3 text-right tabular-nums text-zinc-500">
+                      {p.sfAddedOn ?? '—'}
                     </td>
                     <td className="whitespace-nowrap py-2 text-right tabular-nums text-zinc-400">{p.placedOn ?? '—'}</td>
                   </tr>
@@ -177,7 +204,10 @@ export default function PipelineView({ data }: { data: DjcPipelineData }) {
                 <th className="py-1.5 pr-3 font-medium">Candidate</th>
                 <th className="py-1.5 pr-3 font-medium">Job</th>
                 <th className="py-1.5 pr-3 font-medium">Stage</th>
-                <th className="py-1.5 pr-3 text-right font-medium" title="Historical placement probability — hover a value for the reasoning">P(place)</th>
+                <th className="py-1.5 pr-3 text-right font-medium"
+                    title="Chance THIS APPLICATION ends in a placement, from the stage it has reached. Different from the candidate score on the Candidates tab, which predicts whether a person gets worked at all.">
+                  Chance of placing
+                </th>
                 <th className="py-1.5 pr-3 text-right font-medium">Added to SF</th>
                 <th className="py-1.5 text-right font-medium">Since</th>
               </tr>
@@ -212,6 +242,7 @@ export default function PipelineView({ data }: { data: DjcPipelineData }) {
           </table>
         </div>
       </Card>
+
     </div>
   )
 }
@@ -256,6 +287,152 @@ function Stat({
       </div>
       <div className="mt-2 text-xs font-medium text-zinc-200">{label}</div>
       {detail && <div className="mt-1 text-[11px] leading-snug text-zinc-500">{detail}</div>}
+    </div>
+  )
+}
+
+/**
+ * Specialty outcomes as nested bars on a single denominator.
+ *
+ * Replaces a dumbbell plot that put "share of all candidates" and "share of the worked subset" on
+ * one axis. Non-technical readers reasonably read two dots on a shared line as a before/after, and
+ * the second dot sometimes sat further right, which made the chart look broken. Nesting placed
+ * inside worked inside the full cohort matches how people already picture a pipeline.
+ *
+ * The unit changes with the window on purpose. Over all time, rates ("23 in every 100") are what
+ * make specialties comparable. Over 7 days the whole business places about 5 people, so a rate
+ * rounds to 0 everywhere and the chart goes blank — there, real headcount is the honest unit.
+ */
+function SpecialtyOutcomes({ outcomes }: { outcomes: SpecialtyOutcomesByRange | null }) {
+  const [win, setWin] = useState<PipelineRange>('all')
+  const [hover, setHover] = useState<string | null>(null)
+
+  // Falls back to the built-in snapshot if the live query failed, so the card still renders.
+  const source = outcomes?.[win] ?? (win === 'all' ? SPECIALTY_OUTCOMES : null)
+  const asRate = win === 'all'
+
+  const rows = (source ?? [])
+    .map(s => ({
+      ...s,
+      workedPct: (s.worked / s.n) * 100,
+      placedPct: (s.placed / s.n) * 100,
+    }))
+    .sort((a, b) =>
+      asRate ? b.placedPct - a.placedPct || b.workedPct - a.workedPct
+             : b.placed - a.placed || b.worked - a.worked)
+
+  const max = Math.max(...rows.map(r => (asRate ? r.workedPct : r.worked)), 1)
+  const w = (v: number) => `${Math.min((v / max) * 100, 100)}%`
+  const totals = rows.reduce((a, r) => ({ w: a.w + r.worked, p: a.p + r.placed }), { w: 0, p: 0 })
+
+  return (
+    <div>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[11px] text-zinc-500">
+          {asRate
+            ? 'Out of every 100 candidates we hold in each specialty.'
+            : `Recruiter activity in the last ${win === '7d' ? '7 days' : '30 days'} — actual people.`}
+        </p>
+        <span className="inline-flex rounded-lg border border-zinc-700/60 bg-zinc-800/40 p-0.5">
+          {PIPELINE_RANGES.map(r => (
+            <button
+              key={r.key}
+              onClick={() => setWin(r.key)}
+              className={
+                'rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors ' +
+                (win === r.key
+                  ? 'bg-white/10 text-zinc-100 ring-1 ring-white/15'
+                  : 'text-zinc-500 hover:text-zinc-300')
+              }
+            >
+              {r.label}
+            </button>
+          ))}
+        </span>
+      </div>
+
+      {source === null ? (
+        <p className="py-6 text-center text-[12px] text-amber-300/80">
+          Couldn&rsquo;t load this window. Try all time.
+        </p>
+      ) : totals.w === 0 ? (
+        <p className="py-6 text-center text-[12px] text-zinc-500">
+          No recruiter activity on any DJC-sourced candidate in this window.
+        </p>
+      ) : (
+        <div className="space-y-1">
+          {rows.map(s => {
+            const small = s.n < 50
+            const on = hover === s.specialty
+            const workedVal = asRate ? Math.round(s.workedPct) : s.worked
+            const placedVal = asRate ? Math.round(s.placedPct) : s.placed
+            return (
+              <div
+                key={s.specialty}
+                onMouseEnter={() => setHover(s.specialty)}
+                onMouseLeave={() => setHover(null)}
+                className={`flex items-center gap-3 rounded-md px-2 py-2 transition-colors ${on ? 'bg-zinc-800/40' : ''}`}
+              >
+                <span className="w-44 shrink-0 truncate text-xs text-zinc-300">
+                  {s.specialty}
+                  {small && (
+                    <span className="ml-1.5 text-[10px] text-amber-500/70"
+                          title="Fewer than 50 candidates — treat as directional only">few</span>
+                  )}
+                </span>
+
+                <div className="relative h-7 grow rounded bg-zinc-800/30">
+                  <div className="absolute inset-y-0 left-0 rounded bg-cyan-500/25 transition-all duration-300"
+                       style={{ width: w(asRate ? s.workedPct : s.worked) }} />
+                  <div className="absolute inset-y-0 left-0 rounded bg-emerald-400/85 transition-all duration-300"
+                       style={{ width: w(asRate ? s.placedPct : s.placed) }} />
+                  <div className="absolute inset-y-0 left-0 flex items-center gap-1.5 pl-2 text-[11px] font-medium tabular-nums">
+                    {placedVal > 0 && (
+                      <>
+                        <span className={(asRate ? s.placedPct > 3 : s.placed / max > 0.12)
+                          ? 'text-emerald-950' : 'text-emerald-300'}>
+                          {placedVal} placed
+                        </span>
+                        <span className="text-zinc-600">·</span>
+                      </>
+                    )}
+                    <span className="text-cyan-200/90">
+                      {workedVal} worked{placedVal === 0 && workedVal > 0 ? ' · none placed' : ''}
+                    </span>
+                  </div>
+                </div>
+
+                <span className="w-40 shrink-0 text-right text-[11px] tabular-nums text-zinc-500">
+                  {on && asRate
+                    ? `${s.placed} of ${s.worked} worked`
+                    : `out of ${s.n.toLocaleString()} sourced`}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 border-t border-zinc-800/70 pt-3 text-[11px] text-zinc-500">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2.5 w-4 rounded-sm bg-cyan-500/25" /> a recruiter worked them
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2.5 w-4 rounded-sm bg-emerald-400/85" /> they got placed
+        </span>
+        <span className="text-zinc-600">
+          {asRate ? 'per 100 sourced · hover a row for real numbers' : `${totals.w} worked, ${totals.p} placed in this window`}
+        </span>
+      </div>
+
+      {asRate && (
+        <p className="mt-3 text-[12px] leading-relaxed text-zinc-400">
+          General Dentistry is the engine: 23 of every 100 get worked and 5 get placed. Dental
+          Hygienists are the opposite — 103 sourced,{' '}
+          <span className="text-amber-300">1 worked, none placed</span>. We are collecting people
+          nobody is working.
+        </p>
+      )}
     </div>
   )
 }

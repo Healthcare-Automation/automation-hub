@@ -17,8 +17,11 @@ function createDjcSql(): ReturnType<typeof postgres> | null {
     ssl: 'require',
     // Supabase session pooler caps at 15 clients total across the hub, builds, Modal jobs, and
     // local scripts — keep the per-instance footprint minimal (2026-07-24 EMAXCONNSESSION outage).
-    max: 2,
-    idle_timeout: 20,
+    // One connection per instance, released fast. Vercel freezes a function between invocations, so
+    // its pooled connections stay checked out and idle — 14 of the pooler's 15 slots were being held
+    // this way, idle for minutes, while pages failed with EMAXCONNSESSION.
+    max: 1,
+    idle_timeout: 5,
     max_lifetime: 1800,
     // Fail fast instead of hanging forever if the pooler is unreachable/saturated.
     connect_timeout: 10,

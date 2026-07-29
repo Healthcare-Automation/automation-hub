@@ -1,4 +1,5 @@
 import djcSql from './djcDb'
+import type { PipelineRange } from './djcTypes'
 
 /**
  * Overview + Pipeline data, read from the local Salesforce mirror
@@ -134,7 +135,7 @@ export async function getDjcOverview(): Promise<DjcOverview | null> {
       observed: Number(a.observed),
       resumesMined: Number(a.resumes),
     },
-    netNewThisQuarter: Number(quarterRows[0]?.c ?? 0),
+    netNewThisQuarter: Number(quarterRows[0]?.c ?? 0), // since the last views refill (monthly, the 15th) — not a calendar quarter
     viewsRemaining: viewsRows[0]?.remaining === undefined ? null : Number(viewsRows[0].remaining),
     lastRun: { at: runRows[0]?.at ?? null, status: runRows[0]?.status ?? null },
     placementsPerYear: yearRows.map(r => ({ year: r.year, count: Number(r.count) })),
@@ -151,6 +152,79 @@ export async function getDjcOverview(): Promise<DjcOverview | null> {
       : null,
   }
 }
+
+/**
+ * The stage funnel, scoped to a time window.
+ *
+ * Scoped on `created_on` — the application's own start — so a window contains whole journeys rather
+ * than a snapshot of whatever happened to move. The all-time figure is dominated by years of
+ * history, which hides whether the pipeline is converting better or worse right now.
+ */
+export async function getPipelineFunnel(range: PipelineRange) {
+  const sql = djcSql
+  if (!sql) return null
+  const since = range === '7d' ? '7 days' : range === '30d' ? '30 days' : null
+  const rows = since
+    ? await sql<Record<string, number>[]>`
+        select count(*)::int as apps, count(submittal_on)::int as submitted,
+               count(interview_on)::int as interviewed, count(offer_on)::int as offered,
+               count(placed_on)::int as placed
+        from djc_sf_applications
+        where created_on >= (now() - ${since}::interval)::date`
+    : await sql<Record<string, number>[]>`
+        select count(*)::int as apps, count(submittal_on)::int as submitted,
+               count(interview_on)::int as interviewed, count(offer_on)::int as offered,
+               count(placed_on)::int as placed
+        from djc_sf_applications`
+  const r = rows[0]
+  return [
+    { label: 'Application', count: Number(r.apps) },
+    { label: 'Submittal', count: Number(r.submitted) },
+    { label: 'Interview', count: Number(r.interviewed) },
+    { label: 'Offer', count: Number(r.offered) },
+    { label: 'Placed', count: Number(r.placed) },
+  ]
+}
+
+
+/**
+ * The individual applications behind one funnel stage — the raw rows for a drill-down.
+ *
+ * "Reached this stage" means the stage's date is set, matching how the funnel counts. Scoped by the
+ * same window as the funnel so the rows always reconcile with the number that was clicked.
+ */
+export async function getFunnelStageRows(stage: string, range: PipelineRange, limit = 300) {
+  const sql = djcSql
+  if (!sql) return []
+  const col =
+    stage === 'Submittal' ? 'submittal_on'
+    : stage === 'Interview' ? 'interview_on'
+    : stage === 'Offer' ? 'offer_on'
+    : stage === 'Placed' ? 'placed_on'
+    : null   // 'Application' = every row in the window
+  const since = range === '7d' ? '7 days' : range === '30d' ? '30 days' : null
+
+  const rows = await sql<{
+    person: string | null; job: string | null; stage: string | null; specialty: string | null
+    created: string | null; reached: string | null; auto: boolean
+  }[]>`
+    select a.applicant_name as person, a.job_name as job, a.stage,
+           max(c.target) as specialty,
+           to_char(a.created_on, 'YYYY-MM-DD') as created,
+           to_char(${col ? sql.unsafe(`a.${col}`) : sql.unsafe('a.created_on')}, 'YYYY-MM-DD') as reached,
+           bool_or(coalesce(a.automation_era, false)) as auto
+    from djc_sf_applications a
+    left join djc_candidates c on c.sf_contact_id = a.applicant_sf_id
+    where ${col ? sql.unsafe(`a.${col} is not null`) : sql.unsafe('true')}
+      ${since ? sql`and a.created_on >= (now() - ${since}::interval)::date` : sql``}
+    group by a.sf_id, a.applicant_name, a.job_name, a.stage, a.created_on,
+             ${col ? sql.unsafe(`a.${col}`) : sql.unsafe('a.created_on')}
+    order by ${col ? sql.unsafe(`a.${col}`) : sql.unsafe('a.created_on')} desc nulls last
+    limit ${limit}
+  `
+  return rows
+}
+
 
 export async function getDjcPipeline(): Promise<DjcPipelineData | null> {
   const sql = djcSql
@@ -248,4 +322,60 @@ export async function getDjcPipeline(): Promise<DjcPipelineData | null> {
       sfAddedOn: r.added, specialty: r.specialty,
     })),
   }
+}
+
+export interface SpecialtyOutcome {
+  specialty: string
+  n: number
+  worked: number
+  placed: number
+}
+export type SpecialtyOutcomesByRange = Record<PipelineRange, SpecialtyOutcome[]>
+
+/**
+ * Specialty outcomes for all three windows in one round-trip.
+ *
+ * The windows filter on RECRUITER ACTIVITY (an application or placement dated inside the window),
+ * not on when we sourced the candidate. Sourcing-date windows are degenerate here: 202 candidates
+ * arrived in the last 7 days and the median wait to placement is months, so every short window
+ * would show a column of zeros and read as "the automation produces nothing".
+ *
+ * The denominator stays the full sourced cohort per specialty in every window, so the bars answer
+ * "of the people we hold in this specialty, how many did recruiters touch in this period".
+ */
+export async function getSpecialtyOutcomes(): Promise<SpecialtyOutcomesByRange | null> {
+  const sql = djcSql
+  if (!sql) return null
+  const rows = await sql<
+    { specialty: string; n: number; w7: number; p7: number; w30: number; p30: number; wall: number; pall: number }[]
+  >`
+    with cand as (
+      select distinct sf_contact_id, coalesce(target, 'Unknown') as specialty
+      from djc_candidates where sf_contact_id is not null
+    ),
+    act as (
+      select applicant_sf_id,
+             bool_or(created_on >= now() - interval '7 days')  as w7,
+             bool_or(placed_on  >= now() - interval '7 days')  as p7,
+             bool_or(created_on >= now() - interval '30 days') as w30,
+             bool_or(placed_on  >= now() - interval '30 days') as p30,
+             true                                              as wall,
+             bool_or(placed_on is not null)                    as pall
+      from djc_sf_applications group by 1
+    )
+    select c.specialty,
+           count(*)::int                              as n,
+           count(*) filter (where a.w7)::int          as w7,
+           count(*) filter (where a.p7)::int          as p7,
+           count(*) filter (where a.w30)::int         as w30,
+           count(*) filter (where a.p30)::int         as p30,
+           count(*) filter (where a.wall)::int        as wall,
+           count(*) filter (where a.pall)::int        as pall
+    from cand c left join act a on a.applicant_sf_id = c.sf_contact_id
+    group by 1 having count(*) >= 20
+    order by count(*) desc
+  `
+  const pick = (k: 'w7' | 'w30' | 'wall', j: 'p7' | 'p30' | 'pall') =>
+    rows.map(r => ({ specialty: r.specialty, n: r.n, worked: r[k], placed: r[j] }))
+  return { '7d': pick('w7', 'p7'), '30d': pick('w30', 'p30'), all: pick('wall', 'pall') }
 }
