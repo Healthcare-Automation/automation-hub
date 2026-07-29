@@ -51,6 +51,7 @@ export type DjcEventLevel = 'info' | 'warn' | 'error'
 
 export interface DjcEvent {
   id: number
+  runId: number | null
   candidateId: string | null
   eventType: string
   stage: string | null

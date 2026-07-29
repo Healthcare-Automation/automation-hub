@@ -51,16 +51,31 @@ function viewSpent(c: DjcCandidateRow): boolean {
   // run's own header — one said 0 views spent while the other said 2.
   return !!c.openedThisRun && !c.blockedThisRun
 }
-function candidateOutcome(c: DjcCandidateRow, events: DjcEvent[] = []): { kind: OutcomeKind; label: string; sub?: string } {
+// How a later run settled a candidate this run errored on, in decisiveness order.
+const RESOLUTION_COPY: [string, string][] = [
+  ['contact_created', 'added to Salesforce'],
+  ['dedup_match', 'already in Salesforce'],
+  ['candidate_uncontactable', 'no contact details anywhere'],
+  ['profile_scraped', 'profile opened fine'],
+]
+
+function candidateOutcome(c: DjcCandidateRow, events: DjcEvent[] = [], runId?: number): { kind: OutcomeKind; label: string; sub?: string } {
   // All judged on what happened IN THIS RUN, so the groups reconcile with the funnel above them.
   if (c.blockedThisRun) return { kind: 'blocked', label: 'Blocked', sub: 'Profile Views quota — not checked' }
   if (c.createdThisRun) return { kind: 'created', label: 'Added to Salesforce' }
   if (c.matchedThisRun) return { kind: 'exists', label: 'Already in Salesforce', sub: DEDUP_COPY[c.dedupReason ?? ''] }
   // A step errored before this candidate was decided (page timeout, résumé parse failure, …).
   // Without this branch they fell through to "no contact details found" — a data verdict the
-  // run never actually reached.
-  const err = events.find(e => e.level === 'error')
-  if (err) return { kind: 'error', label: 'Error', sub: EVENT_COPY[err.eventType] ?? err.eventType.replace(/_/g, ' ') }
+  // run never actually reached. Scoped to THIS run's events: the trail spans all runs, and an
+  // old failure must not overwrite what a later run actually decided.
+  const err = events.find(e => e.level === 'error' && (runId == null || e.runId === runId))
+  if (err) {
+    const errCopy = EVENT_COPY[err.eventType] ?? err.eventType.replace(/_/g, ' ')
+    const later = events.filter(e => runId != null && e.runId != null && e.runId > runId)
+    const res = RESOLUTION_COPY.find(([type]) => later.some(e => e.eventType === type))
+    if (res) return { kind: 'error', label: 'Error — resolved', sub: `retried in a later run: ${res[1]}` }
+    return { kind: 'error', label: 'Error', sub: errCopy }
+  }
   if (c.dedupStatus === 'new' && !c.sfContactId) return { kind: 'new', label: 'Ready for Salesforce', sub: 'held — test mode' }
   if (c.sfContactId && c.dedupStatus === 'new') return { kind: 'created', label: 'Added to Salesforce' }
   if (c.dedupStatus === 'duplicate') return { kind: 'exists', label: 'Already in Salesforce', sub: DEDUP_COPY[c.dedupReason ?? ''] }
@@ -133,8 +148,8 @@ function contactSourceCopy(s: string | null): string | null {
 
 /* ── Candidate row + detail ───────────────────────────────────────────── */
 
-function CandidateDetail({ c, events }: { c: DjcCandidateRow; events: DjcEvent[] }) {
-  const out = candidateOutcome(c, events)
+function CandidateDetail({ c, events, runId }: { c: DjcCandidateRow; events: DjcEvent[]; runId?: number }) {
+  const out = candidateOutcome(c, events, runId)
   const willSend = out.kind === 'new' || out.kind === 'created'
   return (
     <div className="border-t border-zinc-800/80 px-4 pb-4 pt-3">
@@ -204,9 +219,9 @@ function FunnelRow({ label, n, total, tone, sub }: {
   )
 }
 
-function CandidateRow({ c, events }: { c: DjcCandidateRow; events: DjcEvent[] }) {
+function CandidateRow({ c, events, runId }: { c: DjcCandidateRow; events: DjcEvent[]; runId?: number }) {
   const [open, setOpen] = useState(false)
-  const out = candidateOutcome(c, events)
+  const out = candidateOutcome(c, events, runId)
   return (
     <div className="overflow-hidden rounded-lg bg-zinc-800/30 ring-1 ring-zinc-700/40">
       <div className="flex items-center gap-3 px-4 py-2.5">
@@ -239,13 +254,13 @@ function CandidateRow({ c, events }: { c: DjcCandidateRow; events: DjcEvent[] })
           {out.sub && <span className="mt-0.5 text-[10px] text-zinc-600">{out.sub}</span>}
         </div>
       </div>
-      {open && <CandidateDetail c={c} events={events} />}
+      {open && <CandidateDetail c={c} events={events} runId={runId} />}
     </div>
   )
 }
 
 /* Collapsible outcome group — collapsed by default so runs stay short/scannable. */
-function CandidateGroup({ kind, title, rows, eventsBy }: { kind: OutcomeKind; title: string; rows: DjcCandidateRow[]; eventsBy: Map<string, DjcEvent[]> }) {
+function CandidateGroup({ kind, title, rows, eventsBy, runId }: { kind: OutcomeKind; title: string; rows: DjcCandidateRow[]; eventsBy: Map<string, DjcEvent[]>; runId?: number }) {
   const [open, setOpen] = useState(false)
   const dot = kind === 'new' ? 'bg-cyan-400' : kind === 'created' ? 'bg-emerald-400' : kind === 'skipped' ? 'bg-amber-400' : kind === 'error' ? 'bg-red-400' : 'bg-zinc-500'
   return (
@@ -256,7 +271,7 @@ function CandidateGroup({ kind, title, rows, eventsBy }: { kind: OutcomeKind; ti
         <span className="text-[11px] font-medium uppercase tracking-wider text-zinc-400">{title}</span>
         <span className="text-[11px] text-zinc-600">· {rows.length}</span>
       </button>
-      {open && <div className="mt-1.5 space-y-1.5 pl-1">{rows.map(c => <CandidateRow key={c.candidateId} c={c} events={eventsBy.get(c.candidateId) ?? []} />)}</div>}
+      {open && <div className="mt-1.5 space-y-1.5 pl-1">{rows.map(c => <CandidateRow key={c.candidateId} c={c} events={eventsBy.get(c.candidateId) ?? []} runId={runId} />)}</div>}
     </div>
   )
 }
@@ -276,7 +291,7 @@ function RunDetailBody({ run, bundle }: { run: DjcRunDetail; bundle: DjcRunDetai
     { key: 'blocked', title: 'Blocked by the views quota — not checked', rows: [] },
     { key: 'new', title: 'Ready for Salesforce (held — test mode)', rows: [] },
   ]
-  for (const c of bundle.candidates) groups.find(g => g.key === candidateOutcome(c, eventsBy.get(c.candidateId) ?? []).kind)?.rows.push(c)
+  for (const c of bundle.candidates) groups.find(g => g.key === candidateOutcome(c, eventsBy.get(c.candidateId) ?? [], run.id).kind)?.rows.push(c)
   const errorRows = groups[0].rows
   const processed = bundle.candidates.length
   const viewsUsed = bundle.candidates.filter(viewSpent).length
@@ -347,7 +362,7 @@ function RunDetailBody({ run, bundle }: { run: DjcRunDetail; bundle: DjcRunDetai
         <p className="py-4 text-center text-[13px] text-zinc-600">No candidates were in scope for this run.</p>
       ) : (
         <div className="space-y-1">
-          {groups.filter(g => g.rows.length).map(g => <CandidateGroup key={g.key} kind={g.key} title={g.title} rows={g.rows} eventsBy={eventsBy} />)}
+          {groups.filter(g => g.rows.length).map(g => <CandidateGroup key={g.key} kind={g.key} title={g.title} rows={g.rows} eventsBy={eventsBy} runId={run.id} />)}
         </div>
       )}
     </div>

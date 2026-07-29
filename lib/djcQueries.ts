@@ -203,6 +203,7 @@ export async function getDjcRunDetail(runId: number): Promise<DjcRunDetailBundle
     sql<
       {
         id: number
+        run_id: number | null
         candidate_id: string | null
         event_type: string
         stage: string | null
@@ -212,7 +213,7 @@ export async function getDjcRunDetail(runId: number): Promise<DjcRunDetailBundle
         created_at: string
       }[]
     >`
-      select id, candidate_id, event_type, stage, level, message, payload, created_at
+      select id, run_id::int, candidate_id, event_type, stage, level, message, payload, created_at
       from djc_event_log
       where candidate_id in (select candidate_id from djc_candidates
                              where first_seen_run = ${runId} or last_seen_run = ${runId})
@@ -290,6 +291,7 @@ export async function getDjcRunDetail(runId: number): Promise<DjcRunDetailBundle
 
   const events: DjcEvent[] = eventRows.map(e => ({
     id: e.id,
+    runId: e.run_id,
     candidateId: e.candidate_id,
     eventType: e.event_type,
     stage: e.stage,
