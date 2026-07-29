@@ -438,12 +438,20 @@ export default function AdminRecoveryPage() {
               Each row carries a recommended action; you can also apply re-push or rescrape in bulk.
             </p>
           </div>
-          <button
-            onClick={logout}
-            className="text-xs text-zinc-400 hover:text-zinc-200 border border-zinc-800 rounded px-2.5 py-1 shrink-0"
-          >
-            Sign out
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <a
+              href="/admin/checkin"
+              className="text-xs text-zinc-400 hover:text-zinc-200 border border-zinc-800 rounded px-2.5 py-1"
+            >
+              Check-In →
+            </a>
+            <button
+              onClick={logout}
+              className="text-xs text-zinc-400 hover:text-zinc-200 border border-zinc-800 rounded px-2.5 py-1"
+            >
+              Sign out
+            </button>
+          </div>
         </div>
 
         {/* Toolbar */}
