@@ -40,6 +40,8 @@ export async function POST(req: NextRequest) {
     const text = await upstream.text()
     let json: any
     try { json = JSON.parse(text) } catch { json = { ok: false, error: text.slice(0, 500) } }
+    // FastAPI errors arrive as {detail: "..."} — normalize so the page shows the message.
+    if (!upstream.ok && json && !json.error) json.error = json.detail || `upstream HTTP ${upstream.status}`
     return NextResponse.json(json, { status: upstream.ok ? 200 : 502 })
   } catch (e: any) {
     return NextResponse.json(
