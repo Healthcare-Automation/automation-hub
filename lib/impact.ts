@@ -34,6 +34,72 @@ export async function getKimedicsSnapshot(): Promise<KimedicsSnapshot | null> {
   }
 }
 
+export interface KimWorkMonth {
+  month: string        // YYYY-MM
+  emails: number
+  jobsTracked: number  // jobs first seen that month
+  inSf: number         // ...of those, how many reached Salesforce
+  updated: number
+  closed: number
+  patches: number
+  worksites: number
+  retries: number
+  hours: number
+}
+
+/**
+ * The automation's own work, month by month.
+ *
+ * Kimedics report on a monthly cycle, so the "work done" block has to answer "what did it do in
+ * June" and not only "what has it ever done". Everything here is counted from timestamps in the
+ * automation's own logs; `jobsTracked` is jobs FIRST seen in that month (a job opened in May and
+ * updated in June counts once, in May) so months can be added together without double-counting.
+ */
+export async function getKimWorkByMonth(): Promise<KimWorkMonth[]> {
+  if (!kimSql) return []
+  const rows = await kimSql<
+    { month: string; emails: number; opened: number; in_sf: number; updated: number;
+      closed: number; other: number }[]
+  >`
+    select to_char(date_trunc('month', e.created_at), 'YYYY-MM')                       as month,
+           count(*)::int                                                                as emails,
+           count(*) filter (where e.action_or_change = 'new')::int                      as opened,
+           count(*) filter (where e.action_or_change = 'new' and j.sf_job_id is not null)::int as in_sf,
+           count(*) filter (where e.action_or_change in ('updated', 'status: Active'))::int as updated,
+           count(*) filter (where e.action_or_change = 'status: Closed')::int           as closed,
+           count(*) filter (where e.action_or_change <> 'new')::int                     as other
+    from email_scrapes e
+    left join job_current j on j.job_id = e.job_post_id
+    group by 1 order by 1
+  `
+  const events = await kimSql<
+    { month: string; patches: number; worksites: number; retries: number }[]
+  >`
+    select to_char(date_trunc('month', created_at), 'YYYY-MM')                          as month,
+           count(*) filter (where event_type in ('sf_scrape_fields_patched','sf_ids_update'))::int as patches,
+           count(*) filter (where event_type = 'worksite_created')::int                  as worksites,
+           count(*) filter (where event_type = 'auto_retry_completed')::int              as retries
+    from job_event_log
+    group by 1 order by 1
+  `
+  const byMonth = new Map(events.map(e => [e.month, e]))
+  return rows.map(r => {
+    const e = byMonth.get(r.month)
+    return {
+      month: r.month,
+      emails: Number(r.emails),
+      jobsTracked: Number(r.opened),
+      inSf: Number(r.in_sf),
+      updated: Number(r.updated),
+      closed: Number(r.closed),
+      patches: Number(e?.patches ?? 0),
+      worksites: Number(e?.worksites ?? 0),
+      retries: Number(e?.retries ?? 0),
+      hours: hoursSaved(Number(r.opened), Number(r.other), Number(r.emails)),
+    }
+  })
+}
+
 export async function getImpactData(): Promise<ImpactData | null> {
   if (!kimSql || !djcSql) return null
 

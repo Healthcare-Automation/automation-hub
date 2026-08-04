@@ -121,10 +121,11 @@ export default function StoryOverview({ story }: { story: DjcStory }) {
           <span className="font-medium text-zinc-200">
             {Math.round(((apps - submitted) / (apps || 1)) * 100)}% never reach submittal.
           </span>{' '}
-          Someone was put forward for a job and it went no further. That is the largest single loss in
-          the pipeline — bigger than everything downstream combined. Interview and offer stages are left
-          out because they are recorded on only about a third of placements, so a fuller funnel would
-          mislead rather than inform.
+          Someone was put forward for a job and it went no further — matched but never presented to
+          the client. The submittal step cuts harder still: {Math.round(((submitted - placed) /
+          (submitted || 1)) * 100)}% of submitted applications never convert. Interview and offer
+          stages are left out because they are recorded on only about a third of placements, so a
+          fuller funnel would mislead rather than inform.
         </p>
       </Section>
 

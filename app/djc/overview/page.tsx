@@ -9,7 +9,7 @@ export const revalidate = 60
 // Key carries a shape version: the cached payload is a plain object, so renaming a field (ready ->
 // ready50/ready250/readyAny) leaves stale entries that satisfy the type at compile time and are
 // undefined at runtime. Bump this whenever DjcStory's shape changes.
-const getCachedStory = unstable_cache(() => getDjcStory(), ['djc-story-overview-v16'], { revalidate: 60 })
+const getCachedStory = unstable_cache(() => getDjcStory(), ['djc-story-overview-v17'], { revalidate: 60 })
 
 export default async function OverviewPage() {
   let story = null

@@ -87,6 +87,7 @@ export interface FunnelStage {
   key: string
   label: string
   count: number
+  renewals?: number
   pctOfPrevious: number | null
 }
 
@@ -163,9 +164,11 @@ const READY_CTE = `
 /**
  * Business-wide placements: every source, every client, not just the DJC automation.
  *
- * Uses Placement_Start_Date__c. Placement_Date__c looks like the obvious field and is populated on
- * 77 of 1,575 records, all before 2022 — reading it produced a chart that said Proxi stopped
- * placing people in 2021.
+ * Counted by placed_on — Application__c "Placement Created Date", the day the placement was
+ * recorded — not by start date: people start a median of 3 weeks after being placed, sometimes
+ * months, and ~8% of Placement__c rows have no start date at all. (Placement__c.Placement_Date__c
+ * looks like the obvious field and is dead: 77 records, none after 2021.) Contract renewals
+ * (is_extension) are excluded from every count here; the pipeline block shows them separately.
  *
  * Year-on-year comparisons are day-of-year aligned, so "YTD" against last year means the same
  * calendar span rather than a full year against a partial one.
@@ -177,10 +180,11 @@ export async function getOpsPlacements(): Promise<OpsPlacements> {
   if (!sql) return empty
 
   const monthly = await sql<{ month: string; placed: number }[]>`
-    select to_char(date_trunc('month', start_on), 'YYYY-MM') as month, count(*)::int as placed
+    select to_char(date_trunc('month', placed_on), 'YYYY-MM') as month, count(*)::int as placed
     from sf_placements
-    where start_on >= date_trunc('month', now()) - interval '35 months'
-      and start_on <= now()
+    where not is_extension
+      and placed_on >= date_trunc('month', now()) - interval '35 months'
+      and placed_on <= now()
     group by 1 order by 1
   `
   const byMonth = new Map(monthly.map(r => [r.month, r.placed]))
@@ -190,36 +194,37 @@ export async function getOpsPlacements(): Promise<OpsPlacements> {
   }
 
   const quarters = await sql<{ y: number; q: number; placed: number }[]>`
-    select extract(year from start_on)::int as y, extract(quarter from start_on)::int as q,
+    select extract(year from placed_on)::int as y, extract(quarter from placed_on)::int as q,
            count(*)::int as placed
     from sf_placements
-    where start_on >= date_trunc('year', now()) - interval '2 years' and start_on <= now()
+    where not is_extension
+      and placed_on >= date_trunc('year', now()) - interval '2 years' and placed_on <= now()
     group by 1, 2 order by 1, 2
   `
   const qMap = new Map(quarters.map(r => [`${r.y}-${r.q}`, r.placed]))
 
   // Day-of-year alignment: compare Jan-to-today against Jan-to-the-same-day last year.
   const [ytdRow] = await sql<{ this_year: number; last_year: number }[]>`
-    select count(*) filter (where extract(year from start_on) = extract(year from now()))::int as this_year,
-           count(*) filter (where extract(year from start_on) = extract(year from now()) - 1)::int as last_year
+    select count(*) filter (where extract(year from placed_on) = extract(year from now()))::int as this_year,
+           count(*) filter (where extract(year from placed_on) = extract(year from now()) - 1)::int as last_year
     from sf_placements
-    where extract(doy from start_on) <= extract(doy from now())
-      and extract(year from start_on) >= extract(year from now()) - 1
+    where not is_extension
+      and extract(doy from placed_on) <= extract(doy from now())
+      and extract(year from placed_on) >= extract(year from now()) - 1
   `
   const group = async (col: 'job_state' | 'client') => sql<
     { name: string; placed: number; prior: number }[]
   >`
     select coalesce(${sql(col)}, 'Unknown')                                       as name,
-           count(*) filter (where extract(year from start_on) = extract(year from now()))::int as placed,
-           count(*) filter (where extract(year from start_on) = extract(year from now()) - 1
-                              and extract(doy from start_on) <= extract(doy from now()))::int  as prior
+           count(*) filter (where extract(year from placed_on) = extract(year from now()))::int as placed,
+           count(*) filter (where extract(year from placed_on) = extract(year from now()) - 1
+                              and extract(doy from placed_on) <= extract(doy from now()))::int  as prior
     from sf_placements
-    where extract(doy from start_on) <= extract(doy from now())
-      and extract(year from start_on) >= extract(year from now()) - 1
+    where not is_extension
+      and extract(doy from placed_on) <= extract(doy from now())
+      and extract(year from placed_on) >= extract(year from now()) - 1
     group by 1
-    having count(*) filter (where extract(year from start_on) = extract(year from now())) > 0
-    order by 2 desc
-    limit 12
+    order by 2 desc, 3 desc
   `
   const states = await group('job_state')
   const clients = await group('client')
@@ -443,20 +448,21 @@ export async function getFunnel(): Promise<FunnelStage[]> {
   const sql = djcSql
   if (!sql) return []
   const [r] = await sql<
-    { apps: number; submitted: number; interviewed: number; placed: number }[]
+    { apps: number; submitted: number; interviewed: number; placed: number; renewals: number }[]
   >`
     select count(*)::int                                                as apps,
            count(*) filter (where submittal_on is not null)::int        as submitted,
            0::int                                                       as interviewed,
-           count(*) filter (where placed_on is not null)::int           as placed
+           count(*) filter (where placed_on is not null)::int           as placed,
+           count(*) filter (where placed_on is not null and stage ilike 'Exten%')::int as renewals
     from djc_sf_applications
   `
   // Each row is a candidate-job PAIRING, not a person: 3,068 rows cover 999 people across 1,472
   // jobs, ~3 each. Calling the first step "Applied" implied 3,068 applicants.
   const steps = [
-    { key: 'apps', label: 'Put forward for a job', count: r.apps },
-    { key: 'submitted', label: 'Reached submittal', count: r.submitted },
-    { key: 'placed', label: 'Placed', count: r.placed },
+    { key: 'apps', label: 'Put forward for a job', count: r.apps, renewals: 0 },
+    { key: 'submitted', label: 'Reached submittal', count: r.submitted, renewals: 0 },
+    { key: 'placed', label: 'Placed', count: r.placed, renewals: r.renewals },
   ]
   return steps.map((s, i) => ({
     ...s,
@@ -504,6 +510,205 @@ export async function getAutomationImpact(): Promise<AutomationImpact> {
     placed: r.placed,
     liveSince: r.live_since,
     medianDaysSourcedToApply: r.median_days === null ? null : Math.round(Number(r.median_days)),
+  }
+}
+
+export interface FunnelSlice { label: string; pairs: number; submitted: number; placed: number; renewals: number }
+
+/** A state/client group with the funnel counted in three windows, so the UI can re-scope in place. */
+export interface FunnelGroupRow {
+  label: string
+  all: { pairs: number; submitted: number; placed: number; renewals: number }
+  ytd: { pairs: number; submitted: number; placed: number; renewals: number }
+  month: { pairs: number; submitted: number; placed: number; renewals: number }
+}
+
+export interface FunnelViews {
+  ytd: FunnelSlice
+  priorYtd: FunnelSlice          // same span last year, for the YoY comparison
+  monthly: FunnelSlice[]         // last 6 calendar months, by when the pair was created
+  quarterly: FunnelSlice[]       // last 4 quarters
+  byState: FunnelGroupRow[]      // job's state — all time / this year / this month
+  byClient: FunnelGroupRow[]     // job's practice — all time / this year / this month
+}
+
+export interface CohortSeasonality {
+  best: { month: string; pct: number }
+  worst: { month: string; pct: number }
+  avgPct: number
+  years: number          // complete years the pattern was checked against
+  yearsAgreeing: number  // ...of those, how many put `best` ahead of `worst`
+}
+
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December']
+
+/**
+ * Does the MONTH a candidate is put forward change their odds of being placed?
+ *
+ * Volume has no season worth showing — across seven years of placements and nine of submissions,
+ * the same calendar month swings ~50 index points year to year against a ~15-point month effect,
+ * so any month-shaped chart of demand is noise. Conversion is different: the same months lead and
+ * lag in every year measured, which is a real planning input.
+ *
+ * Cohorts are grouped by the month the candidate was put forward and cut off three months before
+ * today, so a recent cohort is not scored as a failure for simply being young. `yearsAgreeing` is
+ * the honesty check — if the best and worst months do not hold their order across years, the UI
+ * should not claim a pattern.
+ */
+export async function getCohortSeasonality(): Promise<CohortSeasonality | null> {
+  const sql = djcSql
+  if (!sql) return null
+  const rows = await sql<{ y: number; m: number; fwd: number; placed: number }[]>`
+    select extract(year from created_on)::int  as y,
+           extract(month from created_on)::int as m,
+           count(*)::int                                            as fwd,
+           count(*) filter (where placed_on is not null)::int       as placed
+    from djc_sf_applications
+    where created_on >= '2023-01-01'
+      and created_on < date_trunc('month', now()) - interval '3 months'
+    group by 1, 2
+  `
+  if (!rows.length) return null
+
+  const pooled = new Map<number, { fwd: number; placed: number }>()
+  for (const r of rows) {
+    const p = pooled.get(r.m) ?? { fwd: 0, placed: 0 }
+    p.fwd += r.fwd; p.placed += r.placed
+    pooled.set(r.m, p)
+  }
+  // Months carrying too few candidates to mean anything are not eligible to be "the best month".
+  const eligible = [...pooled.entries()].filter(([, p]) => p.fwd >= 60)
+  if (eligible.length < 6) return null
+  const rate = (p: { fwd: number; placed: number }) => (p.placed / p.fwd) * 100
+  const sorted = eligible.sort((a, b) => rate(b[1]) - rate(a[1]))
+  const [bestM, bestP] = sorted[0]
+  const [worstM, worstP] = sorted[sorted.length - 1]
+
+  const years = [...new Set(rows.map(r => r.y))]
+  let complete = 0, agreeing = 0
+  for (const y of years) {
+    const b = rows.find(r => r.y === y && r.m === bestM)
+    const w = rows.find(r => r.y === y && r.m === worstM)
+    if (!b || !w || b.fwd < 8 || w.fwd < 8) continue
+    complete++
+    if (b.placed / b.fwd > w.placed / w.fwd) agreeing++
+  }
+
+  const totals = eligible.reduce((a, [, p]) => ({ fwd: a.fwd + p.fwd, placed: a.placed + p.placed }),
+    { fwd: 0, placed: 0 })
+  return {
+    best: { month: MONTH_NAMES[bestM - 1], pct: Math.round(rate(bestP)) },
+    worst: { month: MONTH_NAMES[worstM - 1], pct: Math.round(rate(worstP)) },
+    avgPct: Math.round(rate(totals)),
+    years: complete,
+    yearsAgreeing: agreeing,
+  }
+}
+
+/**
+ * The pipeline sliced by period and by state, for the multi-view block on the client report.
+ * All slices count candidate-job PAIRS by created_on; recent slices understate placed simply
+ * because those pairs have not had time to resolve yet.
+ */
+export async function getFunnelViews(): Promise<FunnelViews> {
+  const sql = djcSql
+  const empty: FunnelSlice = { label: '', pairs: 0, submitted: 0, placed: 0, renewals: 0 }
+  if (!sql) return { ytd: empty, priorYtd: empty, monthly: [], quarterly: [], byState: [], byClient: [] }
+
+  const [y] = await sql<Record<string, number>[]>`
+    select count(*) filter (where created_on >= date_trunc('year', current_date)
+                              and placed_on is not null and stage ilike 'Exten%')::int          as renewals,
+           count(*) filter (where created_on >= date_trunc('year', current_date) - interval '1 year'
+                              and created_on <= current_date - interval '1 year'
+                              and placed_on is not null and stage ilike 'Exten%')::int          as p_renewals,
+           count(*) filter (where created_on >= date_trunc('year', current_date))::int          as pairs,
+           count(*) filter (where created_on >= date_trunc('year', current_date)
+                              and submittal_on is not null)::int                                as submitted,
+           count(*) filter (where created_on >= date_trunc('year', current_date)
+                              and placed_on is not null)::int                                   as placed,
+           count(*) filter (where created_on >= date_trunc('year', current_date) - interval '1 year'
+                              and created_on <= current_date - interval '1 year')::int          as p_pairs,
+           count(*) filter (where created_on >= date_trunc('year', current_date) - interval '1 year'
+                              and created_on <= current_date - interval '1 year'
+                              and submittal_on is not null)::int                                as p_submitted,
+           count(*) filter (where created_on >= date_trunc('year', current_date) - interval '1 year'
+                              and created_on <= current_date - interval '1 year'
+                              and placed_on is not null)::int                                   as p_placed
+    from djc_sf_applications
+    where created_on is not null
+  `
+  const monthly = await sql<{ label: string; pairs: number; submitted: number; placed: number; renewals: number }[]>`
+    select to_char(date_trunc('month', created_on), 'YYYY-MM') as label,
+           count(*)::int                                        as pairs,
+           count(*) filter (where submittal_on is not null)::int as submitted,
+           count(*) filter (where placed_on is not null)::int    as placed,
+           count(*) filter (where placed_on is not null and stage ilike 'Exten%')::int as renewals
+    from djc_sf_applications
+    where created_on >= least(date_trunc('year', current_date),
+                              date_trunc('month', current_date) - interval '3 months')
+    group by 1 order by 1
+  `
+  const quarterly = await sql<{ label: string; pairs: number; submitted: number; placed: number; renewals: number }[]>`
+    select 'Q' || extract(quarter from created_on)::int || ' ' || to_char(created_on, 'YY') as label,
+           count(*)::int                                        as pairs,
+           count(*) filter (where submittal_on is not null)::int as submitted,
+           count(*) filter (where placed_on is not null)::int    as placed,
+           count(*) filter (where placed_on is not null and stage ilike 'Exten%')::int as renewals
+    from djc_sf_applications
+    where created_on >= date_trunc('quarter', current_date) - interval '9 months'
+    group by 1, date_trunc('quarter', created_on) order by date_trunc('quarter', created_on)
+  `
+  // djc_jobs can hold multiple rows per job name across syncs — dedup before joining so a
+  // repeated name cannot multiply application rows. Each group carries three windows at once
+  // so the block's period toggle needs no extra round trips.
+  const grouped = async (col: 'state' | 'practice') => {
+    const rows = await sql<Record<string, string | number>[]>`
+      select coalesce(nullif(j.${sql.unsafe(col)}, ''), 'Unknown') as label,
+             count(*)::int                                          as pairs,
+             count(*) filter (where a.submittal_on is not null)::int as submitted,
+             count(*) filter (where a.placed_on is not null)::int    as placed,
+             count(*) filter (where a.created_on >= date_trunc('year', current_date))::int as pairs_ytd,
+             count(*) filter (where a.created_on >= date_trunc('year', current_date)
+                                and a.submittal_on is not null)::int as submitted_ytd,
+             count(*) filter (where a.created_on >= date_trunc('year', current_date)
+                                and a.placed_on is not null)::int    as placed_ytd,
+             count(*) filter (where a.created_on >= date_trunc('month', current_date))::int as pairs_month,
+             count(*) filter (where a.created_on >= date_trunc('month', current_date)
+                                and a.submittal_on is not null)::int as submitted_month,
+             count(*) filter (where a.created_on >= date_trunc('month', current_date)
+                                and a.placed_on is not null)::int    as placed_month,
+             count(*) filter (where a.placed_on is not null and a.stage ilike 'Exten%')::int as renewals,
+             count(*) filter (where a.created_on >= date_trunc('year', current_date)
+                                and a.placed_on is not null and a.stage ilike 'Exten%')::int as renewals_ytd,
+             count(*) filter (where a.created_on >= date_trunc('month', current_date)
+                                and a.placed_on is not null and a.stage ilike 'Exten%')::int as renewals_month
+      from djc_sf_applications a
+      left join (select job_name, max(state) as state, max(practice) as practice
+                 from djc_jobs group by 1) j
+        on j.job_name = a.job_name
+      group by 1 order by count(*) desc
+    `
+    return rows.map(r => ({
+      label: String(r.label),
+      all: { pairs: Number(r.pairs), submitted: Number(r.submitted), placed: Number(r.placed),
+        renewals: Number(r.renewals) },
+      ytd: { pairs: Number(r.pairs_ytd), submitted: Number(r.submitted_ytd), placed: Number(r.placed_ytd),
+        renewals: Number(r.renewals_ytd) },
+      month: { pairs: Number(r.pairs_month), submitted: Number(r.submitted_month), placed: Number(r.placed_month),
+        renewals: Number(r.renewals_month) },
+    }))
+  }
+  const byState = await grouped('state')
+  const byClient = await grouped('practice')
+  return {
+    ytd: { label: 'This year', pairs: y.pairs, submitted: y.submitted, placed: y.placed, renewals: y.renewals },
+    priorYtd: { label: 'Same span last year', pairs: y.p_pairs, submitted: y.p_submitted, placed: y.p_placed,
+      renewals: y.p_renewals },
+    monthly,
+    quarterly,
+    byState,
+    byClient,
   }
 }
 

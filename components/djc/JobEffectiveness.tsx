@@ -12,7 +12,7 @@ import type { JobEffectiveness } from '@/lib/djcOps'
  * nobody put forward failed differently from one where candidates were sent and rejected, and the
  * two need different fixes — so they are never collapsed into a single "fill rate".
  */
-type View = 'monthly' | 'quarterly' | 'duration' | 'state' | 'type' | 'practice' | 'open'
+type View = 'monthly' | 'quarterly' | 'duration' | 'state' | 'type' | 'practice' | 'city' | 'open'
 
 const VIEWS: { key: View; label: string }[] = [
   { key: 'monthly', label: 'Monthly' },
@@ -21,6 +21,7 @@ const VIEWS: { key: View; label: string }[] = [
   { key: 'state', label: 'By state' },
   { key: 'type', label: 'By role' },
   { key: 'practice', label: 'By practice' },
+  { key: 'city', label: 'By city' },
   { key: 'open', label: 'Open now' },
 ]
 
@@ -89,6 +90,7 @@ export default function JobEffectivenessView({ data }: { data: JobEffectiveness 
         </>
       )}
 
+      {view === 'city' && <CityView data={data} />}
       {view === 'duration' && <Durations data={data} table={asTable} />}
       {view === 'open' && <OpenAges data={data} />}
 
@@ -230,6 +232,53 @@ function Durations({ data, table }: { data: JobEffectiveness; table: boolean }) 
   )
 }
 
+/**
+ * Demand by specific location. State is often too big a unit — a handful of practices in one town
+ * can be most of a state's demand, and whether we have EVER placed there changes how hard the next
+ * role will be.
+ */
+function CityView({ data }: { data: JobEffectiveness }) {
+  const rows = data.byCity
+  const never = rows.filter(r => r.everPlaced === 0)
+  return (
+    <div>
+      <p className="mb-3 max-w-3xl text-[12px] leading-relaxed text-zinc-400">
+        The locations generating the most roles in the last 12 months.
+        {never.length > 0 && (
+          <span className="text-orange-300">
+            {' '}{never.length} of the top {rows.length} are places we have never placed anyone.
+          </span>
+        )}
+      </p>
+      <div className="overflow-hidden rounded-lg border border-zinc-800">
+        <table className="w-full text-[12px]">
+          <thead className="bg-zinc-900/60">
+            <tr className="text-left text-[10px] uppercase tracking-wide text-zinc-500">
+              <th className="px-3 py-2 font-medium">Location</th>
+              <th className="py-2 pr-3 text-right font-medium">Opened, 12 mo</th>
+              <th className="py-2 pr-3 text-right font-medium">Filled</th>
+              <th className="py-2 pr-3 text-right font-medium">Ever placed here</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(r => (
+              <tr key={r.name} className="border-t border-zinc-800/70">
+                <td className="px-3 py-1.5 text-zinc-200">{r.name}</td>
+                <td className="py-1.5 pr-3 text-right tabular-nums text-zinc-200">{r.opened}</td>
+                <td className="py-1.5 pr-3 text-right tabular-nums text-teal-300">{r.filled}</td>
+                <td className={cn('py-1.5 pr-3 text-right tabular-nums',
+                  r.everPlaced > 0 ? 'text-zinc-400' : 'font-medium text-orange-300')}>
+                  {r.everPlaced > 0 ? r.everPlaced : 'never'}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
 function OpenAges({ data }: { data: JobEffectiveness }) {
   const max = Math.max(...data.openAges.map(a => a.jobs), 1)
   const stale = data.openAges.filter(a => a.label === 'Over 3 months').reduce((s, a) => s + a.jobs, 0)
@@ -255,6 +304,32 @@ function OpenAges({ data }: { data: JobEffectiveness }) {
           </div>
         ))}
       </div>
+
+      {/* Where and what the open roles are — with how many in each group have gone stale. */}
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        {[
+          { title: 'Open roles by state', rows: data.openByState },
+          { title: 'Open roles by type', rows: data.openByType },
+        ].map(g => (
+          <div key={g.title}>
+            <p className="mb-2 text-[11px] uppercase tracking-wide text-zinc-600">{g.title}</p>
+            <div className="space-y-1">
+              {g.rows.map(r => (
+                <div key={r.name} className="flex items-baseline gap-3 text-[12px]">
+                  <span className="w-40 shrink-0 truncate text-zinc-300" title={r.name}>{r.name}</span>
+                  <span className="grow border-b border-dotted border-zinc-800" />
+                  <span className="shrink-0 tabular-nums text-zinc-200">{r.jobs}</span>
+                  <span className={cn('w-24 shrink-0 text-right text-[11px] tabular-nums',
+                    r.stale > 0 ? 'text-orange-300' : 'text-zinc-600')}>
+                    {r.stale > 0 ? `${r.stale} stale` : '—'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="mt-2 text-[11px] text-zinc-600">Stale = open for more than three months.</p>
     </div>
   )
 }

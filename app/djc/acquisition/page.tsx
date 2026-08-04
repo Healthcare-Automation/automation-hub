@@ -4,7 +4,7 @@ import { getDjcViewEfficiencyWeekly } from '@/lib/djcQueries'
 import { withDbRetry } from '@/lib/dbRetry'
 import DjcInsightsPanel from '@/components/DjcInsightsPanel'
 import { getViewCycles, getCycleProjection, getSourcingByMonth, getAutomationFunnel,
-         getEfficiencyWeeks, getActivityBuckets, getCandidateOutcomes, getLocationSupply,
+         getEfficiencyWeeks, getActivityBuckets, rollUpActivity, getCandidateOutcomes, getLocationSupply,
          getOutreachByMonth, getRoleSpend, getOutreachDetail } from '@/lib/djcOps'
 import AcquisitionStory from '@/components/djc/AcquisitionStory'
 
@@ -33,7 +33,7 @@ const getCachedOps = unstable_cache(async () => ({
   sourcing: await getSourcingByMonth(),
   funnel: await getAutomationFunnel(),
   weeks: await getEfficiencyWeeks(6),
-  activity: await getActivityBuckets(),
+  activity: rollUpActivity(await getActivityBuckets()),
   outcomesCycle: await getCandidateOutcomes(14),
   outcomesAll: await getCandidateOutcomes(null),
   locations: await getLocationSupply(),

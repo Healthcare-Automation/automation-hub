@@ -72,7 +72,7 @@ export default function PlacementMonthPanel({
             <p className="mt-0.5 text-[11px] text-zinc-500">
               {isCurrent
                 ? 'This month is still in progress — the total will keep rising.'
-                : 'Everyone who started a job in this month.'}
+                : 'Everyone placed in this month.'}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-1">

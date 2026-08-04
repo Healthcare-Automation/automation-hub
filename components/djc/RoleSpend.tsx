@@ -179,7 +179,7 @@ export default function RoleSpendView({
                         style={rate > 80
                           ? { top: `calc(${100 - rate}% + 8px)` }
                           : { top: `calc(${100 - rate}% - 18px)` }}>
-                    {rate}%
+                    {Math.round(rate)}%
                   </span>
                 </div>
               )
