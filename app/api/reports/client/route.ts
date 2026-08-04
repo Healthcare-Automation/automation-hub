@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getClientReport } from '@/lib/clientReport'
-import { renderClientReportEmail } from '@/lib/clientReportEmail'
+import { renderClientReportEmail, SECTION_TITLES, type ReportSection } from '@/lib/clientReportEmail'
+import { ADMIN_COOKIE_NAME, verifyAdminCookieValue } from '@/lib/adminAuth'
+import { CLIENT_COOKIE_NAME, verifyClientCookieValue } from '@/lib/portalAuth'
 
 export const maxDuration = 60
 
@@ -18,8 +20,20 @@ const DEFAULT_ENDPOINT =
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export async function POST(req: NextRequest) {
-  let body: { recipients?: unknown } = {}
+  // This endpoint emails externally — only a signed-in client or admin may trigger it.
+  const isClient = await verifyClientCookieValue(req.cookies.get(CLIENT_COOKIE_NAME)?.value)
+  const isAdmin = !isClient && await verifyAdminCookieValue(req.cookies.get(ADMIN_COOKIE_NAME)?.value)
+  if (!isClient && !isAdmin) {
+    return NextResponse.json({ ok: false, error: 'Sign in to send the report.' }, { status: 401 })
+  }
+
+  let body: { recipients?: unknown; section?: unknown } = {}
   try { body = await req.json() } catch { /* fall through to validation */ }
+
+  const section = String(body.section || 'ops') as ReportSection
+  if (!['ops', 'djc', 'kim', 'all'].includes(section)) {
+    return NextResponse.json({ ok: false, error: 'Unknown report section.' }, { status: 400 })
+  }
 
   const recipients: string[] = Array.isArray(body.recipients)
     ? body.recipients.map(x => String(x).trim()).filter(Boolean)
@@ -46,8 +60,8 @@ export async function POST(req: NextRequest) {
 
   try {
     const report = await getClientReport()
-    const html = renderClientReportEmail(report)
-    const subject = `Proxi — automation report, ${new Date().toLocaleDateString('en-US',
+    const html = renderClientReportEmail(report, section)
+    const subject = `Proxi — ${SECTION_TITLES[section]} report, ${new Date().toLocaleDateString('en-US',
       { month: 'long', day: 'numeric', year: 'numeric' })}`
 
     const ctrl = new AbortController()
