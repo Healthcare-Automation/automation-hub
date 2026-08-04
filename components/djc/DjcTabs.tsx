@@ -5,7 +5,6 @@ import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 
 const TABS = [
-  { href: '/djc/client', label: 'Client-Facing' },
   { href: '/djc/overview', label: 'Overview' },
   { href: '/djc/pipeline', label: 'Pipeline' },
   { href: '/djc/candidates', label: 'Candidates' },
