@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import type { DjcDayStatus, DjcRunDetail, DjcSummary, DjcProfileViews, DjcQuotaBlockedRow } from '@/lib/djcTypes'
+import type { DjcViewYieldMonth } from '@/lib/djcQueries'
 import { cn, STATUS_DOT_COLORS, STATUS_COLORS, STATUS_LABELS, formatShortDate } from '@/lib/utils'
 import DjcStatusBarChart from './DjcStatusBarChart'
 import DjcRunBreakdown from './DjcRunBreakdown'
@@ -9,6 +10,12 @@ import MetricStrip from './MetricStrip'
 import SendReportButton from './SendReportButton'
 import DjcQuotaBlockedPanel from './DjcQuotaBlockedPanel'
 import DjcHowItWorks from './DjcHowItWorks'
+
+const fmtMonth = (m: string) =>
+  new Date(m + '-02').toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' })
+
+const fmtMonthYear = (m: string) =>
+  new Date(m + '-02').toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' })
 
 // Date the scheduled run flipped from preview/testing to live Salesforce writes.
 const DJC_GO_LIVE = '2026-06-16'
@@ -18,6 +25,7 @@ interface Props {
   recentRuns: DjcRunDetail[]
   summary: DjcSummary
   profileViews: DjcProfileViews | null
+  viewYield?: DjcViewYieldMonth[]
   quotaBlocked: DjcQuotaBlockedRow[]
 }
 
@@ -40,7 +48,63 @@ function ChevronDown({ className }: { className?: string }) {
   )
 }
 
-export default function DjcAutomationCard({ dailyStatus, recentRuns, summary, profileViews, quotaBlocked }: Props) {
+/** Monthly view→contact yield. The bars used a native `title`, which the browser rendered in the
+ *  window corner after a delay — this pins a tooltip to the hovered bar instead. */
+function ViewYieldSparkline({ months }: { months: DjcViewYieldMonth[] }) {
+  const [hover, setHover] = useState<{ m: DjcViewYieldMonth; x: number; y: number } | null>(null)
+  const peak = Math.max(...months.map(m => m.pct), 1)
+  const latest = months[months.length - 1]
+
+  return (
+    <div className="flex items-center justify-between border-b border-zinc-800/60 bg-zinc-900/30 px-5 py-1.5 text-[11px]">
+      <span className="text-zinc-500">Views that became Salesforce contacts</span>
+      <span className="flex items-center gap-2">
+        {/* Hit areas tile edge-to-edge (padding makes the 3px gap) — a bare 6px bar is too small
+            to hover reliably, and a 2px-tall month was almost unhittable. */}
+        <span className="-my-1 flex h-[22px] items-center py-1" onMouseLeave={() => setHover(null)}>
+          {months.map(m => (
+            <span
+              key={m.month}
+              className="flex h-full w-[9px] cursor-default items-end justify-center px-[1.5px]"
+              onMouseEnter={e => {
+                const r = e.currentTarget.getBoundingClientRect()
+                setHover({ m, x: r.left + r.width / 2, y: r.bottom - 14 })
+              }}
+            >
+              <span
+                className={cn(
+                  'w-1.5 rounded-sm transition-colors',
+                  hover?.m.month === m.month ? 'bg-cyan-300' : 'bg-cyan-400/50',
+                )}
+                style={{ height: `${Math.max((m.pct / peak) * 14, 2)}px` }}
+              />
+            </span>
+          ))}
+        </span>
+        <span className="font-medium tabular-nums text-zinc-300">{latest.pct}%</span>
+        <span className="text-zinc-600">in {fmtMonth(latest.month)}</span>
+      </span>
+
+      {hover && (
+        <div
+          className="pointer-events-none fixed z-[9999]"
+          style={{ left: hover.x, top: hover.y - 10, transform: 'translate(-50%, -100%)' }}
+        >
+          <div className="rounded-lg border border-zinc-600/60 bg-zinc-800 px-3 py-2 shadow-2xl">
+            <p className="text-[11px] font-medium text-white">{fmtMonthYear(hover.m.month)}</p>
+            <p className="mt-1 whitespace-nowrap text-[11px] text-zinc-400">
+              <span className="tabular-nums text-cyan-300">{hover.m.created.toLocaleString()}</span> contacts from{' '}
+              <span className="tabular-nums text-zinc-200">{hover.m.views.toLocaleString()}</span> views
+              <span className="text-zinc-500"> · {hover.m.pct}%</span>
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default function DjcAutomationCard({ dailyStatus, recentRuns, summary, profileViews, quotaBlocked, viewYield = [] }: Props) {
   const [expanded, setExpanded] = useState(false)
   const [showBlocked, setShowBlocked] = useState(false)
   const lastRun = recentRuns[0]
@@ -134,6 +198,7 @@ export default function DjcAutomationCard({ dailyStatus, recentRuns, summary, pr
           </span>
         </div>
       )}
+      {viewYield.length > 0 && <ViewYieldSparkline months={viewYield} />}
       <div className="px-5 pt-5 pb-4">
         {/* Header — same structure as the Kimedics card (avatar · title/desc · status) */}
         <div className="mb-3 flex items-start justify-between gap-4">

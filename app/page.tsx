@@ -1,6 +1,6 @@
 import { unstable_cache } from 'next/cache'
 import { getDailyStatus, getRecentRuns, getWeeklySummary, getPipelineBacklog } from '@/lib/queries'
-import { getDjcDailyStatus, getDjcRecentRuns, getDjcSummary, getDjcProfileViews, getDjcQuotaBlocked } from '@/lib/djcQueries'
+import { getDjcDailyStatus, getDjcRecentRuns, getDjcSummary, getDjcProfileViews, getDjcQuotaBlocked, getDjcViewYield } from '@/lib/djcQueries'
 import { isDjcConfigured } from '@/lib/djcDb'
 import { getCandidateBankBundle } from '@/lib/candidateBankQueries'
 import { isCandidateBankConfigured } from '@/lib/candidateBankDb'
@@ -68,16 +68,17 @@ async function loadDjcUncached() {
       console.error('DJC query failed:', err)
       return fallback
     })
-  const [dailyStatus, recentRuns, summary, profileViews, quotaBlocked] = await Promise.all([
+  const [dailyStatus, recentRuns, summary, profileViews, quotaBlocked, viewYield] = await Promise.all([
     settle(getDjcDailyStatus(), []),
     settle(getDjcRecentRuns(20), []),
     settle(getDjcSummary(), null as Awaited<ReturnType<typeof getDjcSummary>> | null),
     settle(getDjcProfileViews(), null),
     settle(getDjcQuotaBlocked(), []),
+    settle(getDjcViewYield(6), []),
   ])
   // A transient pooler failure must not blank the whole card — fall back to an empty summary so
   // the automation still renders, with whatever loaded successfully.
-  return { dailyStatus, recentRuns, summary, profileViews, quotaBlocked, degraded: !summary }
+  return { dailyStatus, recentRuns, summary, profileViews, quotaBlocked, viewYield, degraded: !summary }
 }
 
 export default async function Page() {
@@ -246,6 +247,7 @@ export default async function Page() {
                       recentRuns={djcData.recentRuns}
                       summary={djcData.summary ?? EMPTY_SUMMARY}
                       profileViews={djcData.profileViews}
+                      viewYield={djcData.viewYield}
                       quotaBlocked={djcData.quotaBlocked}
                     />
                     <div className="mt-3"><DjcHowItWorks /></div></>

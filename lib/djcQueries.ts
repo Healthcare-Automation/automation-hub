@@ -429,6 +429,38 @@ export async function getDjcProfileViews(): Promise<DjcProfileViews | null> {
   }
 }
 
+export interface DjcViewYieldMonth {
+  month: string       // YYYY-MM
+  views: number       // profile views the automation spent
+  created: number     // Salesforce contacts it created from them
+  pct: number         // created per 100 views
+}
+
+/**
+ * What each month's Profile Views bought, in Salesforce contacts per 100 views.
+ *
+ * Views are the automation's own spend (profiles opened, less the ones the quota wall blocked
+ * before anything was learned), not DJC's counter — the counter also moves for anyone browsing on
+ * the shared login, which would make the yield look worse than the automation's actual work.
+ */
+export async function getDjcViewYield(months = 6): Promise<DjcViewYieldMonth[]> {
+  const sql = djcSql
+  if (!sql) return []
+  const rows = await sql<{ month: string; views: number; created: number }[]>`
+    select to_char(date_trunc('month', created_at at time zone 'America/New_York'), 'YYYY-MM') as month,
+           (count(*) filter (where event_type = 'profile_scraped')
+            - count(*) filter (where event_type = 'profile_view_quota_blocked'))::int          as views,
+           count(*) filter (where event_type = 'contact_created')::int                          as created
+    from djc_event_log
+    where created_at >= date_trunc('month', now()) - make_interval(months => ${months - 1})
+    group by 1 order by 1
+  `
+  return rows
+    .filter(r => r.views > 0)
+    .map(r => ({ month: r.month, views: r.views, created: r.created,
+      pct: Math.round((r.created / r.views) * 1000) / 10 }))
+}
+
 /**
  * Every candidate the Profile Views quota ever blocked, one row each — NOT a sum of per-run event
  * counts. The old banner summed `quota_blocked` across recent runs, so a candidate blocked in six
