@@ -43,6 +43,9 @@ export interface DjcRunDetail {
   errors: number
   warnCount: number
   errorCount: number
+  // Errors no later run undid. Drives every status colour — a timeout that a later run re-scraped
+  // is history, not a live fault.
+  unresolvedErrorCount: number
   quotaBlocked: number // candidates whose DJC profile couldn't be viewed — Profile Views quota hit
   viewsSpent: number // profiles actually opened, i.e. Profile Views charged for this run
 }

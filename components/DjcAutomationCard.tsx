@@ -119,7 +119,7 @@ export default function DjcAutomationCard({ dailyStatus, recentRuns, summary, pr
       ? 'outage'
       : lastRun.status === 'running'
         ? 'operational'
-        : lastRun.errorCount > 0
+        : lastRun.unresolvedErrorCount > 0
           ? 'degraded'
           : 'operational'
     : dailyStatus[dailyStatus.length - 1]?.status ?? 'no_data'

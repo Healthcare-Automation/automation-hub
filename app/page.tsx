@@ -55,7 +55,9 @@ const EMPTY_SUMMARY = { ...EMPTY_PERIOD, last7: { ...EMPTY_PERIOD }, lastRunAt: 
 
 const loadDjcCached = unstable_cache(
   () => loadDjcUncached(),
-  ['djc-dashboard-bundle'],
+  // Bump on every shape change: a stale entry satisfies the type at compile time and arrives with
+  // the new fields undefined — here that silently read every errored run as "recovered".
+  ['djc-dashboard-bundle-v2-run-window'],
   { revalidate: 45 },
 )
 
@@ -70,7 +72,7 @@ async function loadDjcUncached() {
     })
   const [dailyStatus, recentRuns, summary, profileViews, quotaBlocked, viewYield] = await Promise.all([
     settle(getDjcDailyStatus(), []),
-    settle(getDjcRecentRuns(20), []),
+    settle(getDjcRecentRuns(14), []),
     settle(getDjcSummary(), null as Awaited<ReturnType<typeof getDjcSummary>> | null),
     settle(getDjcProfileViews(), null),
     settle(getDjcQuotaBlocked(), []),

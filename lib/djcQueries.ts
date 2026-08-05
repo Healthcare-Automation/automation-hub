@@ -37,6 +37,7 @@ export async function getDjcDailyStatus(): Promise<DjcDayStatus[]> {
     ? await sql<
         {
           day: string
+          unresolved_errors: number
           total_runs: number
           completed_runs: number
           error_runs: number
@@ -50,7 +51,30 @@ export async function getDjcDailyStatus(): Promise<DjcDayStatus[]> {
           error_run_details: string[] | null
         }[]
       >`
+        with unresolved as (
+          -- Same recovery rule as the run history: an error a later run undid is not a fault the
+          -- day should be coloured for. See getDjcRecentRuns for why.
+          select r2.started_at::date as day, count(*)::int as n
+          from djc_event_log e2
+          join djc_runs r2 on r2.id = e2.run_id
+          where e2.level = 'error'
+            and r2.started_at >= now() - interval '90 days'
+            and not exists (
+              select 1 from djc_event_log fix
+              where fix.run_id > e2.run_id
+                and fix.created_at < e2.created_at + interval '24 hours'
+                and (
+                  (e2.event_type = 'list_scrape_failed'
+                     and fix.event_type = 'target_completed' and fix.message = e2.message)
+                  or (e2.candidate_id is not null
+                     and fix.candidate_id = e2.candidate_id
+                     and fix.event_type in ('profile_scraped', 'contact_created', 'dedup_match',
+                                            'candidate_uncontactable'))
+                ))
+          group by 1
+        )
         select to_char(started_at::date, 'YYYY-MM-DD')                       as day,
+               coalesce(max(u.n), 0)::int                                    as unresolved_errors,
                count(*)::int                                                 as total_runs,
                count(*) filter (where finished_at is not null)::int          as completed_runs,
                count(*) filter (where status in ('error','session_expired'))::int as error_runs,
@@ -65,6 +89,7 @@ export async function getDjcDailyStatus(): Promise<DjcDayStatus[]> {
                          order by started_at)
                  filter (where status in ('error','session_expired'))        as error_run_details
         from djc_runs
+        left join unresolved u on u.day = djc_runs.started_at::date
         where started_at >= now() - interval '90 days'
         group by 1
       `
@@ -102,7 +127,7 @@ export async function getDjcDailyStatus(): Promise<DjcDayStatus[]> {
         status: dayKind({
           totalRuns: r.total_runs,
           errorRuns: r.error_runs,
-          errors: r.errors,
+          errors: r.unresolved_errors,
           candidatesSelected: r.candidates_selected,
         }),
       })
@@ -111,7 +136,12 @@ export async function getDjcDailyStatus(): Promise<DjcDayStatus[]> {
   return out
 }
 
-export async function getDjcRecentRuns(limit = 20): Promise<DjcRunDetail[]> {
+/**
+ * Runs from the last `days` days, newest first — a window rather than a row count, so the run
+ * history can group by day without a short day silently swallowing the days behind it.
+ * `cap` is a runaway guard only; 14 days is ~140 runs.
+ */
+export async function getDjcRecentRuns(days = 14, cap = 400): Promise<DjcRunDetail[]> {
   const sql = djcSql
   if (!sql) return []
   const rows = await sql<
@@ -137,6 +167,7 @@ export async function getDjcRecentRuns(limit = 20): Promise<DjcRunDetail[]> {
       error_count: number
       quota_blocked: number
       views_spent: number
+      unresolved_error_count: number
     }[]
   >`
     select r.id,
@@ -149,7 +180,8 @@ export async function getDjcRecentRuns(limit = 20): Promise<DjcRunDetail[]> {
            coalesce(ev.warn_count, 0)::int as warn_count,
            coalesce(ev.error_count, 0)::int as error_count,
            coalesce(ev.quota_blocked, 0)::int as quota_blocked,
-           coalesce(ev.views_spent, 0)::int as views_spent
+           coalesce(ev.views_spent, 0)::int as views_spent,
+           coalesce(ev2.unresolved_error_count, 0)::int as unresolved_error_count
     from djc_runs r
     left join lateral (
       select count(*) filter (where e.level = 'warn') as warn_count,
@@ -165,9 +197,34 @@ export async function getDjcRecentRuns(limit = 20): Promise<DjcRunDetail[]> {
                      and b.candidate_id is not null)) as views_spent
       from djc_event_log e where e.run_id = r.id
     ) ev on true
+    -- Errors a LATER run undid. A specialty whose list page timed out is recovered once a later run
+    -- scraped that same specialty; a candidate-scoped failure is recovered once that candidate was
+    -- opened, matched or ruled uncontactable. Recovered errors still happened and are still counted
+    -- in error_count — but they are not a live fault, and showing them as one makes a system that
+    -- healed itself within the hour look broken. Kept in its own lateral so the correlated lookup
+    -- only ever runs for the handful of error rows, not for every event in the run.
+    left join lateral (
+      select count(*)::int as unresolved_error_count
+      from djc_event_log e2
+      where e2.run_id = r.id
+        and e2.level = 'error'
+        and not exists (
+          select 1 from djc_event_log fix
+          where fix.run_id > e2.run_id
+            and fix.created_at < e2.created_at + interval '24 hours'
+            and (
+              (e2.event_type = 'list_scrape_failed'
+                 and fix.event_type = 'target_completed' and fix.message = e2.message)
+              or (e2.candidate_id is not null
+                 and fix.candidate_id = e2.candidate_id
+                 and fix.event_type in ('profile_scraped', 'contact_created', 'dedup_match',
+                                        'candidate_uncontactable'))
+            ))
+    ) ev2 on true
     where r.trigger in ('scheduled', 'backfill')
+      and r.started_at > now() - (${days} || ' days')::interval
     order by r.id desc
-    limit ${limit}
+    limit ${cap}
   `
   return rows.map(r => ({
     id: r.id,
@@ -189,6 +246,7 @@ export async function getDjcRecentRuns(limit = 20): Promise<DjcRunDetail[]> {
     errors: r.errors,
     warnCount: r.warn_count,
     errorCount: r.error_count,
+    unresolvedErrorCount: r.unresolved_error_count,
     quotaBlocked: r.quota_blocked,
     viewsSpent: r.views_spent,
   }))

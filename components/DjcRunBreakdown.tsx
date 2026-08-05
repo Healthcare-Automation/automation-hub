@@ -378,16 +378,43 @@ function timeLabel(s: string): string {
   return new Date(s).toLocaleTimeString('en-US', { ...ET, hour: 'numeric', minute: '2-digit' }) + ' ET'
 }
 
-type DayHeader = { primary: string; secondary: string; isToday: boolean }
+type DayHeader = { primary: string; secondary: string; isToday: boolean; recent: boolean }
 function dayHeader(iso: string): DayHeader {
   const key = etDayKey(iso)
   const todayKey = new Date().toLocaleDateString('en-US', ET)
   const yesterdayKey = new Date(Date.now() - 86_400_000).toLocaleDateString('en-US', ET)
   const d = new Date(iso)
   const secondary = d.toLocaleDateString('en-US', { ...ET, month: 'short', day: 'numeric' })
-  if (key === todayKey) return { primary: 'Today', secondary, isToday: true }
-  if (key === yesterdayKey) return { primary: 'Yesterday', secondary, isToday: false }
-  return { primary: d.toLocaleDateString('en-US', { ...ET, weekday: 'long' }), secondary, isToday: false }
+  if (key === todayKey) return { primary: 'Today', secondary, isToday: true, recent: true }
+  if (key === yesterdayKey) return { primary: 'Yesterday', secondary, isToday: false, recent: true }
+  return { primary: d.toLocaleDateString('en-US', { ...ET, weekday: 'long' }), secondary, isToday: false, recent: false }
+}
+
+/** A day's headline numbers — what the header has to say while the runs underneath are folded away. */
+type DayStats = {
+  runs: number
+  newCount: number
+  duplicates: number
+  views: number
+  noContact: number
+  errors: number       // unresolved only; recovered failures are not the day's story
+  landed: number | null // % of Profile Views that became a Salesforce contact — the efficiency number
+}
+function dayStats(runs: DjcRunDetail[]): DayStats {
+  const sum = (f: (r: DjcRunDetail) => number) => runs.reduce((s, r) => s + f(r), 0)
+  const newCount = sum(r => r.created + r.createSkippedGuard)
+  const views = sum(r => r.viewsSpent)
+  return {
+    runs: runs.length,
+    newCount,
+    duplicates: sum(r => r.duplicates),
+    views,
+    noContact: sum(r => r.uncontactable),
+    errors: sum(r => r.unresolvedErrorCount),
+    // Views are the scarce resource — 750 a month — so what a day's views bought is the number
+    // that actually says whether the day went well. Undefined with no views: 0/0 is not 0%.
+    landed: views > 0 ? Math.round((newCount / views) * 100) : null,
+  }
 }
 
 /* Group consecutive same-day runs (runs arrive newest-first, so same-day rows are contiguous). */
@@ -400,6 +427,82 @@ function groupRunsByDay(runs: DjcRunDetail[]): { key: string; header: DayHeader;
     else groups.push({ key, header: dayHeader(run.startedAt), runs: [run] })
   }
   return groups
+}
+
+/* One grid for the column header and every day row, so the numbers stack into scannable columns
+   instead of drifting with the width of the day's label. Zero renders as a dim dash rather than
+   being dropped — an omitted chip shifts everything after it and breaks the column. */
+// Column counts must match the number of VISIBLE cells at each breakpoint — the three sm-only
+// cells are display:none below sm, so they leave the grid entirely rather than wrapping.
+const DAY_GRID =
+  'grid items-center gap-x-2 grid-cols-[14px_minmax(104px,1fr)_repeat(3,44px)_52px] ' +
+  'sm:grid-cols-[14px_minmax(120px,1fr)_repeat(4,52px)_60px_68px_52px]'
+
+function DayCell({ children, className, title }: { children: React.ReactNode; className?: string; title?: string }) {
+  return <span className={cn('text-right text-[11px] tabular-nums', className)} title={title}>{children}</span>
+}
+const dash = <span className="text-zinc-700">–</span>
+
+function DayColumnHeader() {
+  return (
+    <div className={cn(DAY_GRID, 'px-1 text-[9px] uppercase tracking-wider text-zinc-600')}>
+      <span />
+      <span />
+      <span className="text-right">Runs</span>
+      <span className="text-right">New</span>
+      <span className="text-right">In SF</span>
+      <span className="text-right">Views</span>
+      <span className="hidden text-right sm:block">Landed</span>
+      <span className="hidden text-right sm:block">No contact</span>
+      <span className="hidden text-right sm:block">Errors</span>
+    </div>
+  )
+}
+
+/**
+ * One day of runs. Today and yesterday open on arrival — that is the view you want without
+ * clicking; everything older folds to a single summary line you can open when you need it.
+ */
+function DayGroup({ header, runs }: { header: DayHeader; runs: DjcRunDetail[] }) {
+  const [open, setOpen] = useState(header.recent)
+  const s = dayStats(runs)
+
+  return (
+    <div className="space-y-1.5">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className={cn(DAY_GRID, 'group w-full rounded px-1 py-1 text-left transition-colors hover:bg-zinc-800/40')}
+      >
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+             strokeLinecap="round" strokeLinejoin="round"
+             className={cn('shrink-0 text-zinc-600 transition-transform group-hover:text-zinc-400', open && 'rotate-90')}>
+          <path d="m9 18 6-6-6-6" />
+        </svg>
+        <span className="flex min-w-0 items-baseline gap-1.5">
+          <span className={cn('truncate text-[12px] font-semibold', header.isToday ? 'text-cyan-300' : 'text-zinc-300')}>{header.primary}</span>
+          <span className="shrink-0 text-[11px] text-zinc-600">{header.secondary}</span>
+        </span>
+        <DayCell className="text-zinc-600">{s.runs}</DayCell>
+        <DayCell className={s.newCount > 0 ? 'font-semibold text-cyan-300' : ''}>{s.newCount || dash}</DayCell>
+        <DayCell className="text-zinc-500">{s.duplicates || dash}</DayCell>
+        <DayCell className={s.views > 0 ? 'text-amber-300/80' : ''}>{s.views || dash}</DayCell>
+        <DayCell
+          className={cn('hidden sm:block font-semibold',
+            s.landed === null ? '' : s.landed >= 50 ? 'text-emerald-300' : s.landed >= 25 ? 'text-zinc-300' : 'text-zinc-500')}
+          title="Share of the day's Profile Views that became a Salesforce contact"
+        >
+          {s.landed === null ? dash : `${s.landed}%`}
+        </DayCell>
+        <DayCell className="hidden text-zinc-600 sm:block">{s.noContact || dash}</DayCell>
+        <DayCell className={cn('hidden sm:block', s.errors > 0 ? 'font-semibold text-red-400' : '')}>{s.errors || dash}</DayCell>
+      </button>
+      {open && (
+        <div className="overflow-hidden rounded-xl ring-1 ring-zinc-700/40 divide-y divide-zinc-800/70">
+          {runs.map(run => <RunRow key={run.id} run={run} label={timeLabel(run.startedAt)} />)}
+        </div>
+      )}
+    </div>
+  )
 }
 
 function RunRow({ run, label }: { run: DjcRunDetail; label: string }) {
@@ -424,11 +527,11 @@ function RunRow({ run, label }: { run: DjcRunDetail; label: string }) {
   return (
     <div className={cn('transition-colors', open && 'bg-zinc-800/40')}>
       <button onClick={toggle} className="flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-zinc-700/15">
-        <StatusGlyph status={run.status} errorCount={run.errorCount} />
+        <StatusGlyph status={run.status} errorCount={run.unresolvedErrorCount} />
         <span className="w-[74px] shrink-0 text-[12px] font-semibold text-zinc-100 tabular-nums">{time}</span>
         <span className="min-w-0 flex-1 truncate text-[12px]">
           {interrupted ? (
-            <span className="text-red-400">Did not finish — {run.errorCount > 0 ? 'errored partway' : 'interrupted'}</span>
+            <span className="text-red-400">Did not finish — {run.unresolvedErrorCount > 0 ? 'errored partway' : 'interrupted'}</span>
           ) : running ? (
             /* A run in flight has counters that are still filling in. Reporting "no new candidates"
                against a half-written row read as a finished, empty run while the detail below
@@ -446,7 +549,13 @@ function RunRow({ run, label }: { run: DjcRunDetail; label: string }) {
                 <span className="text-amber-300/80"> · {run.viewsSpent} view{run.viewsSpent === 1 ? '' : 's'}</span>
               )}
               {run.uncontactable > 0 && <span className="text-zinc-500"> · {run.uncontactable} no contact</span>}
-              {run.errorCount > 0 && <span className="text-red-400"> · {run.errorCount} error{run.errorCount === 1 ? '' : 's'}</span>}
+              {/* A failure a later run undid is history, not a fault — stated plainly rather than
+                  deleted, so the record stays honest without reading as a live problem. */}
+              {run.unresolvedErrorCount > 0 ? (
+                <span className="text-red-400"> · {run.unresolvedErrorCount} error{run.unresolvedErrorCount === 1 ? '' : 's'}</span>
+              ) : run.errorCount > 0 ? (
+                <span className="text-zinc-600" title="A step failed here and a later run redid it successfully"> · recovered</span>
+              ) : null}
             </>
           )}
         </span>
@@ -521,29 +630,8 @@ export default function DjcRunBreakdown({ runs }: { runs: DjcRunDetail[] }) {
         <p className="px-3 py-6 text-center text-[13px] text-zinc-600">No runs yet.</p>
       ) : (
         <div className="space-y-4">
-          {groupRunsByDay(runs).map(g => {
-            const dayNew = g.runs.reduce((s, r) => s + r.created + r.createSkippedGuard, 0)
-            const dayDup = g.runs.reduce((s, r) => s + r.duplicates, 0)
-            const dayViews = g.runs.reduce((s, r) => s + r.viewsSpent, 0)
-            return (
-              <div key={g.key} className="space-y-1.5">
-                <div className="flex items-center gap-2 px-1">
-                  <span className={cn('text-[12px] font-semibold', g.header.isToday ? 'text-cyan-300' : 'text-zinc-300')}>{g.header.primary}</span>
-                  <span className="text-[11px] text-zinc-600">{g.header.secondary}</span>
-                  <span className="text-[11px] text-zinc-700">· {g.runs.length} run{g.runs.length === 1 ? '' : 's'}</span>
-                  {dayNew > 0 && <span className="text-[11px] font-medium text-cyan-300">· {dayNew} new</span>}
-                  {dayDup > 0 && <span className="text-[11px] text-zinc-600">· {dayDup} in SF</span>}
-                  {dayViews > 0 && (
-                    <span className="text-[11px] text-amber-300/80">· {dayViews} views spent</span>
-                  )}
-                  <div className="ml-1 h-px flex-1 bg-zinc-800/70" />
-                </div>
-                <div className="overflow-hidden rounded-xl ring-1 ring-zinc-700/40 divide-y divide-zinc-800/70">
-                  {g.runs.map(run => <RunRow key={run.id} run={run} label={timeLabel(run.startedAt)} />)}
-                </div>
-              </div>
-            )
-          })}
+          <DayColumnHeader />
+          {groupRunsByDay(runs).map(g => <DayGroup key={g.key} header={g.header} runs={g.runs} />)}
         </div>
       )}
     </div>
