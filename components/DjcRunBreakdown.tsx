@@ -435,10 +435,10 @@ function groupRunsByDay(runs: DjcRunDetail[]): { key: string; header: DayHeader;
 // Column counts must match the number of VISIBLE cells at each breakpoint — the three sm-only
 // cells are display:none below sm, so they leave the grid entirely rather than wrapping.
 const DAY_GRID =
-  'grid items-center gap-x-2 grid-cols-[14px_minmax(104px,1fr)_repeat(3,44px)_52px] ' +
-  'sm:grid-cols-[14px_minmax(120px,1fr)_repeat(4,52px)_60px_68px_52px]'
+  'grid items-center gap-x-2 grid-cols-[14px_minmax(104px,1fr)_repeat(3,44px)_52px_14px] ' +
+  'sm:grid-cols-[14px_minmax(120px,1fr)_repeat(4,52px)_60px_68px_52px_14px]'
 
-function DayCell({ children, className, title }: { children: React.ReactNode; className?: string; title?: string }) {
+function DayCell({ children, className, title }: { children?: React.ReactNode; className?: string; title?: string }) {
   return <span className={cn('text-right text-[11px] tabular-nums', className)} title={title}>{children}</span>
 }
 const dash = <span className="text-zinc-700">–</span>
@@ -455,6 +455,7 @@ function DayColumnHeader() {
       <span className="hidden text-right sm:block">Landed</span>
       <span className="hidden text-right sm:block">No contact</span>
       <span className="hidden text-right sm:block">Errors</span>
+      <span />
     </div>
   )
 }
@@ -495,6 +496,7 @@ function DayGroup({ header, runs }: { header: DayHeader; runs: DjcRunDetail[] })
         </DayCell>
         <DayCell className="hidden text-zinc-600 sm:block">{s.noContact || dash}</DayCell>
         <DayCell className={cn('hidden sm:block', s.errors > 0 ? 'font-semibold text-red-400' : '')}>{s.errors || dash}</DayCell>
+        <span />
       </button>
       {open && (
         <div className="overflow-hidden rounded-xl ring-1 ring-zinc-700/40 divide-y divide-zinc-800/70">
@@ -512,6 +514,7 @@ function RunRow({ run, label }: { run: DjcRunDetail; label: string }) {
   const newCount = run.created + run.createSkippedGuard
   const interrupted = run.status === 'error' || run.status === 'session_expired'
   const running = run.status === 'running' && !run.finishedAt
+  const runLanded = run.viewsSpent > 0 ? Math.round((newCount / run.viewsSpent) * 100) : null
 
   async function toggle() {
     const next = !open; setOpen(next)
@@ -526,42 +529,45 @@ function RunRow({ run, label }: { run: DjcRunDetail; label: string }) {
   const time = label.replace(' ET', '')
   return (
     <div className={cn('transition-colors', open && 'bg-zinc-800/40')}>
-      <button onClick={toggle} className="flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-zinc-700/15">
+      {/* Same grid as the day header, so a run's numbers sit under the same column labels. A run
+          has no "runs" count, so that cell stays empty rather than showing a dash — a dash means
+          "none of this metric", which would be a lie here. */}
+      <button onClick={toggle} className={cn(DAY_GRID, 'w-full px-3 py-2 text-left transition-colors hover:bg-zinc-700/15')}>
         <StatusGlyph status={run.status} errorCount={run.unresolvedErrorCount} />
-        <span className="w-[74px] shrink-0 text-[12px] font-semibold text-zinc-100 tabular-nums">{time}</span>
-        <span className="min-w-0 flex-1 truncate text-[12px]">
+        <span className="flex min-w-0 items-baseline gap-2">
+          <span className="shrink-0 text-[12px] font-semibold text-zinc-100 tabular-nums">{time}</span>
           {interrupted ? (
-            <span className="text-red-400">Did not finish — {run.unresolvedErrorCount > 0 ? 'errored partway' : 'interrupted'}</span>
+            <span className="truncate text-[11px] text-red-400">
+              did not finish — {run.unresolvedErrorCount > 0 ? 'errored partway' : 'interrupted'}
+            </span>
           ) : running ? (
             /* A run in flight has counters that are still filling in. Reporting "no new candidates"
                against a half-written row read as a finished, empty run while the detail below
                already showed nine people added. */
-            <span className="text-cyan-300">
-              Running now
-              <span className="text-zinc-500"> · {run.viewsSpent > 0 ? `${run.viewsSpent} view${run.viewsSpent === 1 ? '' : 's'} so far` : 'counting…'}</span>
-            </span>
-          ) : (
-            <>
-              {newCount > 0 ? <span className="font-semibold text-cyan-300">{newCount} new</span>
-                : <span className="text-zinc-600">no new candidates</span>}
-              {run.duplicates > 0 && <span className="text-zinc-500"> · {run.duplicates} in SF</span>}
-              {run.viewsSpent > 0 && (
-                <span className="text-amber-300/80"> · {run.viewsSpent} view{run.viewsSpent === 1 ? '' : 's'}</span>
-              )}
-              {run.uncontactable > 0 && <span className="text-zinc-500"> · {run.uncontactable} no contact</span>}
-              {/* A failure a later run undid is history, not a fault — stated plainly rather than
-                  deleted, so the record stays honest without reading as a live problem. */}
-              {run.unresolvedErrorCount > 0 ? (
-                <span className="text-red-400"> · {run.unresolvedErrorCount} error{run.unresolvedErrorCount === 1 ? '' : 's'}</span>
-              ) : run.errorCount > 0 ? (
-                <span className="text-zinc-600" title="A step failed here and a later run redid it successfully"> · recovered</span>
-              ) : null}
-            </>
+            <span className="truncate text-[11px] text-cyan-300">running now</span>
+          ) : run.errorCount > 0 ? (
+            /* A failure a later run undid is history, not a fault — stated plainly rather than
+               deleted, so the record stays honest without reading as a live problem. */
+            <span className="truncate text-[11px] text-zinc-600" title="A step failed here and a later run redid it successfully">recovered</span>
+          ) : null}
+          {run.trigger === 'backfill' && <span className="shrink-0 rounded bg-violet-500/15 px-1.5 py-0.5 text-[9px] font-medium text-violet-300 ring-1 ring-violet-500/25">recovery</span>}
+          {run.writeMode !== 'live' && <span className="hidden shrink-0 rounded bg-zinc-700/30 px-1.5 py-0.5 text-[9px] text-zinc-500 sm:inline">test</span>}
+          {!interrupted && !running && (
+            <span className="shrink-0 text-[11px] text-zinc-700 tabular-nums">{formatDuration(run.durationSeconds)}</span>
           )}
         </span>
-        {run.trigger === 'backfill' && <span className="shrink-0 rounded bg-violet-500/15 px-1.5 py-0.5 text-[9px] font-medium text-violet-300 ring-1 ring-violet-500/25">recovery</span>}
-        {run.writeMode !== 'live' && <span className="hidden shrink-0 rounded bg-zinc-700/30 px-1.5 py-0.5 text-[9px] text-zinc-500 sm:inline">test</span>}
-        {!interrupted && <span className="shrink-0 text-[11px] text-zinc-600 tabular-nums">{formatDuration(run.durationSeconds)}</span>}
+        <DayCell />
+        <DayCell className={newCount > 0 ? 'font-semibold text-cyan-300' : ''}>{newCount || dash}</DayCell>
+        <DayCell className="text-zinc-500">{run.duplicates || dash}</DayCell>
+        <DayCell className={run.viewsSpent > 0 ? 'text-amber-300/80' : ''}>{run.viewsSpent || dash}</DayCell>
+        <DayCell className={cn('hidden sm:block', runLanded === null ? '' : runLanded >= 50 ? 'text-emerald-300' : 'text-zinc-500')}
+                 title="Share of this run's Profile Views that became a Salesforce contact">
+          {runLanded === null ? dash : `${runLanded}%`}
+        </DayCell>
+        <DayCell className="hidden text-zinc-600 sm:block">{run.uncontactable || dash}</DayCell>
+        <DayCell className={cn('hidden sm:block', run.unresolvedErrorCount > 0 ? 'font-semibold text-red-400' : '')}>
+          {run.unresolvedErrorCount || dash}
+        </DayCell>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={cn('shrink-0 text-zinc-600 transition-transform', open && 'rotate-180')}><path d="m6 9 6 6 6-6" /></svg>
       </button>
       {open && <div className="border-t border-cyan-500/15 bg-zinc-900/40 p-4">{loading ? <p className="py-6 text-center text-[13px] text-zinc-600">Loading…</p> : bundle ? <RunDetailBody run={run} bundle={bundle} /> : null}</div>}
