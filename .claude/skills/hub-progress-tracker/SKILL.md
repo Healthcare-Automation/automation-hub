@@ -1,62 +1,37 @@
 ---
 name: hub-progress-tracker
-description: Use after ANY meaningful change to Proxi automation hub (client dashboard) — shipped code, a deploy, a fix, a config or data change, or a blocker hit or cleared. Client-facing project, so the Notion To Dos board must reflect it. Not for reads, searches, planning, or routine intermediate steps.
+description: Use after ANY meaningful change to Proxi automation hub (client dashboard) — shipped code, a deploy, a fix, a config or data change, or a blocker hit or cleared. Client-facing project, so the Notion Tickets board must reflect it. Not for reads, searches, planning, or routine intermediate steps.
 ---
 
 # Proxi automation hub (client dashboard) — keep the client board current
 
 This is a **client-facing** project. Work that is not on the board is work the client cannot see.
 
-Board: **To Dos** → *Weekly To Dos* database (`38f23b11-7dfb-80c5-875e-ee8d2e71b9ba`)
-<https://app.notion.com/p/To-Dos-38d23b117dfb80bdafb7daa96bd747d1>
+Everything goes on the **Tickets** board (`38e23b11-7dfb-80a6-b9a4-d0c829d3a981`) via the global
+helper. The Weekly To Dos / Daily Tasks boards are retired as of 2026-08-11 — don't write to them.
 
-## Non-negotiables
+This project's engagement alias is **`hub`**, which fills both `Project Link` and `Client`.
 
-- **Update-existing rows only.** Never create or delete a row. Never touch Priority, Due, or Assign.
-- **All writes through the helper.** No ad-hoc Notion API calls:
-  `python3 ~/.claude/tools/notion_progress.py`
-- **Always pass `--project automation-hub`** so the log line says which system changed.
+```bash
+# 1. Reuse before creating — one ticket per project per session
+python3 ~/.claude/tools/notion_ticket.py list --engagement hub
 
-## Notes: one sentence, max 200 characters
+# 2. Ship something → file it, every field filled
+python3 ~/.claude/tools/notion_ticket.py create \
+  --title "<plain-English headline>" \
+  --engagement hub \
+  --status Done --priority Medium --category Reliability \
+  --problem  "<one line: what the client experienced>" \
+  --solution "<the permanent fix, plain English>"
 
-The helper rejects anything longer. `Latest Update` shows only the newest note; every note is also
-appended to the page as a dated log line, so the board becomes a running history — that only stays
-readable if each entry is short.
+# 3. More progress on the same thing → extend it
+python3 ~/.claude/tools/notion_ticket.py update --match "<words from the title>" \
+  --status Done --note "<one line>"
+```
 
-Write what changed and why it matters, in the client's words:
+See the global **`progress-tracker`** skill for how to choose Priority, Category, Backend Status
+and Acknowledged, and for the full field reference. Rules that matter most here:
 
-- Good — "Résumé check now runs before we pay for a profile, so fewer views are spent on duplicates."
-- Good — "Automation paused: DentistJobCafe view allowance ran out. Resumes when it refills."
-- Bad — "Fixed `_conserve_name_match` NameError in pipeline.py" (jargon, means nothing to them)
-- Bad — a paragraph explaining the whole change (the log becomes unreadable)
-
-No file names, function names, column names, IDs, or commit hashes.
-
-## When to update
-
-| Situation | Action |
-|---|---|
-| Starting substantive work on a board item | `--status "In progress"` + note |
-| Shipped it — deployed, merged, fixed, live | `--status "Done"` + note |
-| Milestone reached, or a blocker hit/cleared | note only, no status change |
-| Reads, searches, planning, questions, intermediate steps | **nothing** |
-
-## Procedure
-
-1. `python3 ~/.claude/tools/notion_progress.py list` — see what is open.
-2. If exactly one row clearly matches the work:
-   ```
-   python3 ~/.claude/tools/notion_progress.py update \
-     --match "<distinctive keyword from the row title>" \
-     --status "In progress" \
-     --note "<one sentence, under 200 chars>" \
-     --project automation-hub
-   ```
-3. If nothing matches, or several rows do, **skip and say so**. Never guess, never create a row.
-
-## What counts as meaningful here
-
-- A deploy that changes what the client sees
-- New metrics, charts, or pages
-- A number on the dashboard being wrong, and its correction
-- The dashboard being unavailable, and its fix
+- **Plain English only.** No file names, function names, IDs or commit hashes — a client reads these.
+- **Paste the ticket URL** when you report the work back. The helper prints it.
+- **Reads, searches, planning and intermediate steps are not logged.**

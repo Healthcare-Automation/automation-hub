@@ -432,10 +432,15 @@ function groupRunsByDay(runs: DjcRunDetail[]): { key: string; header: DayHeader;
 /* One grid for the column header and every day row, so the numbers stack into scannable columns
    instead of drifting with the width of the day's label. Zero renders as a dim dash rather than
    being dropped — an omitted chip shifts everything after it and breaks the column. */
-// Column counts must match the number of VISIBLE cells at each breakpoint — the three sm-only
-// cells are display:none below sm, so they leave the grid entirely rather than wrapping.
+// Column counts must match the number of VISIBLE cells at each breakpoint — cells marked sm-only
+// are display:none below sm, so they leave the grid entirely rather than wrapping.
+//
+// Phone layout keeps only New / Views / Landed. The old one asked for ~390px of row before the
+// card's own padding, which a 375px phone cannot give: the columns overflowed the card. Everything
+// fixed here totals 150px, so the label column can shrink to nothing and still fit a 320px screen.
 const DAY_GRID =
-  'grid items-center gap-x-2 grid-cols-[14px_minmax(104px,1fr)_repeat(3,44px)_52px_14px] ' +
+  'grid items-center gap-x-1.5 sm:gap-x-2 ' +
+  'grid-cols-[14px_minmax(0,1fr)_40px_40px_44px_12px] ' +
   'sm:grid-cols-[14px_minmax(120px,1fr)_repeat(4,52px)_60px_68px_52px_14px]'
 
 function DayCell({ children, className, title }: { children?: React.ReactNode; className?: string; title?: string }) {
@@ -448,11 +453,11 @@ function DayColumnHeader() {
     <div className={cn(DAY_GRID, 'px-1 text-[9px] uppercase tracking-wider text-zinc-600')}>
       <span />
       <span />
-      <span className="text-right">Runs</span>
+      <span className="hidden text-right sm:block">Runs</span>
       <span className="text-right">New</span>
-      <span className="text-right">In SF</span>
+      <span className="hidden text-right sm:block">In SF</span>
       <span className="text-right">Views</span>
-      <span className="hidden text-right sm:block">Landed</span>
+      <span className="text-right">Landed</span>
       <span className="hidden text-right sm:block">No contact</span>
       <span className="hidden text-right sm:block">Errors</span>
       <span />
@@ -482,13 +487,17 @@ function DayGroup({ header, runs }: { header: DayHeader; runs: DjcRunDetail[] })
         <span className="flex min-w-0 items-baseline gap-1.5">
           <span className={cn('truncate text-[12px] font-semibold', header.isToday ? 'text-cyan-300' : 'text-zinc-300')}>{header.primary}</span>
           <span className="shrink-0 text-[11px] text-zinc-600">{header.secondary}</span>
+          {s.errors > 0 && (
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-500 sm:hidden"
+                  title={`${s.errors} unresolved error${s.errors === 1 ? '' : 's'}`} />
+          )}
         </span>
-        <DayCell className="text-zinc-600">{s.runs}</DayCell>
+        <DayCell className="hidden text-zinc-600 sm:block">{s.runs}</DayCell>
         <DayCell className={s.newCount > 0 ? 'font-semibold text-cyan-300' : ''}>{s.newCount || dash}</DayCell>
-        <DayCell className="text-zinc-500">{s.duplicates || dash}</DayCell>
+        <DayCell className="hidden text-zinc-500 sm:block">{s.duplicates || dash}</DayCell>
         <DayCell className={s.views > 0 ? 'text-amber-300/80' : ''}>{s.views || dash}</DayCell>
         <DayCell
-          className={cn('hidden sm:block font-semibold',
+          className={cn('font-semibold',
             s.landed === null ? '' : s.landed >= 50 ? 'text-emerald-300' : s.landed >= 25 ? 'text-zinc-300' : 'text-zinc-500')}
           title="Share of the day's Profile Views that became a Salesforce contact"
         >
@@ -553,14 +562,14 @@ function RunRow({ run, label }: { run: DjcRunDetail; label: string }) {
           {run.trigger === 'backfill' && <span className="shrink-0 rounded bg-violet-500/15 px-1.5 py-0.5 text-[9px] font-medium text-violet-300 ring-1 ring-violet-500/25">recovery</span>}
           {run.writeMode !== 'live' && <span className="hidden shrink-0 rounded bg-zinc-700/30 px-1.5 py-0.5 text-[9px] text-zinc-500 sm:inline">test</span>}
           {!interrupted && !running && (
-            <span className="shrink-0 text-[11px] text-zinc-700 tabular-nums">{formatDuration(run.durationSeconds)}</span>
+            <span className="hidden shrink-0 text-[11px] text-zinc-700 tabular-nums sm:inline">{formatDuration(run.durationSeconds)}</span>
           )}
         </span>
-        <DayCell />
+        <DayCell className="hidden sm:block" />
         <DayCell className={newCount > 0 ? 'font-semibold text-cyan-300' : ''}>{newCount || dash}</DayCell>
-        <DayCell className="text-zinc-500">{run.duplicates || dash}</DayCell>
+        <DayCell className="hidden text-zinc-500 sm:block">{run.duplicates || dash}</DayCell>
         <DayCell className={run.viewsSpent > 0 ? 'text-amber-300/80' : ''}>{run.viewsSpent || dash}</DayCell>
-        <DayCell className={cn('hidden sm:block', runLanded === null ? '' : runLanded >= 50 ? 'text-emerald-300' : 'text-zinc-500')}
+        <DayCell className={cn(runLanded === null ? '' : runLanded >= 50 ? 'text-emerald-300' : 'text-zinc-500')}
                  title="Share of this run's Profile Views that became a Salesforce contact">
           {runLanded === null ? dash : `${runLanded}%`}
         </DayCell>
