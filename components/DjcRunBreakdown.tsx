@@ -404,6 +404,7 @@ function dayStats(runs: DjcRunDetail[]): DayStats {
   const sum = (f: (r: DjcRunDetail) => number) => runs.reduce((s, r) => s + f(r), 0)
   const newCount = sum(r => r.created + r.createSkippedGuard)
   const views = sum(r => r.viewsSpent)
+  const fromViews = sum(r => r.createdFromViews)
   return {
     runs: runs.length,
     newCount,
@@ -413,7 +414,7 @@ function dayStats(runs: DjcRunDetail[]): DayStats {
     errors: sum(r => r.unresolvedErrorCount),
     // Views are the scarce resource — 750 a month — so what a day's views bought is the number
     // that actually says whether the day went well. Undefined with no views: 0/0 is not 0%.
-    landed: views > 0 ? Math.round((newCount / views) * 100) : null,
+    landed: views > 0 ? Math.round((fromViews / views) * 100) : null,
   }
 }
 
@@ -523,7 +524,7 @@ function RunRow({ run, label }: { run: DjcRunDetail; label: string }) {
   const newCount = run.created + run.createSkippedGuard
   const interrupted = run.status === 'error' || run.status === 'session_expired'
   const running = run.status === 'running' && !run.finishedAt
-  const runLanded = run.viewsSpent > 0 ? Math.round((newCount / run.viewsSpent) * 100) : null
+  const runLanded = run.viewsSpent > 0 ? Math.round((run.createdFromViews / run.viewsSpent) * 100) : null
 
   async function toggle() {
     const next = !open; setOpen(next)

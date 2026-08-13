@@ -167,6 +167,7 @@ export async function getDjcRecentRuns(days = 14, cap = 400): Promise<DjcRunDeta
       error_count: number
       quota_blocked: number
       views_spent: number
+      created_from_views: number
       unresolved_error_count: number
     }[]
   >`
@@ -181,6 +182,7 @@ export async function getDjcRecentRuns(days = 14, cap = 400): Promise<DjcRunDeta
            coalesce(ev.error_count, 0)::int as error_count,
            coalesce(ev.quota_blocked, 0)::int as quota_blocked,
            coalesce(ev.views_spent, 0)::int as views_spent,
+           coalesce(ev.created_from_views, 0)::int as created_from_views,
            coalesce(ev2.unresolved_error_count, 0)::int as unresolved_error_count
     from djc_runs r
     left join lateral (
@@ -194,7 +196,21 @@ export async function getDjcRecentRuns(days = 14, cap = 400): Promise<DjcRunDeta
                  and e.candidate_id not in (
                    select candidate_id from djc_event_log b
                    where b.run_id = r.id and b.event_type = 'profile_view_quota_blocked'
-                     and b.candidate_id is not null)) as views_spent
+                     and b.candidate_id is not null)) as views_spent,
+             -- Contacts created FROM those same views. Dividing every contact the run created by
+             -- only its unblocked opens mixes two different groups of people: a candidate whose
+             -- reveal the quota wall blocked can still yield a contact from their résumé, landing
+             -- in the numerator while excluded from the denominator. That is how a run showed
+             -- "133% landed" on 2026-08-13.
+             count(distinct e.candidate_id) filter (
+               where e.event_type = 'contact_created'
+                 and e.candidate_id in (
+                   select v.candidate_id from djc_event_log v
+                   where v.run_id = r.id and v.event_type = 'profile_scraped'
+                     and v.candidate_id not in (
+                       select b2.candidate_id from djc_event_log b2
+                       where b2.run_id = r.id and b2.event_type = 'profile_view_quota_blocked'
+                         and b2.candidate_id is not null))) as created_from_views
       from djc_event_log e where e.run_id = r.id
     ) ev on true
     -- Errors a LATER run undid. A specialty whose list page timed out is recovered once a later run
@@ -249,6 +265,7 @@ export async function getDjcRecentRuns(days = 14, cap = 400): Promise<DjcRunDeta
     unresolvedErrorCount: r.unresolved_error_count,
     quotaBlocked: r.quota_blocked,
     viewsSpent: r.views_spent,
+    createdFromViews: r.created_from_views,
   }))
 }
 
@@ -505,14 +522,25 @@ export async function getDjcViewYield(months = 6): Promise<DjcViewYieldMonth[]> 
   const sql = djcSql
   if (!sql) return []
   const rows = await sql<{ month: string; views: number; created: number }[]>`
-    select to_char(date_trunc('month', created_at at time zone 'America/New_York'), 'YYYY-MM') as month,
-           (count(*) filter (where event_type = 'profile_scraped')
-            - count(*) filter (where event_type = 'profile_view_quota_blocked'))::int          as views,
-           count(*) filter (where event_type = 'contact_created')::int                          as created
-    from djc_event_log
-    where created_at >= date_trunc('month', now()) - make_interval(months => ${months - 1})
-    group by 1 order by 1
-  `
+    with viewed as (
+      -- One row per profile we actually paid to open, tagged with the month we opened it.
+      select distinct e.candidate_id,
+             to_char(date_trunc('month', e.created_at at time zone 'America/New_York'), 'YYYY-MM') as month
+      from djc_event_log e
+      where e.event_type = 'profile_scraped'
+        and e.created_at >= date_trunc('month', now()) - make_interval(months => ${months - 1})
+        and not exists (
+          select 1 from djc_event_log b
+          where b.run_id = e.run_id and b.candidate_id = e.candidate_id
+            and b.event_type = 'profile_view_quota_blocked')
+    )
+    select v.month,
+           count(*)::int as views,
+           count(*) filter (where exists (
+             select 1 from djc_event_log c
+             where c.candidate_id = v.candidate_id and c.event_type = 'contact_created'))::int as created
+    from viewed v
+    group by 1`
   return rows
     .filter(r => r.views > 0)
     .map(r => ({ month: r.month, views: r.views, created: r.created,

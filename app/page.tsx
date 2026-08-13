@@ -57,7 +57,7 @@ const loadDjcCached = unstable_cache(
   () => loadDjcUncached(),
   // Bump on every shape change: a stale entry satisfies the type at compile time and arrives with
   // the new fields undefined — here that silently read every errored run as "recovered".
-  ['djc-dashboard-bundle-v2-run-window'],
+  ['djc-dashboard-bundle-v3-cohort-landed'],
   { revalidate: 45 },
 )
 

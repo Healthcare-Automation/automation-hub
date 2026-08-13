@@ -48,6 +48,10 @@ export interface DjcRunDetail {
   unresolvedErrorCount: number
   quotaBlocked: number // candidates whose DJC profile couldn't be viewed — Profile Views quota hit
   viewsSpent: number // profiles actually opened, i.e. Profile Views charged for this run
+  // Contacts created FROM those same views. Kept separate from `created`, which also counts
+  // contacts recovered from candidates the quota wall blocked — mixing the two produced a
+  // "133% landed" run on 2026-08-13.
+  createdFromViews: number
 }
 
 export type DjcEventLevel = 'info' | 'warn' | 'error'
