@@ -77,7 +77,8 @@ export async function getDjcDailyStatus(): Promise<DjcDayStatus[]> {
                coalesce(max(u.n), 0)::int                                    as unresolved_errors,
                count(*)::int                                                 as total_runs,
                count(*) filter (where finished_at is not null)::int          as completed_runs,
-               count(*) filter (where status in ('error','session_expired'))::int as error_runs,
+               count(*) filter (where status in ('error','session_expired')
+                                  or status ~ '^reauth_failed: ')::int as error_runs,
                coalesce(sum(candidates_seen),0)::int                         as candidates_seen,
                coalesce(sum(candidates_selected),0)::int                     as candidates_selected,
                coalesce(sum(contactable),0)::int                             as contactable,
@@ -87,7 +88,8 @@ export async function getDjcDailyStatus(): Promise<DjcDayStatus[]> {
                coalesce(sum(errors),0)::int                                  as errors,
                array_agg(to_char(started_at, 'HH24:MI') || ' — ' || replace(status, '_', ' ')
                          order by started_at)
-                 filter (where status in ('error','session_expired'))        as error_run_details
+                 filter (where status in ('error','session_expired')
+                           or status ~ '^reauth_failed: ')    as error_run_details
         from djc_runs
         left join unresolved u on u.day = djc_runs.started_at::date
         where started_at >= now() - interval '90 days'
@@ -290,8 +292,9 @@ export async function getDjcRunDetail(runId: number): Promise<DjcRunDetailBundle
     >`
       select id, run_id::int, candidate_id, event_type, stage, level, message, payload, created_at
       from djc_event_log
-      where candidate_id in (select candidate_id from djc_candidates
-                             where first_seen_run = ${runId} or last_seen_run = ${runId})
+      where run_id = ${runId}
+         or candidate_id in (select candidate_id from djc_candidates
+                            where first_seen_run = ${runId} or last_seen_run = ${runId})
       order by id
     `,
     sql<
@@ -371,8 +374,10 @@ export async function getDjcRunDetail(runId: number): Promise<DjcRunDetailBundle
     eventType: e.event_type,
     stage: e.stage,
     level: e.level,
-    message: e.message,
-    payload: e.payload,
+    // Run-level authentication events are operational signals only. Never expose their diagnostic
+    // message or payload through the client-facing API, even if the UI currently ignores them.
+    message: e.candidate_id == null ? null : e.message,
+    payload: e.candidate_id == null ? null : e.payload,
     createdAt: e.created_at,
   }))
   const candidates: DjcCandidateRow[] = candRows.map(c => ({

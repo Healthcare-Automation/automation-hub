@@ -14,14 +14,23 @@ export interface DjcDayStatus {
   created: number
   createSkippedGuard: number
   errors: number
-  /** Runs that ended in error / session_expired (drives the red day bar). */
+  /** Runs that ended in error / session_expired / reauth_failed (drives the red day bar). */
   errorRuns: number
   /** "HH:MM — status" per failed run, UTC (for the day-bar details popover). */
   errorRunDetails: string[]
   status: DjcDayStatusKind
 }
 
-export type DjcRunStatus = 'ok' | 'running' | 'error' | 'session_expired'
+export type DjcRunStatus =
+  | 'ok'
+  | 'running'
+  | 'error'
+  | 'session_expired'
+  | `reauth_failed: ${string}`
+
+export function isDjcFailedStatus(status: string): boolean {
+  return status === 'error' || status === 'session_expired' || status.startsWith('reauth_failed:')
+}
 
 export interface DjcRunDetail {
   id: number

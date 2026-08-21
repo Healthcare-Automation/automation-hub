@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import type { DjcDayStatus, DjcRunDetail, DjcSummary, DjcProfileViews, DjcQuotaBlockedRow } from '@/lib/djcTypes'
+import { isDjcFailedStatus, type DjcDayStatus, type DjcRunDetail, type DjcSummary, type DjcProfileViews, type DjcQuotaBlockedRow } from '@/lib/djcTypes'
 import type { DjcViewYieldMonth } from '@/lib/djcQueries'
 import { cn, STATUS_DOT_COLORS, STATUS_COLORS, STATUS_LABELS, formatShortDate } from '@/lib/utils'
 import DjcStatusBarChart from './DjcStatusBarChart'
@@ -115,7 +115,7 @@ export default function DjcAutomationCard({ dailyStatus, recentRuns, summary, pr
   const blockedTotal = quotaBlocked.length
   const blockedNeedingView = quotaBlocked.filter(r => r.resolution === 'needs_view').length
   const statusKind = lastRun
-    ? lastRun.status === 'error' || lastRun.status === 'session_expired'
+    ? isDjcFailedStatus(lastRun.status)
       ? 'outage'
       : lastRun.status === 'running'
         ? 'operational'
