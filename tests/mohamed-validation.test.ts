@@ -17,7 +17,7 @@ function row(overrides: Partial<BillingSourceRow> = {}): BillingSourceRow {
     units: 4,
     chargeAmountCents: 10000,
     sandataStatus: 'verified',
-    eligibilityCoverages: ['HCBS Elderly, Blind, & Disabled Waiver'],
+    eligibilityCoverages: ['HCBS Elderly, Blind, & Disabled Waiver', 'Community First Choice Services'],
     ...overrides,
   }
 }
@@ -37,18 +37,24 @@ test('billing periods never exceed seven days', () => {
   ])
 })
 
-test('unverified Sandata rows are blocked with a clear reason', () => {
-  const [result] = evaluateBillingRows([row({ sandataStatus: 'pending' })])
-  assert.equal(result.disposition, 'blocked')
-  assert.ok(result.reasons.includes('sandata_not_verified'))
+test('Sandata status is informational, never a gate (client decision 2026-08-21)', () => {
+  for (const sandataStatus of ['pending', 'rejected', 'unknown', 'verified'] as const) {
+    const [result] = evaluateBillingRows([row({ sandataStatus })])
+    assert.equal(result.disposition, 'ready_for_review', sandataStatus)
+  }
 })
 
-test('member coverage must be active under an allowed program', () => {
-  const [result] = evaluateBillingRows([
-    row({ eligibilityCoverages: ['Unrelated Coverage'] }),
-  ])
-  assert.equal(result.disposition, 'blocked')
-  assert.ok(result.reasons.includes('qualifying_coverage_missing'))
+test('member must carry BOTH qualifying coverages', () => {
+  for (const eligibilityCoverages of [
+    [],
+    ['Unrelated Coverage'],
+    ['HCBS Elderly, Blind, & Disabled Waiver'],
+    ['Community First Choice Services'],
+  ]) {
+    const [result] = evaluateBillingRows([row({ eligibilityCoverages })])
+    assert.equal(result.disposition, 'blocked', eligibilityCoverages.join('+'))
+    assert.ok(result.reasons.includes('qualifying_coverage_missing'))
+  }
 })
 
 test('invalid member IDs and non-positive billing values are blocked', () => {

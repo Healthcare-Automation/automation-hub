@@ -22,10 +22,11 @@ export type BillingReviewItem = BillingSourceRow & {
   submissionAllowed: false
 }
 
-const ALLOWED_COVERAGES = new Set([
+// Client decision 2026-08-21: a member must carry BOTH coverages to be billable.
+export const REQUIRED_COVERAGES = [
   'HCBS Elderly, Blind, & Disabled Waiver',
   'Community First Choice Services',
-])
+] as const
 
 function parseDate(value: string): Date {
   const date = new Date(`${value}T00:00:00Z`)
@@ -92,8 +93,9 @@ export function evaluateBillingRows(rows: BillingSourceRow[]): BillingReviewItem
     if (!Number.isInteger(row.chargeAmountCents) || row.chargeAmountCents <= 0) {
       reasons.push('charge_amount_invalid')
     }
-    if (row.sandataStatus !== 'verified') reasons.push('sandata_not_verified')
-    if (!row.eligibilityCoverages.some(coverage => ALLOWED_COVERAGES.has(coverage))) {
+    // Sandata is deliberately NOT a gate (client decision 2026-08-21): the HCPF
+    // portal declines an unverified visit itself at submit time. Display only.
+    if (!REQUIRED_COVERAGES.every(coverage => row.eligibilityCoverages.includes(coverage))) {
       reasons.push('qualifying_coverage_missing')
     }
 

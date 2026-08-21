@@ -1,6 +1,8 @@
 import { evaluateBillingRows, splitBillingPeriod, type BillingSourceRow } from './mohamedValidation'
 import type { MohamedAutomationRun } from './mohamedTypes'
 
+const BOTH_COVERAGES = ['HCBS Elderly, Blind, & Disabled Waiver', 'Community First Choice Services']
+
 const rows: BillingSourceRow[] = [
   {
     sourceRowId: 'fixture-001',
@@ -12,11 +14,11 @@ const rows: BillingSourceRow[] = [
     units: 4,
     chargeAmountCents: 10000,
     sandataStatus: 'verified',
-    eligibilityCoverages: ['HCBS Elderly, Blind, & Disabled Waiver'],
+    eligibilityCoverages: BOTH_COVERAGES,
   },
   {
     sourceRowId: 'fixture-002',
-    memberRef: 'DEMO-B2',
+    memberRef: 'DEMO-A1',
     serviceDate: '2026-08-15',
     serviceCode: 'PERSONAL_CARE',
     procedureCode: 'T1019',
@@ -24,7 +26,7 @@ const rows: BillingSourceRow[] = [
     units: 2,
     chargeAmountCents: 5000,
     sandataStatus: 'pending',
-    eligibilityCoverages: ['Community First Choice Services'],
+    eligibilityCoverages: BOTH_COVERAGES,
   },
   {
     sourceRowId: 'fixture-003',
@@ -36,11 +38,13 @@ const rows: BillingSourceRow[] = [
     units: 3.5,
     chargeAmountCents: 8750,
     sandataStatus: 'verified',
-    eligibilityCoverages: ['Unrelated Coverage'],
+    eligibilityCoverages: ['Community First Choice Services'],
   },
 ]
 
 const items = evaluateBillingRows(rows)
+const ready = items.filter(item => item.disposition === 'ready_for_review').length
+const blocked = items.length - ready
 
 export const mohamedDemoRuns: MohamedAutomationRun[] = [
   {
@@ -49,12 +53,13 @@ export const mohamedDemoRuns: MohamedAutomationRun[] = [
     finishedAt: '2026-08-21T07:02:13.000Z',
     mode: 'dry_run',
     source: 'synthetic_fixture',
-    status: items.some(item => item.disposition === 'blocked') ? 'blocked' : 'review_ready',
+    status: blocked > 0 ? 'blocked' : 'review_ready',
     billingPeriods: splitBillingPeriod('2026-08-14', '2026-08-20'),
     stages: [
-      { name: 'AxisCare extraction', status: 'passed', detail: '3 synthetic rows extracted' },
-      { name: 'Billing rules', status: 'passed', detail: 'Every row evaluated with reason codes' },
-      { name: 'Sandata readiness', status: 'blocked', detail: '1 row is still pending verification' },
+      { name: 'AxisCare extraction', status: 'passed', detail: `${rows.length} synthetic rows extracted` },
+      { name: 'Billing rules', status: blocked > 0 ? 'blocked' : 'passed', detail: `${ready} ready, ${blocked} blocked (both coverages required)` },
+      { name: 'Claim assembly', status: 'passed', detail: `${ready} claims — one per member, service type and period` },
+      { name: 'Overlap guard', status: 'passed', detail: 'No overlapping dates for the same member and service' },
       { name: 'HCPF review navigation', status: 'not_run', detail: 'No portal values entered in fixture mode' },
       { name: 'Claim submission', status: 'not_run', detail: 'Submission is disabled' },
     ],
