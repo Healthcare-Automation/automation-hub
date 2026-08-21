@@ -63,6 +63,20 @@ test('invalid member IDs and non-positive billing values are blocked', () => {
   ])
 })
 
+test('invalid dates and missing service fields are blocked (parity with the Python rules)', () => {
+  const [result] = evaluateBillingRows([
+    row({ serviceDate: 'not-a-date', serviceCode: ' ', procedureCode: '' }),
+  ])
+  assert.equal(result.disposition, 'blocked')
+  for (const reason of ['service_date_invalid', 'service_code_missing', 'procedure_code_missing']) {
+    assert.ok(result.reasons.includes(reason), reason)
+  }
+  for (const bad of ['2026-02-30', '20260814', '08/14/2026']) {
+    const [r] = evaluateBillingRows([row({ serviceDate: bad })])
+    assert.ok(r.reasons.includes('service_date_invalid'), bad)
+  }
+})
+
 test('distinct services remain distinct review items', () => {
   const results = evaluateBillingRows([
     row(),

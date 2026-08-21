@@ -79,6 +79,14 @@ export function evaluateBillingRows(rows: BillingSourceRow[]): BillingReviewItem
   return rows.map(row => {
     const reasons: string[] = []
 
+    // Parity with src/mohamed_billing/rules.py::evaluate_rows (R13/R14).
+    let validDate = /^\d{4}-\d{2}-\d{2}$/.test(row.serviceDate)
+    if (validDate) {
+      try { parseDate(row.serviceDate) } catch { validDate = false }
+    }
+    if (!validDate) reasons.push('service_date_invalid')
+    if (!row.serviceCode.trim()) reasons.push('service_code_missing')
+    if (!row.procedureCode.trim()) reasons.push('procedure_code_missing')
     if (!/^[A-Za-z]/.test(row.memberRef)) reasons.push('member_id_invalid')
     if (!Number.isFinite(row.units) || row.units <= 0) reasons.push('units_invalid')
     if (!Number.isInteger(row.chargeAmountCents) || row.chargeAmountCents <= 0) {

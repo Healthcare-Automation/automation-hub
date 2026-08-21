@@ -13,6 +13,9 @@ const reasonLabels: Record<string, string> = {
   member_id_invalid: 'Member ID invalid',
   units_invalid: 'Units invalid',
   charge_amount_invalid: 'Charge amount invalid',
+  service_date_invalid: 'Service date invalid',
+  service_code_missing: 'Service code missing',
+  procedure_code_missing: 'Procedure code missing',
 }
 
 function money(cents: number) {
