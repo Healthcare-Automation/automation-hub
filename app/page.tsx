@@ -2,6 +2,7 @@ import { unstable_cache } from 'next/cache'
 import { getDailyStatus, getRecentRuns, getWeeklySummary, getPipelineBacklog } from '@/lib/queries'
 import { getDjcDailyStatus, getDjcRecentRuns, getDjcSummary, getDjcProfileViews, getDjcQuotaBlocked, getDjcViewYield } from '@/lib/djcQueries'
 import { isDjcConfigured } from '@/lib/djcDb'
+import { isDjcFailedStatus } from '@/lib/djcTypes'
 import { getCandidateBankBundle } from '@/lib/candidateBankQueries'
 import { isCandidateBankConfigured } from '@/lib/candidateBankDb'
 import CandidateBankCard from '@/components/CandidateBankCard'
@@ -173,7 +174,7 @@ export default async function Page() {
     ? (() => {
         const r = djcData.recentRuns[0]
         if (!r) return 'degraded'
-        if (r.status === 'error' || r.status === 'session_expired') return 'outage'
+        if (isDjcFailedStatus(r.status)) return 'outage'
         if (r.errorCount > 0) return 'degraded'
         return 'operational'
       })()

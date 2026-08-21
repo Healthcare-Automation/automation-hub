@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import type { DjcRunDetail, DjcRunDetailBundle, DjcEvent, DjcCandidateRow } from '@/lib/djcTypes'
+import { isDjcFailedStatus, type DjcRunDetail, type DjcRunDetailBundle, type DjcEvent, type DjcCandidateRow } from '@/lib/djcTypes'
 import { cn, formatDuration } from '@/lib/utils'
 
 /* Specialties we scrape — for the filter dropdown. */
@@ -16,6 +16,10 @@ const TARGETS = [
 const EVENT_COPY: Record<string, string> = {
   run_started: 'Run started', run_finished: 'Run finished', run_failed: 'Run failed',
   session_valid: 'Signed in to Dentist Job Cafe', session_expired: 'Sign-in expired — needs re-authentication',
+  session_reauthed: 'Automatic sign-in recovery succeeded',
+  session_reauth_failed: 'Automatic sign-in recovery failed',
+  otp_received: 'Verification code received', otp_delivery_timeout: 'Verification code timed out',
+  otp_provider_error: 'Verification-code channel unavailable',
   target_started: 'Searched specialty', target_completed: 'Finished specialty',
   candidate_selected: 'Opened candidate', profile_scraped: 'Read the candidate profile',
   profile_scrape_failed: 'Could not open the profile', cv_downloaded: 'Downloaded résumé',
@@ -98,7 +102,7 @@ const OUTCOME_STYLE: Record<OutcomeKind, string> = {
 function StatusGlyph({ status, errorCount }: { status: string; errorCount: number }) {
   if (status === 'running')
     return <span className="relative flex h-2 w-2" title="Running"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" /><span className="relative inline-flex h-2 w-2 rounded-full bg-cyan-500" /></span>
-  if (status === 'error' || status === 'session_expired') return <span className="h-2 w-2 rounded-full bg-red-500" title="Did not finish" />
+  if (isDjcFailedStatus(status)) return <span className="h-2 w-2 rounded-full bg-red-500" title="Did not finish" />
   if (errorCount > 0) return <span className="h-2 w-2 rounded-full bg-amber-500" title="Completed with warnings" />
   return <span className="h-2 w-2 rounded-full bg-emerald-500" title="Completed" />
 }
@@ -278,8 +282,26 @@ function CandidateGroup({ kind, title, rows, eventsBy, runId }: { kind: OutcomeK
 
 /* ── Run detail ───────────────────────────────────────────────────────── */
 
-function RunDetailBody({ run, bundle }: { run: DjcRunDetail; bundle: DjcRunDetailBundle }) {
+function RunActivity({ events }: { events: DjcEvent[] }) {
+  if (events.length === 0) return null
+  return (
+    <div className="rounded-lg bg-zinc-900/50 px-4 py-3 ring-1 ring-zinc-700/40">
+      <p className="mb-2 text-[10px] uppercase tracking-wider text-zinc-600">Run activity</p>
+      <ol className="space-y-1.5">
+        {events.map(e => (
+          <li key={e.id} className="flex items-center gap-2 text-[12px]">
+            <span className={cn('h-1 w-1 rounded-full', e.level === 'error' ? 'bg-red-500' : e.level === 'warn' ? 'bg-amber-500' : 'bg-zinc-600')} />
+            <span className="text-zinc-400">{EVENT_COPY[e.eventType] ?? e.eventType.replace(/_/g, ' ')}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  )
+}
+
+export function RunDetailBody({ run, bundle }: { run: DjcRunDetail; bundle: DjcRunDetailBundle }) {
   const eventsBy = new Map<string, DjcEvent[]>()
+  const runEvents = bundle.events.filter(e => e.candidateId == null)
   for (const e of bundle.events) { if (!e.candidateId) continue; const a = eventsBy.get(e.candidateId) ?? []; a.push(e); eventsBy.set(e.candidateId, a) }
   // Every OutcomeKind must have a group. 'blocked' was missing, so quota-blocked candidates fell
   // through find() and vanished — the groups then failed to sum to the number processed.
@@ -358,6 +380,7 @@ function RunDetailBody({ run, bundle }: { run: DjcRunDetail; bundle: DjcRunDetai
         </div>
         {run.writeMode !== 'live' && <p className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-amber-500/10 px-2 py-1 text-[11px] text-amber-300/90 ring-1 ring-amber-500/20"><span className="h-1.5 w-1.5 rounded-full bg-amber-400" />Test mode — no records were created or changed in Salesforce</p>}
       </div>
+      <RunActivity events={runEvents} />
       {bundle.candidates.length === 0 ? (
         <p className="py-4 text-center text-[13px] text-zinc-600">No candidates were in scope for this run.</p>
       ) : (
@@ -522,7 +545,7 @@ function RunRow({ run, label }: { run: DjcRunDetail; label: string }) {
   const [bundle, setBundle] = useState<DjcRunDetailBundle | null>(null)
   const [loading, setLoading] = useState(false)
   const newCount = run.created + run.createSkippedGuard
-  const interrupted = run.status === 'error' || run.status === 'session_expired'
+  const interrupted = isDjcFailedStatus(run.status)
   const running = run.status === 'running' && !run.finishedAt
   const runLanded = run.viewsSpent > 0 ? Math.round((run.createdFromViews / run.viewsSpent) * 100) : null
 
