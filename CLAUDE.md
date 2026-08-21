@@ -11,9 +11,11 @@ Client-facing status dashboard for the Proxi automations (Kimedics → SF, DJC �
 
 ## Commands
 - `npm run dev` — local dev
+- `npm test` — Node test suite (includes tenant-isolation and Mohamed dry-run rules)
+- `npm run typecheck` — TypeScript verification
 - `npm run build` — production build (run before deploying)
 - Deploy: `vercel --prod` (after the `vercel whoami` check above)
-- No test or lint scripts exist. Ad-hoc debug scripts in `scripts/` run with `npx tsx scripts/<file>.ts`.
+- Ad-hoc debug scripts in `scripts/` run with `npx tsx scripts/<file>.ts`.
 
 ## Architecture
 - `app/page.tsx` — main dashboard; server component, fetches all data

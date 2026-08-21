@@ -202,8 +202,12 @@ export default async function Page() {
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-12 space-y-10">
 
         {/* Top nav */}
-        <header className="flex items-center justify-between">
+        <header className="flex items-center justify-between gap-4">
           <ProxiLogo />
+          <nav className="flex rounded-lg border border-zinc-700/60 bg-zinc-900/60 p-1 text-xs">
+            <a href="/" className="rounded-md bg-white px-3 py-1.5 font-medium text-zinc-900">Proxi</a>
+            <a href="/mohamed" className="rounded-md px-3 py-1.5 text-zinc-400 transition-colors hover:text-white">Mohamed</a>
+          </nav>
         </header>
 
         {/* Aggregate health across all automations */}
