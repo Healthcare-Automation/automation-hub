@@ -1,4 +1,6 @@
 import type { MohamedAutomationRun } from '@/lib/mohamedTypes'
+import type { RunLedgerSnapshot } from '@/lib/mohamedLedger'
+import { RunTrace } from './RunTrace'
 
 const stageStyles = {
   passed: 'bg-emerald-50 text-emerald-800 border-emerald-200',
@@ -22,7 +24,15 @@ function money(cents: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100)
 }
 
-export function MohamedDashboard({ runs, isAdmin }: { runs: MohamedAutomationRun[]; isAdmin: boolean }) {
+export function MohamedDashboard({
+  runs,
+  ledger,
+  isAdmin,
+}: {
+  runs: MohamedAutomationRun[]
+  ledger?: RunLedgerSnapshot
+  isAdmin: boolean
+}) {
   const latest = runs[0]
   const ready = latest?.items.filter(item => item.disposition === 'ready_for_review').length ?? 0
   const blocked = latest?.items.filter(item => item.disposition === 'blocked').length ?? 0
@@ -91,6 +101,8 @@ export function MohamedDashboard({ runs, isAdmin }: { runs: MohamedAutomationRun
               ))}
             </div>
           </section>
+
+          {ledger && <RunTrace ledger={ledger} />}
 
           <section className="mt-7 overflow-hidden rounded-2xl border border-zinc-200 bg-white">
             <div className="border-b border-zinc-200 px-5 py-4">
