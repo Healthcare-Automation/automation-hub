@@ -3,7 +3,7 @@
 # automation-hub
 
 ## Deployment account
-- This is a Proxi CLIENT project. Vercel deploys use **proxi@scrubnetwork.com** (client account), NEVER the personal account (anddy0622@gmail.com).
+- This is a Proxi CLIENT project. Vercel deploys use **andy@uzu.studio** (Uzu Studio, scope `uzu-studio`; migrated off proxi@scrubnetwork.com), NEVER the personal account (anddy0622@gmail.com).
 - Run `vercel whoami` before any deploy.
 
 ## What this is

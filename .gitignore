@@ -42,3 +42,24 @@ next-env.d.ts
 
 # Local env (contains DB credentials)
 .env.local
+
+# Portable Mac + VPS development
+!.env.example
+!.env.local.example
+dist/
+.playwright/
+.cache/
+tmp/
+temp/
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.stfolder
+.stignore
+.stversions/
+.syncthing.*.tmp
+scripts/_*.ts
+.claude/settings.local.json
+.claude/*.local.json
