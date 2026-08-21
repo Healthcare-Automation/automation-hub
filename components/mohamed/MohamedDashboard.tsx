@@ -38,7 +38,11 @@ export function MohamedDashboard({ runs, isAdmin }: { runs: MohamedAutomationRun
               <a href="/mohamed" className="rounded-md bg-zinc-900 px-3 py-1.5 text-white">Mohamed</a>
             </nav>
           )}
-          {!isAdmin && <a href="/api/mohamed/logout" className="text-zinc-500 hover:text-zinc-900">Sign out</a>}
+          {!isAdmin && (
+            <form method="post" action="/api/mohamed/logout">
+              <button type="submit" className="text-zinc-500 hover:text-zinc-900">Sign out</button>
+            </form>
+          )}
         </div>
       </header>
 

@@ -60,6 +60,9 @@ export async function proxy(req: NextRequest) {
 
   if (pathname.startsWith('/api/reports/')) {
     if (isAdmin) return NextResponse.next()
+    // Sending impact-report emails is triggered only from the admin dashboard
+    // and reaches an external SMTP endpoint: admin only, never a client cookie.
+    if (pathname === '/api/reports/send') return unauthorizedApi()
     const isClient = await verifyClientCookieValue(req.cookies.get(CLIENT_COOKIE_NAME)?.value)
     return isClient ? NextResponse.next() : unauthorizedApi()
   }

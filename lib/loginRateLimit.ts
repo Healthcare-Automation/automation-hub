@@ -26,7 +26,14 @@ function prune(now: number) {
   for (const [key, entry] of attempts) {
     if (entry.resetsAt <= now) attempts.delete(key)
   }
-  // Hard bound: evict the oldest reservations if expiry alone did not free space.
+  // Hard bound: evict oldest UNLOCKED reservations first, so a flood of fresh
+  // keys cannot push out a bucket that is currently enforcing a lockout.
+  if (attempts.size >= MAX_KEYS) {
+    for (const [key, entry] of attempts) {
+      if (attempts.size < MAX_KEYS) break
+      if (entry.count < MAX_ATTEMPTS) attempts.delete(key)
+    }
+  }
   while (attempts.size >= MAX_KEYS) {
     const oldest = attempts.keys().next().value
     if (oldest === undefined) break
@@ -34,13 +41,20 @@ function prune(now: number) {
   }
 }
 
+/**
+ * Client key for the limiter.
+ *
+ * Trust model: on Vercel the platform overwrites x-real-ip and x-forwarded-for
+ * with the connecting client, so neither is spoofable there. Off-platform (local
+ * dev, another host) only the LAST x-forwarded-for hop is used — that is the one
+ * appended by the nearest proxy, whereas a client can prepend arbitrary values.
+ * If no header is present at all, every request shares one bucket (fail closed).
+ */
 export function loginClientKey(req: NextRequest, tenant: string): string {
-  // Prefer the single-valued header the platform sets for the connecting client.
-  // x-forwarded-for is a list the client can prepend to on hosts that do not
-  // overwrite it, so it is only the last resort.
   const realIp = req.headers.get('x-real-ip')?.trim()
-  const forwarded = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-  const address = realIp || forwarded || 'unknown'
+  const hops = (req.headers.get('x-forwarded-for') || '').split(',').map((hop) => hop.trim()).filter(Boolean)
+  const lastHop = hops.length ? hops[hops.length - 1] : ''
+  const address = realIp || lastHop || 'unknown'
   return `${tenant}:${address.slice(0, 80)}`
 }
 

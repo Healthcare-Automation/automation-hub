@@ -135,6 +135,19 @@ test('Proxi client can use report APIs but cannot open admin intelligence', asyn
   }
 })
 
+test('sending impact-report emails is admin only', async () => {
+  const proxi = await buildClientCookieValue()
+  const mohamed = await buildMohamedCookieValue()
+  const denied: Record<string, string>[] = [{}, { ah_client: proxi }, { [MOHAMED_COOKIE_NAME]: mohamed }]
+  for (const cookies of denied) {
+    const response = await proxy(request('/api/reports/send', cookies))
+    assert.equal(response.status, 401)
+  }
+  const admin = await buildAdminCookieValue()
+  const allowed = await proxy(request('/api/reports/send', { ah_admin: admin }))
+  assert.equal(allowed.headers.get('x-middleware-next'), '1')
+})
+
 test('admin session can cross Proxi and Mohamed tenant routes', async () => {
   const admin = await buildAdminCookieValue()
   for (const path of ['/', '/djc/overview', '/api/djc/summary', '/mohamed']) {
