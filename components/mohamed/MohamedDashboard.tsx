@@ -1,6 +1,8 @@
 import type { MohamedAutomationRun } from '@/lib/mohamedTypes'
 import type { RunLedgerSnapshot } from '@/lib/mohamedLedger'
+import type { RunHistoryItem } from '@/lib/mohamedQueries'
 import { RunTrace } from './RunTrace'
+import { RunHistory } from './RunHistory'
 
 const stageStyles = {
   passed: 'bg-emerald-50 text-emerald-800 border-emerald-200',
@@ -27,10 +29,14 @@ function money(cents: number) {
 export function MohamedDashboard({
   runs,
   ledger,
+  ledgerSource = 'synthetic',
+  history = [],
   isAdmin,
 }: {
   runs: MohamedAutomationRun[]
   ledger?: RunLedgerSnapshot
+  ledgerSource?: 'live' | 'synthetic' | 'unavailable'
+  history?: RunHistoryItem[]
   isAdmin: boolean
 }) {
   const latest = runs[0]
@@ -102,7 +108,19 @@ export function MohamedDashboard({
             </div>
           </section>
 
-          {ledger && <RunTrace ledger={ledger} />}
+          {ledger && (
+            <>
+              {ledgerSource !== 'live' && (
+                <p className="mt-7 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2 text-xs text-zinc-600">
+                  {ledgerSource === 'unavailable'
+                    ? 'The run ledger store is unreachable right now — showing the synthetic run from the fixture pipeline.'
+                    : 'Showing the synthetic run from the fixture pipeline. Live runs appear here once the ledger store is connected.'}
+                </p>
+              )}
+              <RunTrace ledger={ledger} />
+              <RunHistory history={history} selectedRunId={ledger.run_id} />
+            </>
+          )}
 
           <section className="mt-7 overflow-hidden rounded-2xl border border-zinc-200 bg-white">
             <div className="border-b border-zinc-200 px-5 py-4">
