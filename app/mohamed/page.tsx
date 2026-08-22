@@ -5,6 +5,7 @@ import demoLedger from '@/lib/mohamedDemoLedger.json'
 import type { RunLedgerSnapshot } from '@/lib/mohamedLedger'
 import { isMohamedLedgerConfigured } from '@/lib/mohamedDb'
 import { getMohamedLedger, getMohamedRunHistory, type RunHistoryItem } from '@/lib/mohamedQueries'
+import { getInFlightRunRequest, type RunRequestRow } from '@/lib/mohamedRunRequests'
 import { MohamedDashboard } from '@/components/mohamed/MohamedDashboard'
 
 export const dynamic = 'force-dynamic'
@@ -17,12 +18,18 @@ export default async function MohamedPage({ searchParams }: { searchParams: Prom
   let ledger: RunLedgerSnapshot = demoLedger as RunLedgerSnapshot
   let history: RunHistoryItem[] = []
   let ledgerSource: 'live' | 'synthetic' | 'unavailable' = 'synthetic'
+  let inFlight: RunRequestRow | null = null
 
   if (isMohamedLedgerConfigured) {
     try {
       const selected = typeof run === 'string' && /^[0-9a-f]{32}$/.test(run) ? run : undefined
-      const [live, runs] = await Promise.all([getMohamedLedger(selected), getMohamedRunHistory()])
+      const [live, runs, request] = await Promise.all([
+        getMohamedLedger(selected),
+        getMohamedRunHistory(),
+        isAdmin ? getInFlightRunRequest() : Promise.resolve(null),
+      ])
       history = runs
+      inFlight = request
       if (live) {
         ledger = live
         ledgerSource = 'live'
@@ -40,6 +47,7 @@ export default async function MohamedPage({ searchParams }: { searchParams: Prom
       ledgerSource={ledgerSource}
       history={history}
       isAdmin={isAdmin}
+      inFlight={inFlight}
     />
   )
 }

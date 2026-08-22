@@ -1,8 +1,11 @@
 import type { MohamedAutomationRun } from '@/lib/mohamedTypes'
 import type { RunLedgerSnapshot } from '@/lib/mohamedLedger'
 import type { RunHistoryItem } from '@/lib/mohamedQueries'
+import type { RunRequestRow } from '@/lib/mohamedRunRequests'
+import { describeFailure, summariseInPlainLanguage } from '@/lib/mohamedLedger'
 import { RunTrace } from './RunTrace'
 import { RunHistory } from './RunHistory'
+import { TriggerRunButton } from './TriggerRunButton'
 
 const stageStyles = {
   passed: 'bg-emerald-50 text-emerald-800 border-emerald-200',
@@ -26,22 +29,43 @@ function money(cents: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100)
 }
 
+function timeAgo(iso: string | null | undefined): string {
+  if (!iso) return 'never'
+  const ms = Date.now() - new Date(iso).getTime()
+  const mins = Math.round(ms / 60_000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins} min ago`
+  const hours = Math.round(mins / 60)
+  if (hours < 24) return `${hours}h ago`
+  return `${Math.round(hours / 24)}d ago`
+}
+
+const statusHero = {
+  review_ready: { border: 'border-emerald-200', bg: 'bg-emerald-50', badge: 'bg-emerald-600 text-white', label: 'Working' },
+  blocked: { border: 'border-amber-200', bg: 'bg-amber-50', badge: 'bg-amber-500 text-white', label: 'Needs attention' },
+  failed: { border: 'border-red-200', bg: 'bg-red-50', badge: 'bg-red-600 text-white', label: 'Stopped' },
+} as const
+
 export function MohamedDashboard({
   runs,
   ledger,
   ledgerSource = 'synthetic',
   history = [],
   isAdmin,
+  inFlight = null,
 }: {
   runs: MohamedAutomationRun[]
   ledger?: RunLedgerSnapshot
   ledgerSource?: 'live' | 'synthetic' | 'unavailable'
   history?: RunHistoryItem[]
   isAdmin: boolean
+  inFlight?: RunRequestRow | null
 }) {
   const latest = runs[0]
   const ready = latest?.items.filter(item => item.disposition === 'ready_for_review').length ?? 0
   const blocked = latest?.items.filter(item => item.disposition === 'blocked').length ?? 0
+  const hero = ledger ? statusHero[ledger.status] : null
+  const failureDetail = ledger ? describeFailure(ledger) : null
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
@@ -65,15 +89,45 @@ export function MohamedDashboard({
         </div>
       </header>
 
-      <section className="mt-7 rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-emerald-800">Validation mode</p>
-            <p className="mt-1 text-sm text-emerald-900">No claims are submitted. Every result stays in review.</p>
+      {/* Status hero: the ONE thing to read if you read nothing else. Plain language,
+          no jargon, answers "is this working" before anything else on the page. */}
+      {ledger && hero ? (
+        <section className={`mt-7 rounded-2xl border p-5 ${hero.border} ${hero.bg}`}>
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${hero.badge}`}>{hero.label}</span>
+                <span className="text-[11px] text-zinc-500">
+                  Last run {timeAgo(ledger.finished_at ?? ledger.started_at)} · Validation mode: no claims are submitted, ever
+                </span>
+              </div>
+              <p className="mt-2 text-sm font-medium text-zinc-900">{summariseInPlainLanguage(ledger)}</p>
+              {failureDetail && (
+                <p className="mt-2 rounded-lg bg-white/60 px-3 py-2 font-mono text-[11px] text-red-800">{failureDetail}</p>
+              )}
+            </div>
+            {isAdmin && <TriggerRunButton inFlight={inFlight} />}
           </div>
-          <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-emerald-800">Dry run only</span>
-        </div>
-      </section>
+        </section>
+      ) : (
+        <section className="mt-7 rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-emerald-800">Validation mode</p>
+              <p className="mt-1 text-sm text-emerald-900">No claims are submitted. Every result stays in review.</p>
+            </div>
+            <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-emerald-800">Dry run only</span>
+          </div>
+        </section>
+      )}
+
+      {ledger && ledgerSource !== 'live' && (
+        <p className="mt-3 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2 text-xs text-zinc-600">
+          {ledgerSource === 'unavailable'
+            ? 'The run ledger store is unreachable right now — showing the last synthetic run instead.'
+            : 'Showing a synthetic run. Live runs appear here once one has completed.'}
+        </p>
+      )}
 
       <section className="mt-5 grid gap-3 sm:grid-cols-3">
         {[
@@ -93,7 +147,7 @@ export function MohamedDashboard({
           <section className="mt-7">
             <div className="mb-3 flex items-end justify-between gap-3">
               <div>
-                <h2 className="text-base font-semibold">Latest automation run</h2>
+                <h2 className="text-base font-semibold">Pipeline stages</h2>
                 <p className="mt-0.5 text-xs text-zinc-500">{latest.id} · synthetic fixture</p>
               </div>
               <span className="text-xs text-zinc-500">{latest.billingPeriods.map(period => `${period.startDate} to ${period.endDate}`).join(', ')}</span>
@@ -110,13 +164,6 @@ export function MohamedDashboard({
 
           {ledger && (
             <>
-              {ledgerSource !== 'live' && (
-                <p className="mt-7 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2 text-xs text-zinc-600">
-                  {ledgerSource === 'unavailable'
-                    ? 'The run ledger store is unreachable right now — showing the synthetic run from the fixture pipeline.'
-                    : 'Showing the synthetic run from the fixture pipeline. Live runs appear here once the ledger store is connected.'}
-                </p>
-              )}
               <RunTrace ledger={ledger} />
               <RunHistory history={history} selectedRunId={ledger.run_id} />
             </>

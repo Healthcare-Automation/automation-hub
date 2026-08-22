@@ -125,6 +125,30 @@ export function describeFailure(ledger: RunLedgerSnapshot): string | null {
   return `${where}${what ? ` › ${what}` : ''}${claim}: ${failure.code ?? 'failed'} at event #${failure.seq}`
 }
 
+/** A single plain-language sentence for someone who does not want to read an event log.
+ * This is the first thing a non-technical reader should see. */
+export function summariseInPlainLanguage(ledger: RunLedgerSnapshot): string {
+  const claims = summariseClaims(ledger)
+  const reached = claims.filter(c => c.reachedReview).length
+  const failed = claims.filter(c => !c.reachedReview).length
+  const blockedStage = ledger.stages.find(s => s.stage === 'billing_rules')
+
+  if (ledger.status === 'failed') {
+    const failure = ledger.first_failure
+    const where = failure ? STAGE_LABELS[failure.stage] : 'an unknown stage'
+    return `Stopped during ${where.toLowerCase()} — ${reached} claim${reached === 1 ? '' : 's'} made it through before the run failed. Nothing was submitted.`
+  }
+  if (reached === 0 && failed === 0) {
+    return blockedStage?.status === 'blocked'
+      ? 'No claims were built — every row this run saw was blocked by a billing rule (see Billing rules below for why).'
+      : 'This run found nothing to bill.'
+  }
+  if (failed > 0) {
+    return `${reached} of ${reached + failed} claim${reached + failed === 1 ? '' : 's'} reached HCPF Review; ${failed} did not. Nothing was submitted — review is required either way.`
+  }
+  return `All ${reached} claim${reached === 1 ? '' : 's'} reached HCPF Review successfully. Nothing was submitted — this is a dry run.`
+}
+
 const IDENTIFIER_LIKE = /[A-Z]{2,}-?[A-Z0-9]{2,}|\d{4}-\d{2}-\d{2}/
 
 /** Defensive check used by tests and by the ingest path: a ledger must not contain identifier-like strings in free positions. */
