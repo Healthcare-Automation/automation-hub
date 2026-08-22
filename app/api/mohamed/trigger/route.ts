@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ADMIN_COOKIE_NAME, verifyAdminCookieValue } from '@/lib/adminAuth'
 import { enqueueRunRequest, getInFlightRunRequest, EnqueueError } from '@/lib/mohamedRunRequests'
 
+// Same reasoning as app/mohamed/page.tsx: co-locate with the Tokyo-region
+// Mohamed Supabase project instead of paying a trans-Pacific round trip.
+export const preferredRegion = 'hnd1'
+
 /**
  * Admin-only: Mohamed can view run results but does not operate the pipeline.
  * A VPS-side systemd timer polls mohamed_run_requests every ~1 minute and picks

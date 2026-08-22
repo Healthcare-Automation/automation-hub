@@ -16,8 +16,13 @@ function createMohamedSql(): ReturnType<typeof postgres> | null {
   if (!url) return null
   return postgres(url, {
     ssl: 'require',
-    // Same footprint rules as the other Supabase poolers (2026-07-24 EMAXCONNSESSION outage).
-    max: 1,
+    // This is a dedicated pooler for the Mohamed project alone (2 roles:
+    // hub_reader, vps_writer) — not the shared DJC/Kimedics pooler that hit
+    // EMAXCONNSESSION from too many idle connections. max:3 (not 1) lets the
+    // page's Promise.all([ledger, history, inFlight]) actually run those
+    // queries in parallel instead of queuing behind each other on one
+    // connection, which was serializing what should be a single round trip.
+    max: 3,
     idle_timeout: 5,
     max_lifetime: 1800,
     connect_timeout: 10,

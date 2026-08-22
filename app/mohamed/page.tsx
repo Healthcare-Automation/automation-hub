@@ -9,6 +9,12 @@ import { getInFlightRunRequest, type RunRequestRow } from '@/lib/mohamedRunReque
 import { MohamedDashboard } from '@/components/mohamed/MohamedDashboard'
 
 export const dynamic = 'force-dynamic'
+// The Mohamed Supabase project lives in ap-northeast-1 (Tokyo). Vercel's default
+// function region is US East (iad1) — every query was paying a ~200-250ms
+// trans-Pacific round trip, times 2-3 sequential-ish queries, before the page
+// could render. Running the function itself in Tokyo (hnd1) instead cuts that
+// to a same-region call. This is the single biggest lever on /mohamed's load time.
+export const preferredRegion = 'hnd1'
 
 export default async function MohamedPage({ searchParams }: { searchParams: Promise<{ run?: string }> }) {
   const cookieStore = await cookies()

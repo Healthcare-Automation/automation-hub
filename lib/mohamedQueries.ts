@@ -114,6 +114,13 @@ export async function getMohamedRunHistory(limit = 20): Promise<RunHistoryItem[]
 export async function getMohamedLedger(runId?: string): Promise<RunLedgerSnapshot | null> {
   const sql = mohamedSql
   if (!sql) return null
+  // Two queries (run row, then its events) instead of one join: mohamed_run_events
+  // can be a few hundred rows for a busy run, and a join would repeat every run
+  // column on every event row over the wire for no benefit — cheaper to fetch the
+  // one run row separately. They still run back-to-back on the SAME awaited call
+  // here, but this function itself now runs in parallel with getMohamedRunHistory
+  // and getInFlightRunRequest (see app/mohamed/page.tsx's Promise.all), which is
+  // where the real serialization was.
   const runs = runId
     ? await sql<RunRow[]>`select * from mohamed_runs where run_id = ${runId} limit 1`
     : await sql<RunRow[]>`select * from mohamed_runs order by started_at desc limit 1`
