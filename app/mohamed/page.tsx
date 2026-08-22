@@ -7,6 +7,7 @@ import { isMohamedLedgerConfigured } from '@/lib/mohamedDb'
 import { getMohamedLedger, getMohamedRunHistory, type RunHistoryItem } from '@/lib/mohamedQueries'
 import { getInFlightRunRequest, type RunRequestRow } from '@/lib/mohamedRunRequests'
 import { MohamedDashboard } from '@/components/mohamed/MohamedDashboard'
+import { LiveDashboardRefresh } from '@/components/LiveDashboardRefresh'
 
 export const dynamic = 'force-dynamic'
 // The Mohamed Supabase project lives in ap-northeast-1 (Tokyo). Vercel's default
@@ -47,13 +48,20 @@ export default async function MohamedPage({ searchParams }: { searchParams: Prom
   }
 
   return (
-    <MohamedDashboard
-      runs={mohamedDemoRuns}
-      ledger={ledger}
-      ledgerSource={ledgerSource}
-      history={history}
-      isAdmin={isAdmin}
-      inFlight={inFlight}
-    />
+    <>
+      {/* Auto-refresh so Andy never has to hit reload: fast (5s) while a run
+          is actively in flight so "pending" resolves on its own, slower
+          (20s) the rest of the time. Only mounted for admins — Mohamed's
+          view doesn't have a trigger button, so there's nothing to wait on. */}
+      {isAdmin && <LiveDashboardRefresh intervalMs={inFlight ? 5_000 : 20_000} />}
+      <MohamedDashboard
+        runs={mohamedDemoRuns}
+        ledger={ledger}
+        ledgerSource={ledgerSource}
+        history={history}
+        isAdmin={isAdmin}
+        inFlight={inFlight}
+      />
+    </>
   )
 }

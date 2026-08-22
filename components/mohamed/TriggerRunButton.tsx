@@ -18,7 +18,10 @@ export function TriggerRunButton({ inFlight }: { inFlight: { status: string; req
         setError(data.error ?? 'Could not queue the run.')
         return
       }
-      setMessage('Run queued. The VPS checks for new runs about once a minute — refresh in a bit to see it start.')
+      // Nothing more to do here: LiveDashboardRefresh (mounted on the page)
+      // soft-refreshes every 15s, so the "in flight" banner and eventual
+      // result show up on their own — no manual refresh needed.
+      setMessage('Run queued — the page updates on its own, no need to refresh.')
     } catch {
       setError('Network error — could not reach the hub.')
     } finally {
@@ -28,9 +31,10 @@ export function TriggerRunButton({ inFlight }: { inFlight: { status: string; req
 
   if (inFlight) {
     return (
-      <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-900">
-        A run is already <span className="font-semibold">{inFlight.status}</span> (queued {inFlight.requestedAt.slice(11, 16)} UTC).
-        Refresh to check progress.
+      <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-900">
+        <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-amber-500" />
+        A run is <span className="font-semibold">{inFlight.status}</span> (queued {inFlight.requestedAt.slice(11, 16)} UTC) —
+        this updates on its own.
       </div>
     )
   }
