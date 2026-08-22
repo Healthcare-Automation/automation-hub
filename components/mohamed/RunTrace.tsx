@@ -26,6 +26,10 @@ function clock(iso: string) {
   return iso.slice(11, 23)
 }
 
+function money(cents: number) {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100)
+}
+
 export function RunTrace({ ledger }: { ledger: RunLedgerSnapshot }) {
   const failure = describeFailure(ledger)
   const claims = summariseClaims(ledger)
@@ -82,12 +86,15 @@ export function RunTrace({ ledger }: { ledger: RunLedgerSnapshot }) {
         <div className="mt-4 overflow-hidden rounded-2xl border border-zinc-200 bg-white">
           <div className="border-b border-zinc-200 px-5 py-3">
             <h3 className="text-sm font-semibold">Claims in this run</h3>
-            <p className="mt-0.5 text-xs text-zinc-500">Claim refs are keyed hashes — no member data is stored or shown.</p>
+            <p className="mt-0.5 text-xs text-zinc-500">
+              Claim refs are keyed hashes — no member ID, name, or date is stored or shown. Procedure, modifiers,
+              units, and charge are real billing specifics (not member-identifying) so a live run can be verified.
+            </p>
           </div>
           <table className="w-full text-left text-xs">
             <thead className="bg-zinc-50 text-zinc-500">
               <tr>
-                {['Claim ref', 'Portal actions', 'Result', 'Stopped at'].map(label => (
+                {['Claim ref', 'Procedure', 'Modifiers', 'Units', 'Charge', 'Portal actions', 'Result', 'Stopped at'].map(label => (
                   <th key={label} className="px-4 py-2 font-medium">{label}</th>
                 ))}
               </tr>
@@ -96,6 +103,10 @@ export function RunTrace({ ledger }: { ledger: RunLedgerSnapshot }) {
               {claims.map(claim => (
                 <tr key={claim.claimRef}>
                   <td className="px-4 py-2 font-mono">{claim.claimRef}</td>
+                  <td className="px-4 py-2 font-mono uppercase">{claim.procedureCode ?? '—'}</td>
+                  <td className="px-4 py-2 font-mono uppercase">{claim.modifiers && claim.modifiers !== 'none' ? claim.modifiers.replaceAll('_', ', ') : '—'}</td>
+                  <td className="px-4 py-2">{claim.unitsX100 != null ? (claim.unitsX100 / 100).toFixed(2) : '—'}</td>
+                  <td className="px-4 py-2">{claim.chargeCents != null ? money(claim.chargeCents) : '—'}</td>
                   <td className="px-4 py-2">{claim.portalActions}</td>
                   <td className="px-4 py-2">
                     <span className={`rounded-full px-2 py-0.5 font-medium ${claim.reachedReview ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-800'}`}>
