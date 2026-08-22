@@ -2,11 +2,12 @@
 
 import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { safeInternalPath } from '@/lib/safeRedirect'
 
 function LoginForm() {
   const router = useRouter()
   const params = useSearchParams()
-  const next = params.get('next') || '/admin/recovery'
+  const next = safeInternalPath(params.get('next'), '/')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)

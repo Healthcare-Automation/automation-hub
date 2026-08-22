@@ -11,17 +11,20 @@ Client-facing status dashboard for the Proxi automations (Kimedics → SF, DJC �
 
 ## Commands
 - `npm run dev` — local dev
+- `npm test` — Node test suite (includes tenant-isolation and Mohamed dry-run rules)
+- `npm run typecheck` — TypeScript verification
 - `npm run build` — production build (run before deploying)
 - Deploy: `vercel --prod` (after the `vercel whoami` check above)
-- No test or lint scripts exist. Ad-hoc debug scripts in `scripts/` run with `npx tsx scripts/<file>.ts`.
+- Ad-hoc debug scripts in `scripts/` run with `npx tsx scripts/<file>.ts`.
 
 ## Architecture
 - `app/page.tsx` — main dashboard; server component, fetches all data
 - `app/api/cron/` — Vercel crons (see `vercel.json`): slack-alerts every 10 min, sync-notion-costs daily; auth via `CRON_SECRET`
-- `app/admin/` + `middleware.ts` — admin pages gated by signed cookie (`lib/adminAuth.ts`)
+- `proxy.ts` (Next 16 proxy, replaces `middleware.ts`) — tenant boundaries: everything is admin-only by default; `/portal` + `/api/reports/*` accept the Proxi client cookie; `/mohamed` accepts the Mohamed cookie (`lib/mohamedAuth.ts`); `/api/reports/send` is admin-only
 - `components/AutomationView.tsx` — splits each automation tab into [Operations] [AI Cost] (+ [Insights] where provided). The client-facing Updates/changelog tab was removed 2026-07-22 (nobody read it).
-- `lib/db.ts`, `lib/djcDb.ts`, `lib/candidateBankDb.ts` — three SEPARATE Supabase projects (`DATABASE_URL`, `DJC_DATABASE_URL`, `CANDIDATE_BANK_DATABASE_URL`)
-- `lib/queries.ts` / `lib/djcQueries.ts` — all SQL lives here, not in components
+- `lib/db.ts`, `lib/djcDb.ts`, `lib/candidateBankDb.ts`, `lib/mohamedDb.ts` — four SEPARATE Supabase projects (`DATABASE_URL`, `DJC_DATABASE_URL`, `CANDIDATE_BANK_DATABASE_URL`, `MOHAMED_DATABASE_URL`)
+- `lib/queries.ts` / `lib/djcQueries.ts` / `lib/mohamedQueries.ts` — all SQL lives here, not in components
+- `app/mohamed/` — Mohamed billing review portal. Shows synthetic fixtures + the PHI-free run ledger (`lib/mohamedLedger.ts`, `components/mohamed/RunTrace.tsx`); real runs come from `MOHAMED_DATABASE_URL` when set. Rules in `lib/mohamedValidation.ts` must stay in parity with `/root/projects/mohamed/src/mohamed_billing/rules.py`.
 
 ## Conventions
 - Use Supabase transaction-pooler connection strings; `lib/db.ts` is tuned for that (low `max`, short `connect_timeout`). Don't loosen those settings.
