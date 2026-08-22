@@ -72,6 +72,10 @@ export type ClaimTrace = {
   reachedReview: boolean
   failureCode: string | null
   failureField: string | null
+  procedureCode: string | null
+  modifiers: string | null
+  unitsX100: number | null
+  chargeCents: number | null
 }
 
 /** One row per claim, derived purely from the event stream. */
@@ -86,6 +90,16 @@ export function summariseClaims(ledger: RunLedgerSnapshot): ClaimTrace[] {
       reachedReview: false,
       failureCode: null,
       failureField: null,
+      procedureCode: null,
+      modifiers: null,
+      unitsX100: null,
+      chargeCents: null,
+    }
+    if (event.step === 'claim_drafted') {
+      trace.procedureCode = typeof event.detail.procedure_code === 'string' ? event.detail.procedure_code : null
+      trace.modifiers = typeof event.detail.modifiers === 'string' ? event.detail.modifiers : null
+      trace.unitsX100 = typeof event.detail.units_x100 === 'number' ? event.detail.units_x100 : null
+      trace.chargeCents = typeof event.detail.charge_cents === 'number' ? event.detail.charge_cents : null
     }
     if (event.step === 'portal_action') {
       trace.portalActions += 1
