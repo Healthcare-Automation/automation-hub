@@ -4,6 +4,8 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MohamedDashboard } from '../components/mohamed/MohamedDashboard'
 import type { MohamedAutomationRun } from '../lib/mohamedTypes'
+import demoLedger from '../lib/mohamedDemoLedger.json'
+import type { RunLedgerSnapshot } from '../lib/mohamedLedger'
 
 const run: MohamedAutomationRun = {
   id: 'demo-run-001',
@@ -64,6 +66,16 @@ test('Mohamed dashboard shows dry-run evidence without submission controls or Pr
   assert.doesNotMatch(html, /Proxi|Kimedics|Dentist Job Cafe/i)
   assert.doesNotMatch(html, /Submit claim|Submit claims/i)
   assert.doesNotMatch(html, /href="\/"/)
+})
+
+test('status hero shows a plain-language summary and the trigger button for admins with a ledger', () => {
+  const ledger = demoLedger as RunLedgerSnapshot
+  const adminHtml = renderToStaticMarkup(createElement(MohamedDashboard, { runs: [run], isAdmin: true, ledger, ledgerSource: 'live' }))
+  const clientHtml = renderToStaticMarkup(createElement(MohamedDashboard, { runs: [run], isAdmin: false, ledger, ledgerSource: 'live' }))
+
+  assert.match(adminHtml, /Run now/)
+  assert.doesNotMatch(clientHtml, /Run now/)  // Mohamed views results, does not operate the pipeline
+  assert.match(adminHtml, /reached HCPF Review|Stopped during|blocked by a billing rule/)
 })
 
 test('admin preview includes tenant switcher while Mohamed client view does not', () => {
