@@ -5,10 +5,21 @@ declare global {
   var _pgSql: ReturnType<typeof postgres> | undefined
 }
 
-function createSql() {
+const MISSING_URL_ERROR = 'DATABASE_URL environment variable is not set'
+
+/**
+ * postgres.js never connects at construction time — connections open on the
+ * first executed query. That lets builds without DATABASE_URL (Vercel
+ * Preview, local checkouts) succeed even though modules like lib/queries.ts
+ * call `sql.unsafe(...)` (a fragment builder, no I/O) at module scope: when
+ * the var is missing we construct against a placeholder URL and intercept
+ * QUERY EXECUTION (the tagged-template call) to throw the same clear error
+ * the old eager check produced. Fragment helpers keep working; a real
+ * misconfigured deployment still fails loudly on its first query.
+ */
+function createSql(): ReturnType<typeof postgres> {
   const url = process.env.DATABASE_URL
-  if (!url) throw new Error('DATABASE_URL environment variable is not set')
-  return postgres(url, {
+  const instance = postgres(url ?? 'postgresql://missing:missing@127.0.0.1:1/missing', {
     ssl: 'require',
     // Session pooler caps at 15 clients shared with builds/Modal/scripts — stay small
     // (2026-07-24 EMAXCONNSESSION outage).
@@ -23,37 +34,18 @@ function createSql() {
     prepare: false,
     connection: { application_name: 'proxi-status-page' },
   })
+  if (url) return instance
+  return new Proxy(instance, {
+    apply() {
+      throw new Error(MISSING_URL_ERROR)
+    },
+  })
 }
 
-/**
- * Lazy proxy: the missing-DATABASE_URL error now fires on the FIRST QUERY,
- * not at module load. `next build`'s page-data collection imports every
- * route module; with an eager createSql() any environment without
- * DATABASE_URL (Vercel Preview, local checkouts) failed the whole build
- * before a single request existed. Behavior at runtime is unchanged —
- * queries still throw the same error when the var is really missing.
- */
-let _cached: ReturnType<typeof postgres> | undefined
+const sql = globalThis._pgSql ?? createSql()
 
-function getSql(): ReturnType<typeof postgres> {
-  if (!_cached) {
-    _cached = globalThis._pgSql ?? createSql()
-    if (process.env.NODE_ENV !== 'production') {
-      globalThis._pgSql = _cached
-    }
-  }
-  return _cached
+if (process.env.NODE_ENV !== 'production') {
+  globalThis._pgSql = sql
 }
-
-const sql: ReturnType<typeof postgres> = new Proxy((() => {}) as unknown as ReturnType<typeof postgres>, {
-  apply(_target, _thisArg, args) {
-    return Reflect.apply(getSql() as unknown as (...a: unknown[]) => unknown, undefined, args)
-  },
-  get(_target, prop) {
-    const real = getSql() as unknown as Record<string | symbol, unknown>
-    const value = real[prop]
-    return typeof value === 'function' ? (value as (...a: unknown[]) => unknown).bind(real) : value
-  },
-})
 
 export default sql
