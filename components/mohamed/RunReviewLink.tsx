@@ -3,13 +3,14 @@
 import { useState } from 'react'
 
 /**
- * "View submission" link shown per run in RunHistory. Fetches a short-lived
- * token then opens a modal that pulls fields.json + screenshot.png directly
- * from the VPS -- PHI never transits Vercel, same pattern as the upload
- * flow. Renders nothing (not even a broken link) if the VPS 404s, since
- * most runs never reach the claim-form checkpoint that gets captured.
+ * "View submission" link shown per run in RunHistory and per claim in
+ * RunTrace. Fetches a short-lived token then opens a modal that pulls
+ * fields.json + screenshot.png directly from the VPS -- PHI never transits
+ * Vercel, same pattern as the upload flow. Captures are stored per claim
+ * (/review/<run>/<claimRef>/...) with a legacy per-run fallback for runs
+ * captured before the per-claim layout.
  */
-export function RunReviewLink({ runId }: { runId: string }) {
+export function RunReviewLink({ runId, claimRef, label }: { runId: string; claimRef?: string; label?: string }) {
   const [open, setOpen] = useState(false)
   const [state, setState] = useState<'idle' | 'loading' | 'missing' | 'error' | 'ready'>('idle')
   const [fields, setFields] = useState<{ label: string; value: string }[]>([])
@@ -28,7 +29,8 @@ export function RunReviewLink({ runId }: { runId: string }) {
       }
       const token: string = tokenJson.token
       const uploadUrl: string = tokenJson.uploadUrl
-      const fieldsRes = await fetch(`${uploadUrl}/review/${runId}/fields.json`, {
+      const base = claimRef ? `${uploadUrl}/review/${runId}/${claimRef}` : `${uploadUrl}/review/${runId}`
+      const fieldsRes = await fetch(`${base}/fields.json`, {
         headers: { Authorization: `Bearer ${token}` },
       })
       if (fieldsRes.status === 404) {
@@ -46,8 +48,7 @@ export function RunReviewLink({ runId }: { runId: string }) {
       const shotTokenRes = await fetch('/api/mohamed/review-token', { method: 'POST' })
       const shotTokenJson = await shotTokenRes.json()
       if (shotTokenRes.ok && shotTokenJson.ok) {
-        const shotUrl = `${uploadUrl}/review/${runId}/screenshot.png`
-        const shotRes = await fetch(shotUrl, { headers: { Authorization: `Bearer ${shotTokenJson.token}` } })
+        const shotRes = await fetch(`${base}/screenshot.png`, { headers: { Authorization: `Bearer ${shotTokenJson.token}` } })
         if (shotRes.ok) {
           const blob = await shotRes.blob()
           setScreenshotUrl(URL.createObjectURL(blob))
@@ -74,7 +75,7 @@ export function RunReviewLink({ runId }: { runId: string }) {
         onClick={load}
         className="text-emerald-700 hover:underline"
       >
-        View submission
+        {label ?? 'View submission'}
       </button>
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={close}>
@@ -84,7 +85,8 @@ export function RunReviewLink({ runId }: { runId: string }) {
           >
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-semibold">
-                Claim form submission {step && <span className="font-normal text-zinc-500">— {step}</span>}
+                Claim form submission {claimRef && <span className="font-mono text-xs text-zinc-500">claim {claimRef}</span>}{' '}
+                {step && <span className="font-normal text-zinc-500">— {step}</span>}
               </h3>
               <button type="button" onClick={close} className="text-xs text-zinc-500 hover:underline">Close</button>
             </div>

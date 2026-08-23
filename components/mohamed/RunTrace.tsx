@@ -6,6 +6,7 @@ import {
   type RunLedgerSnapshot,
   type StageSummary,
 } from '@/lib/mohamedLedger'
+import { RunReviewLink } from './RunReviewLink'
 
 const stageStyles: Record<StageSummary['status'], string> = {
   passed: 'bg-emerald-50 text-emerald-800 border-emerald-200',
@@ -94,7 +95,7 @@ export function RunTrace({ ledger }: { ledger: RunLedgerSnapshot }) {
           <table className="w-full text-left text-xs">
             <thead className="bg-zinc-50 text-zinc-500">
               <tr>
-                {['Claim ref', 'Procedure', 'Modifiers', 'Units', 'Charge', 'Portal actions', 'Result', 'Stopped at'].map(label => (
+                {['Claim ref', 'Procedure', 'Modifiers', 'Units', 'Charge', 'Portal actions', 'Result', 'Stopped at', 'Review'].map(label => (
                   <th key={label} className="px-4 py-2 font-medium">{label}</th>
                 ))}
               </tr>
@@ -115,6 +116,13 @@ export function RunTrace({ ledger }: { ledger: RunLedgerSnapshot }) {
                   </td>
                   <td className="px-4 py-2 font-mono text-zinc-600">
                     {claim.failureCode ? [claim.failureField, claim.failureCode].filter(Boolean).join(' · ') : '—'}
+                  </td>
+                  <td className="px-4 py-2">
+                    {claim.reachedReview ? (
+                      <RunReviewLink runId={ledger.run_id} claimRef={claim.claimRef} label="View" />
+                    ) : (
+                      '—'
+                    )}
                   </td>
                 </tr>
               ))}
