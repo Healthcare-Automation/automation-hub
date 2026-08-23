@@ -5,7 +5,7 @@ import type { RunRequestRow } from '@/lib/mohamedRunRequests'
 import { describeFailure, summariseInPlainLanguage } from '@/lib/mohamedLedger'
 import { RunTrace } from './RunTrace'
 import { RunHistory } from './RunHistory'
-import { TriggerRunButton } from './TriggerRunButton'
+import { CsvUploadCard } from './CsvUploadCard'
 
 const stageStyles = {
   passed: 'bg-emerald-50 text-emerald-800 border-emerald-200',
@@ -106,7 +106,18 @@ export function MohamedDashboard({
                 <p className="mt-2 rounded-lg bg-white/60 px-3 py-2 font-mono text-[11px] text-red-800">{failureDetail}</p>
               )}
             </div>
-            {isAdmin && <TriggerRunButton inFlight={inFlight} />}
+            {isAdmin && (
+              <div className="text-right text-[11px] text-zinc-500">
+                {inFlight ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-amber-900">
+                    <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
+                    A run is {inFlight.status} — checking automatically
+                  </span>
+                ) : (
+                  'Upload a CSV below to start a run'
+                )}
+              </div>
+            )}
           </div>
         </section>
       ) : (
@@ -128,6 +139,8 @@ export function MohamedDashboard({
             : 'Showing a synthetic run. Live runs appear here once one has completed.'}
         </p>
       )}
+
+      {isAdmin && <CsvUploadCard hasFile={Boolean(ledger)} />}
 
       <section className="mt-5 grid gap-3 sm:grid-cols-3">
         {[

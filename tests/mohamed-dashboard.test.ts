@@ -68,13 +68,13 @@ test('Mohamed dashboard shows dry-run evidence without submission controls or Pr
   assert.doesNotMatch(html, /href="\/"/)
 })
 
-test('status hero shows a plain-language summary and the trigger button for admins with a ledger', () => {
+test('status hero shows a plain-language summary; upload card is admin-only', () => {
   const ledger = demoLedger as RunLedgerSnapshot
   const adminHtml = renderToStaticMarkup(createElement(MohamedDashboard, { runs: [run], isAdmin: true, ledger, ledgerSource: 'live' }))
   const clientHtml = renderToStaticMarkup(createElement(MohamedDashboard, { runs: [run], isAdmin: false, ledger, ledgerSource: 'live' }))
 
-  assert.match(adminHtml, /Run now/)
-  assert.doesNotMatch(clientHtml, /Run now/)  // Mohamed views results, does not operate the pipeline
+  assert.match(adminHtml, /Upload billing report/)
+  assert.doesNotMatch(clientHtml, /Upload billing report/)  // Mohamed views results, does not operate the pipeline
   assert.match(adminHtml, /reached HCPF Review|Stopped during|blocked by a billing rule/)
 })
 
