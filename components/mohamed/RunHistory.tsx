@@ -1,4 +1,5 @@
 import type { RunHistoryItem } from '@/lib/mohamedQueries'
+import { RunReviewLink } from './RunReviewLink'
 
 const statusStyles: Record<RunHistoryItem['status'], string> = {
   review_ready: 'bg-emerald-50 text-emerald-800',
@@ -27,7 +28,7 @@ export function RunHistory({ history, selectedRunId }: { history: RunHistoryItem
       <table className="w-full text-left text-xs">
         <thead className="bg-zinc-50 text-zinc-500">
           <tr>
-            {['Started', 'Run', 'Mode', 'Source', 'Period', 'Events', 'Result'].map(label => (
+            {['Started', 'Run', 'Mode', 'Source', 'Period', 'Events', 'Result', ''].map(label => (
               <th key={label} className="px-4 py-2 font-medium">{label}</th>
             ))}
           </tr>
@@ -47,6 +48,9 @@ export function RunHistory({ history, selectedRunId }: { history: RunHistoryItem
               <td className="px-4 py-2">{item.eventCount}</td>
               <td className="px-4 py-2">
                 <span className={`rounded-full px-2 py-0.5 font-medium ${statusStyles[item.status]}`}>{statusLabels[item.status]}</span>
+              </td>
+              <td className="px-4 py-2 text-right">
+                <RunReviewLink runId={item.runId} />
               </td>
             </tr>
           ))}
