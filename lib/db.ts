@@ -25,10 +25,35 @@ function createSql() {
   })
 }
 
-const sql = globalThis._pgSql ?? createSql()
+/**
+ * Lazy proxy: the missing-DATABASE_URL error now fires on the FIRST QUERY,
+ * not at module load. `next build`'s page-data collection imports every
+ * route module; with an eager createSql() any environment without
+ * DATABASE_URL (Vercel Preview, local checkouts) failed the whole build
+ * before a single request existed. Behavior at runtime is unchanged —
+ * queries still throw the same error when the var is really missing.
+ */
+let _cached: ReturnType<typeof postgres> | undefined
 
-if (process.env.NODE_ENV !== 'production') {
-  globalThis._pgSql = sql
+function getSql(): ReturnType<typeof postgres> {
+  if (!_cached) {
+    _cached = globalThis._pgSql ?? createSql()
+    if (process.env.NODE_ENV !== 'production') {
+      globalThis._pgSql = _cached
+    }
+  }
+  return _cached
 }
+
+const sql: ReturnType<typeof postgres> = new Proxy((() => {}) as unknown as ReturnType<typeof postgres>, {
+  apply(_target, _thisArg, args) {
+    return Reflect.apply(getSql() as unknown as (...a: unknown[]) => unknown, undefined, args)
+  },
+  get(_target, prop) {
+    const real = getSql() as unknown as Record<string | symbol, unknown>
+    const value = real[prop]
+    return typeof value === 'function' ? (value as (...a: unknown[]) => unknown).bind(real) : value
+  },
+})
 
 export default sql
