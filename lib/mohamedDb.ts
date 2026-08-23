@@ -14,6 +14,10 @@ declare global {
 function createMohamedSql(): ReturnType<typeof postgres> | null {
   const url = process.env.MOHAMED_DATABASE_URL
   if (!url) return null
+  // `vercel env pull` writes the literal placeholder "[SENSITIVE]" for env
+  // vars flagged Sensitive — it is not a URL and crashed every local
+  // `next build` at module load. Treat any non-postgres value as unset.
+  if (!url.startsWith('postgres')) return null
   return postgres(url, {
     ssl: 'require',
     // This is a dedicated pooler for the Mohamed project alone (2 roles:

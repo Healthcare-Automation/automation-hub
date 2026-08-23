@@ -1,11 +1,13 @@
 import { cookies } from 'next/headers'
 import { ADMIN_COOKIE_NAME, verifyAdminCookieValue } from '@/lib/adminAuth'
-import { mohamedDemoRuns } from '@/lib/mohamedDemoData'
 import demoLedger from '@/lib/mohamedDemoLedger.json'
 import type { RunLedgerSnapshot } from '@/lib/mohamedLedger'
 import { isMohamedLedgerConfigured } from '@/lib/mohamedDb'
+import { isMohamedApprovalConfigured } from '@/lib/mohamedApprovalDb'
 import { getMohamedLedger, getMohamedRunHistory, type RunHistoryItem } from '@/lib/mohamedQueries'
+import { getApprovalsForRun, type ClaimApproval } from '@/lib/mohamedApprovals'
 import { getInFlightRunRequest, type RunRequestRow } from '@/lib/mohamedRunRequests'
+import { MOHAMED_COOKIE_NAME, verifyMohamedCookieValue } from '@/lib/mohamedAuth'
 import { MohamedDashboard } from '@/components/mohamed/MohamedDashboard'
 import { LiveDashboardRefresh } from '@/components/LiveDashboardRefresh'
 
@@ -20,10 +22,15 @@ export const preferredRegion = 'hnd1'
 export default async function MohamedPage({ searchParams }: { searchParams: Promise<{ run?: string }> }) {
   const cookieStore = await cookies()
   const isAdmin = await verifyAdminCookieValue(cookieStore.get(ADMIN_COOKIE_NAME)?.value)
+  const isMohamed = await verifyMohamedCookieValue(cookieStore.get(MOHAMED_COOKIE_NAME)?.value)
+  // Both admin and the Mohamed portal session can approve — same access rule
+  // as viewing/uploading (Sean uses the same shared Mohamed access code).
+  const canApprove = (isAdmin || isMohamed) && isMohamedApprovalConfigured
   const { run } = await searchParams
 
   let ledger: RunLedgerSnapshot = demoLedger as RunLedgerSnapshot
   let history: RunHistoryItem[] = []
+  let approvals = new Map<string, ClaimApproval>()
   let ledgerSource: 'live' | 'synthetic' | 'unavailable' = 'synthetic'
   let inFlight: RunRequestRow | null = null
 
@@ -40,6 +47,7 @@ export default async function MohamedPage({ searchParams }: { searchParams: Prom
       if (live) {
         ledger = live
         ledgerSource = 'live'
+        approvals = await getApprovalsForRun(live.run_id).catch(() => new Map())
       }
     } catch {
       // Pooler unreachable or saturated: degrade to the synthetic ledger and say so.
@@ -55,11 +63,12 @@ export default async function MohamedPage({ searchParams }: { searchParams: Prom
           view doesn't have a trigger button, so there's nothing to wait on. */}
       {isAdmin && <LiveDashboardRefresh intervalMs={inFlight ? 5_000 : 20_000} />}
       <MohamedDashboard
-        runs={mohamedDemoRuns}
         ledger={ledger}
         ledgerSource={ledgerSource}
         history={history}
+        approvals={approvals}
         isAdmin={isAdmin}
+        canApprove={canApprove}
         inFlight={inFlight}
       />
     </>

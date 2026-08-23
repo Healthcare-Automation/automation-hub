@@ -5,10 +5,21 @@ declare global {
   var _pgSql: ReturnType<typeof postgres> | undefined
 }
 
-function createSql() {
+const MISSING_URL_ERROR = 'DATABASE_URL environment variable is not set'
+
+/**
+ * postgres.js never connects at construction time — connections open on the
+ * first executed query. That lets builds without DATABASE_URL (Vercel
+ * Preview, local checkouts) succeed even though modules like lib/queries.ts
+ * call `sql.unsafe(...)` (a fragment builder, no I/O) at module scope: when
+ * the var is missing we construct against a placeholder URL and intercept
+ * QUERY EXECUTION (the tagged-template call) to throw the same clear error
+ * the old eager check produced. Fragment helpers keep working; a real
+ * misconfigured deployment still fails loudly on its first query.
+ */
+function createSql(): ReturnType<typeof postgres> {
   const url = process.env.DATABASE_URL
-  if (!url) throw new Error('DATABASE_URL environment variable is not set')
-  return postgres(url, {
+  const instance = postgres(url ?? 'postgresql://missing:missing@127.0.0.1:1/missing', {
     ssl: 'require',
     // Session pooler caps at 15 clients shared with builds/Modal/scripts — stay small
     // (2026-07-24 EMAXCONNSESSION outage).
@@ -22,6 +33,12 @@ function createSql() {
     // transaction mode can't keep session-level prepared statements. Harmless on session mode too.
     prepare: false,
     connection: { application_name: 'proxi-status-page' },
+  })
+  if (url) return instance
+  return new Proxy(instance, {
+    apply() {
+      throw new Error(MISSING_URL_ERROR)
+    },
   })
 }
 
