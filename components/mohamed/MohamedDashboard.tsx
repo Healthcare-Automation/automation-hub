@@ -2,10 +2,12 @@ import type { RunLedgerSnapshot } from '@/lib/mohamedLedger'
 import type { RunHistoryItem } from '@/lib/mohamedQueries'
 import type { RunRequestRow } from '@/lib/mohamedRunRequests'
 import type { ClaimApproval } from '@/lib/mohamedApprovals'
+import type { ClientQuestion } from '@/lib/mohamedQuestions'
 import { summariseClaims, summariseInPlainLanguage } from '@/lib/mohamedLedger'
 import { RunHistory } from './RunHistory'
 import { CsvUploadCard } from './CsvUploadCard'
 import { ClaimReviewCard } from './ClaimReviewCard'
+import { ClientQuestionsCard } from './ClientQuestionsCard'
 import { RunTrace } from './RunTrace'
 
 function timeAgo(iso: string | null | undefined): string {
@@ -45,6 +47,7 @@ export function MohamedDashboard({
   isAdmin,
   canApprove,
   inFlight = null,
+  questions = [],
 }: {
   ledger?: RunLedgerSnapshot
   ledgerSource?: 'live' | 'synthetic' | 'unavailable'
@@ -53,6 +56,7 @@ export function MohamedDashboard({
   isAdmin: boolean
   canApprove: boolean
   inFlight?: RunRequestRow | null
+  questions?: ClientQuestion[]
 }) {
   const hero = ledger ? statusHero[ledger.status] : null
   const claims = ledger ? summariseClaims(ledger) : []
@@ -126,6 +130,10 @@ export function MohamedDashboard({
       )}
 
       {isAdmin && <CsvUploadCard hasFile={Boolean(ledger)} />}
+
+      {/* Clarifying billing-rule questions for Mohamed — answered here so
+          decisions live next to the runs they govern, not in chat threads. */}
+      <ClientQuestionsCard questions={questions} canAnswer={canApprove} />
 
       {/* The one thing everyone must see before anything can move forward:
           every claim that reached HCPF review, its full field list, its

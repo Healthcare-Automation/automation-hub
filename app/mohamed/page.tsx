@@ -7,6 +7,7 @@ import { isMohamedApprovalConfigured } from '@/lib/mohamedApprovalDb'
 import { getMohamedLedger, getMohamedRunHistory, type RunHistoryItem } from '@/lib/mohamedQueries'
 import { getApprovalsForRun, type ClaimApproval } from '@/lib/mohamedApprovals'
 import { getInFlightRunRequest, type RunRequestRow } from '@/lib/mohamedRunRequests'
+import { getClientQuestions, type ClientQuestion } from '@/lib/mohamedQuestions'
 import { MOHAMED_COOKIE_NAME, verifyMohamedCookieValue } from '@/lib/mohamedAuth'
 import { MohamedDashboard } from '@/components/mohamed/MohamedDashboard'
 import { LiveDashboardRefresh } from '@/components/LiveDashboardRefresh'
@@ -33,17 +34,20 @@ export default async function MohamedPage({ searchParams }: { searchParams: Prom
   let approvals = new Map<string, ClaimApproval>()
   let ledgerSource: 'live' | 'synthetic' | 'unavailable' = 'synthetic'
   let inFlight: RunRequestRow | null = null
+  let questions: ClientQuestion[] = []
 
   if (isMohamedLedgerConfigured) {
     try {
       const selected = typeof run === 'string' && /^[0-9a-f]{32}$/.test(run) ? run : undefined
-      const [live, runs, request] = await Promise.all([
+      const [live, runs, request, clientQuestions] = await Promise.all([
         getMohamedLedger(selected),
         getMohamedRunHistory(),
         isAdmin ? getInFlightRunRequest() : Promise.resolve(null),
+        getClientQuestions(),
       ])
       history = runs
       inFlight = request
+      questions = clientQuestions
       if (live) {
         ledger = live
         ledgerSource = 'live'
@@ -70,6 +74,7 @@ export default async function MohamedPage({ searchParams }: { searchParams: Prom
         isAdmin={isAdmin}
         canApprove={canApprove}
         inFlight={inFlight}
+        questions={questions}
       />
     </>
   )
