@@ -1,33 +1,12 @@
-import type { MohamedAutomationRun } from '@/lib/mohamedTypes'
 import type { RunLedgerSnapshot } from '@/lib/mohamedLedger'
 import type { RunHistoryItem } from '@/lib/mohamedQueries'
 import type { RunRequestRow } from '@/lib/mohamedRunRequests'
-import { describeFailure, summariseInPlainLanguage } from '@/lib/mohamedLedger'
-import { RunTrace } from './RunTrace'
+import type { ClaimApproval } from '@/lib/mohamedApprovals'
+import { summariseClaims, summariseInPlainLanguage } from '@/lib/mohamedLedger'
 import { RunHistory } from './RunHistory'
 import { CsvUploadCard } from './CsvUploadCard'
-
-const stageStyles = {
-  passed: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-  blocked: 'bg-amber-50 text-amber-800 border-amber-200',
-  failed: 'bg-red-50 text-red-800 border-red-200',
-  not_run: 'bg-zinc-50 text-zinc-500 border-zinc-200',
-} as const
-
-const reasonLabels: Record<string, string> = {
-  sandata_not_verified: 'Sandata not verified',
-  qualifying_coverage_missing: 'Qualifying coverage missing',
-  member_id_invalid: 'Member ID invalid',
-  units_invalid: 'Units invalid',
-  charge_amount_invalid: 'Charge amount invalid',
-  service_date_invalid: 'Service date invalid',
-  service_code_missing: 'Service code missing',
-  procedure_code_missing: 'Procedure code missing',
-}
-
-function money(cents: number) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100)
-}
+import { ClaimReviewCard } from './ClaimReviewCard'
+import { RunTrace } from './RunTrace'
 
 function timeAgo(iso: string | null | undefined): string {
   if (!iso) return 'never'
@@ -41,34 +20,47 @@ function timeAgo(iso: string | null | undefined): string {
 }
 
 const statusHero = {
-  review_ready: { border: 'border-emerald-200', bg: 'bg-emerald-50', badge: 'bg-emerald-600 text-white', label: 'Working' },
+  review_ready: { border: 'border-emerald-200', bg: 'bg-emerald-50', badge: 'bg-emerald-600 text-white', label: 'Ready for review' },
   blocked: { border: 'border-amber-200', bg: 'bg-amber-50', badge: 'bg-amber-500 text-white', label: 'Needs attention' },
   failed: { border: 'border-red-200', bg: 'bg-red-50', badge: 'bg-red-600 text-white', label: 'Stopped' },
 } as const
 
+/**
+ * Single-platform Mohamed dashboard: everything happens here, on the hub —
+ * no Guacamole, no SSH, no second screen for day-to-day use. Structured
+ * around one question at a time:
+ *   1. Is the latest run working? (status hero)
+ *   2. What needs my eyes right now? (claim review cards — full field list
+ *      + screenshot, must be reviewed before approval)
+ *   3. What happened before? (collapsed history)
+ * The old raw stage-grid/event-log view still exists (RunTrace) but is
+ * tucked below as a collapsed "Technical detail" section for debugging,
+ * not the first thing anyone has to read.
+ */
 export function MohamedDashboard({
-  runs,
   ledger,
   ledgerSource = 'synthetic',
   history = [],
+  approvals = new Map(),
   isAdmin,
+  canApprove,
   inFlight = null,
 }: {
-  runs: MohamedAutomationRun[]
   ledger?: RunLedgerSnapshot
   ledgerSource?: 'live' | 'synthetic' | 'unavailable'
   history?: RunHistoryItem[]
+  approvals?: Map<string, ClaimApproval>
   isAdmin: boolean
+  canApprove: boolean
   inFlight?: RunRequestRow | null
 }) {
-  const latest = runs[0]
-  const ready = latest?.items.filter(item => item.disposition === 'ready_for_review').length ?? 0
-  const blocked = latest?.items.filter(item => item.disposition === 'blocked').length ?? 0
   const hero = ledger ? statusHero[ledger.status] : null
-  const failureDetail = ledger ? describeFailure(ledger) : null
+  const claims = ledger ? summariseClaims(ledger) : []
+  const reviewable = claims.filter(c => c.reachedReview)
+  const approvedCount = reviewable.filter(c => approvals.get(c.claimRef)?.approved).length
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-[11px] font-semibold tracking-[0.18em] text-emerald-700">UZU STUDIO</p>
@@ -89,21 +81,20 @@ export function MohamedDashboard({
         </div>
       </header>
 
-      {/* Status hero: the ONE thing to read if you read nothing else. Plain language,
-          no jargon, answers "is this working" before anything else on the page. */}
+      {/* Status: the one thing to read if nothing else. */}
       {ledger && hero ? (
         <section className={`mt-7 rounded-2xl border p-5 ${hero.border} ${hero.bg}`}>
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${hero.badge}`}>{hero.label}</span>
-                <span className="text-[11px] text-zinc-500">
-                  Last run {timeAgo(ledger.finished_at ?? ledger.started_at)} · Validation mode: no claims are submitted, ever
-                </span>
+                <span className="text-[11px] text-zinc-500">Last run {timeAgo(ledger.finished_at ?? ledger.started_at)}</span>
               </div>
               <p className="mt-2 text-sm font-medium text-zinc-900">{summariseInPlainLanguage(ledger)}</p>
-              {failureDetail && (
-                <p className="mt-2 rounded-lg bg-white/60 px-3 py-2 font-mono text-[11px] text-red-800">{failureDetail}</p>
+              {reviewable.length > 0 && (
+                <p className="mt-2 text-xs text-zinc-600">
+                  {approvedCount} of {reviewable.length} claim{reviewable.length === 1 ? '' : 's'} approved
+                </p>
               )}
             </div>
             {isAdmin && (
@@ -122,13 +113,7 @@ export function MohamedDashboard({
         </section>
       ) : (
         <section className="mt-7 rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-emerald-800">Validation mode</p>
-              <p className="mt-1 text-sm text-emerald-900">No claims are submitted. Every result stays in review.</p>
-            </div>
-            <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-emerald-800">Dry run only</span>
-          </div>
+          <p className="text-sm text-emerald-900">No runs yet. Upload a CSV below to start one.</p>
         </section>
       )}
 
@@ -142,89 +127,52 @@ export function MohamedDashboard({
 
       {isAdmin && <CsvUploadCard hasFile={Boolean(ledger)} />}
 
-      <section className="mt-5 grid gap-3 sm:grid-cols-3">
-        {[
-          ['Rows checked', latest?.items.length ?? 0],
-          ['Ready for review', ready],
-          ['Blocked', blocked],
-        ].map(([label, value]) => (
-          <div key={label} className="rounded-xl border border-zinc-200 bg-white p-4">
-            <p className="text-xs text-zinc-500">{label}</p>
-            <p className="mt-1 text-2xl font-semibold">{value}</p>
+      {/* The one thing everyone must see before anything can move forward:
+          every claim that reached HCPF review, its full field list, its
+          screenshot, and an explicit approve action. Nothing here submits
+          anything -- there is no live submission path yet -- but this is
+          exactly where that gate will live once one exists. */}
+      {ledger && reviewable.length > 0 && (
+        <section className="mt-7">
+          <div className="mb-3">
+            <h2 className="text-base font-semibold">Claims needing review</h2>
+            <p className="mt-0.5 text-xs text-zinc-500">
+              Every claim that reached HCPF review. Nothing is submitted — review the fields and screenshot, then approve.
+            </p>
           </div>
-        ))}
-      </section>
+          <div className="space-y-2">
+            {reviewable.map(claim => (
+              <ClaimReviewCard
+                key={claim.claimRef}
+                runId={ledger.run_id}
+                claim={claim}
+                approval={approvals.get(claim.claimRef) ?? null}
+                canApprove={canApprove}
+              />
+            ))}
+          </div>
+        </section>
+      )}
 
-      {latest && (
-        <>
-          <section className="mt-7">
-            <div className="mb-3 flex items-end justify-between gap-3">
-              <div>
-                <h2 className="text-base font-semibold">Pipeline stages</h2>
-                <p className="mt-0.5 text-xs text-zinc-500">{latest.id} · synthetic fixture</p>
-              </div>
-              <span className="text-xs text-zinc-500">{latest.billingPeriods.map(period => `${period.startDate} to ${period.endDate}`).join(', ')}</span>
-            </div>
-            <div className="grid gap-2 md:grid-cols-5">
-              {latest.stages.map(stage => (
-                <div key={stage.name} className={`rounded-xl border p-3 ${stageStyles[stage.status]}`}>
-                  <p className="text-xs font-semibold">{stage.name}</p>
-                  <p className="mt-1 text-[11px] leading-relaxed opacity-80">{stage.detail}</p>
-                </div>
-              ))}
-            </div>
-          </section>
+      {ledger && claims.some(c => !c.reachedReview) && (
+        <section className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+          {claims.filter(c => !c.reachedReview).length} claim(s) in this run did not reach HCPF review — see technical detail below for why.
+        </section>
+      )}
 
-          {ledger && (
-            <>
-              <RunTrace ledger={ledger} />
-              <RunHistory history={history} selectedRunId={ledger.run_id} />
-            </>
-          )}
+      {history.length > 0 && <RunHistory history={history} selectedRunId={ledger?.run_id ?? ''} />}
 
-          <section className="mt-7 overflow-hidden rounded-2xl border border-zinc-200 bg-white">
-            <div className="border-b border-zinc-200 px-5 py-4">
-              <h2 className="text-base font-semibold">Billing review</h2>
-              <p className="mt-1 text-xs text-zinc-500">Synthetic aliases only until the PHI hosting boundary is approved.</p>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[850px] text-left text-xs">
-                <thead className="bg-zinc-50 text-zinc-500">
-                  <tr>
-                    {['Member', 'Service date', 'Service', 'Procedure', 'Modifiers', 'Units', 'Charge', 'Status'].map(label => (
-                      <th key={label} className="px-4 py-3 font-medium">{label}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-100">
-                  {latest.items.map(item => (
-                    <tr key={item.sourceRowId}>
-                      <td className="px-4 py-3 font-medium">{item.memberRef}</td>
-                      <td className="px-4 py-3">{item.serviceDate}</td>
-                      <td className="px-4 py-3">{item.serviceCode}</td>
-                      <td className="px-4 py-3">{item.procedureCode}</td>
-                      <td className="px-4 py-3">{item.modifiers.join(', ') || 'None'}</td>
-                      <td className="px-4 py-3">{item.units}</td>
-                      <td className="px-4 py-3">{money(item.chargeAmountCents)}</td>
-                      <td className="px-4 py-3">
-                        <span className={`rounded-full px-2 py-1 font-medium ${item.disposition === 'ready_for_review' ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800'}`}>
-                          {item.disposition === 'ready_for_review' ? 'Ready for review' : 'Blocked'}
-                        </span>
-                        {item.reasons.length > 0 && (
-                          <p className="mt-1 text-[10px] text-zinc-500">{item.reasons.map(reason => reasonLabels[reason] ?? reason).join(', ')}</p>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        </>
+      {ledger && (
+        <details className="mt-7 rounded-2xl border border-zinc-200 bg-white">
+          <summary className="cursor-pointer px-5 py-3 text-sm font-semibold text-zinc-600">Technical detail (for debugging)</summary>
+          <div className="border-t border-zinc-200 px-1 pb-1">
+            <RunTrace ledger={ledger} />
+          </div>
+        </details>
       )}
 
       <footer className="mt-8 border-t border-zinc-200 pt-4 text-[11px] text-zinc-500">
-        Automation Hub · Mohamed workspace · Review-only pilot
+        Automation Hub · Mohamed workspace
       </footer>
     </div>
   )
