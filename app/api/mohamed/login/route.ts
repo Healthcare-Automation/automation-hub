@@ -42,7 +42,12 @@ export async function POST(req: NextRequest) {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
-    path: '/mohamed',
+    // '/' not '/mohamed': the session must also reach /api/mohamed/* —
+    // with path '/mohamed' the browser never sent the cookie to
+    // /api/mohamed/upload-token or /api/mohamed/answer-question, so
+    // Mohamed's own session could not upload a CSV or answer questions
+    // (only admin sessions worked). Found live 2026-08-24.
+    path: '/',
     maxAge: MOHAMED_COOKIE_MAX_AGE_SECONDS,
   })
   return response

@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
-    path: '/mohamed',
+    path: '/',
     maxAge: 0,
   })
   return response
