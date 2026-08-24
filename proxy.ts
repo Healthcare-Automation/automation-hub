@@ -46,10 +46,16 @@ export async function proxy(req: NextRequest) {
 
   const isAdmin = await verifyAdminCookieValue(req.cookies.get(ADMIN_COOKIE_NAME)?.value)
 
-  if (pathname.startsWith('/mohamed')) {
+  if (pathname.startsWith('/mohamed') || pathname.startsWith('/api/mohamed/')) {
+    // Both the pages AND /api/mohamed/* (upload-token, review-token,
+    // answer-question, portal-health): a Mohamed session must reach its own
+    // tenant's APIs. Before 2026-08-24 only '/mohamed' matched, so every
+    // /api/mohamed/* call fell through to the admin-only branch below and
+    // Mohamed's own session got 401s on upload/review/answer.
     if (isAdmin) return NextResponse.next()
     const isMohamed = await verifyMohamedCookieValue(req.cookies.get(MOHAMED_COOKIE_NAME)?.value)
-    return isMohamed ? NextResponse.next() : redirect(req, '/mohamed/login')
+    if (isMohamed) return NextResponse.next()
+    return pathname.startsWith('/api/') ? unauthorizedApi() : redirect(req, '/mohamed/login')
   }
 
   if (pathname.startsWith('/portal')) {

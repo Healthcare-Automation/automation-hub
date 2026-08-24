@@ -12,6 +12,9 @@
  * prod, and crashing a shared function instance kills innocent requests).
  */
 export async function register() {
+  // instrumentation runs once per runtime; process.on only exists in Node.
+  // (Edge builds warn about process.on otherwise — seen in next dev.)
+  if (process.env.NEXT_RUNTIME && process.env.NEXT_RUNTIME !== 'nodejs') return
   const benign = ['CONNECTION_DESTROYED', 'CONNECTION_CLOSED', 'CONNECTION_ENDED', 'ECONNRESET', 'EPIPE']
   const codeOf = (reason: unknown): string =>
     typeof reason === 'object' && reason !== null && 'code' in reason
