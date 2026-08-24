@@ -1,5 +1,5 @@
 import mohamedApprovalSql from './mohamedApprovalDb'
-import mohamedSql from './mohamedDb'
+import { isMohamedLedgerConfigured, mohamedQuery } from './mohamedDb'
 
 export type ClaimApproval = {
   runId: string
@@ -30,13 +30,12 @@ function toApproval(row: ApprovalRow): ClaimApproval {
 /** Reads with the same read-only role as the rest of the ledger — approvals
  * are shown alongside a run's claims, so this stays on mohamed_hub_reader. */
 export async function getApprovalsForRun(runId: string): Promise<Map<string, ClaimApproval>> {
-  const sql = mohamedSql
-  if (!sql) return new Map()
-  const rows = await sql<ApprovalRow[]>`
+  if (!isMohamedLedgerConfigured) return new Map()
+  const rows = await mohamedQuery(sql => sql<ApprovalRow[]>`
     select run_id, claim_ref, approved, approved_by, approved_at
     from mohamed_claim_approvals
     where run_id = ${runId}
-  `
+  `)
   return new Map(rows.map(row => [row.claim_ref, toApproval(row)]))
 }
 
