@@ -1,4 +1,4 @@
-import mohamedSql from './mohamedDb'
+import { isMohamedLedgerConfigured, mohamedQuery } from './mohamedDb'
 import {
   LEDGER_STAGES,
   type LedgerStage,
@@ -100,20 +100,18 @@ export function toHistoryItem(run: RunRow): RunHistoryItem {
 }
 
 export async function getMohamedRunHistory(limit = 20): Promise<RunHistoryItem[]> {
-  const sql = mohamedSql
-  if (!sql) return []
-  const rows = await sql<RunRow[]>`
+  if (!isMohamedLedgerConfigured) return []
+  const rows = await mohamedQuery(sql => sql<RunRow[]>`
     select run_id, mode, source, period_start, period_end, started_at, finished_at, status, event_count
     from mohamed_runs
     order by started_at desc
     limit ${limit}
-  `
+  `)
   return rows.map(toHistoryItem)
 }
 
 export async function getMohamedLedger(runId?: string): Promise<RunLedgerSnapshot | null> {
-  const sql = mohamedSql
-  if (!sql) return null
+  if (!isMohamedLedgerConfigured) return null
   // Two queries (run row, then its events) instead of one join: mohamed_run_events
   // can be a few hundred rows for a busy run, and a join would repeat every run
   // column on every event row over the wire for no benefit — cheaper to fetch the
@@ -122,15 +120,15 @@ export async function getMohamedLedger(runId?: string): Promise<RunLedgerSnapsho
   // and getInFlightRunRequest (see app/mohamed/page.tsx's Promise.all), which is
   // where the real serialization was.
   const runs = runId
-    ? await sql<RunRow[]>`select * from mohamed_runs where run_id = ${runId} limit 1`
-    : await sql<RunRow[]>`select * from mohamed_runs order by started_at desc limit 1`
+    ? await mohamedQuery(sql => sql<RunRow[]>`select * from mohamed_runs where run_id = ${runId} limit 1`)
+    : await mohamedQuery(sql => sql<RunRow[]>`select * from mohamed_runs order by started_at desc limit 1`)
   const run = runs[0]
   if (!run) return null
-  const events = await sql<EventRow[]>`
+  const events = await mohamedQuery(sql => sql<EventRow[]>`
     select run_id, seq, at, stage, step, status, claim_ref, action, field, code, detail, duration_ms
     from mohamed_run_events
     where run_id = ${run.run_id}
     order by seq asc
-  `
+  `)
   return buildSnapshot(run, events)
 }

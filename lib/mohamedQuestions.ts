@@ -1,4 +1,4 @@
-import mohamedSql from './mohamedDb'
+import { isMohamedLedgerConfigured, mohamedQuery } from './mohamedDb'
 
 /**
  * Clarifying questions for Mohamed — workflow-rule questions the automation
@@ -49,16 +49,15 @@ function toQuestion(raw: RawRow): ClientQuestion {
 /** Open questions first (newest first), then recently answered ones so the
  * decision trail stays visible on the page. */
 export async function getClientQuestions(): Promise<ClientQuestion[]> {
-  const sql = mohamedSql
-  if (!sql) return []
+  if (!isMohamedLedgerConfigured) return []
   try {
-    const rows = await sql<RawRow[]>`
+    const rows = await mohamedQuery(sql => sql<RawRow[]>`
       select id, created_at, topic, question, status, answer, answered_at, answered_by
       from mohamed_client_questions
       where status in ('open', 'answered')
       order by (status = 'open') desc, created_at desc
       limit 20
-    `
+    `)
     return rows.map(toQuestion)
   } catch {
     // Table not migrated yet or pooler unreachable: the section just doesn't render.
@@ -72,17 +71,16 @@ const ANSWERER = /^[a-z0-9_.:-]{1,40}$/
 
 /** Records an answer to an open question. */
 export async function answerClientQuestion(id: number, answer: string, answeredBy: string): Promise<void> {
-  const sql = mohamedSql
-  if (!sql) throw new QuestionWriteError('not_configured')
+  if (!isMohamedLedgerConfigured) throw new QuestionWriteError('not_configured')
   if (!Number.isInteger(id) || id <= 0) throw new QuestionWriteError('invalid_id')
   const trimmed = answer.trim()
   if (!trimmed || trimmed.length > 4000) throw new QuestionWriteError('invalid_answer')
   if (!ANSWERER.test(answeredBy)) throw new QuestionWriteError('invalid_answerer')
-  const rows = await sql`
+  const rows = await mohamedQuery(sql => sql`
     update mohamed_client_questions
     set status = 'answered', answer = ${trimmed}, answered_at = now(), answered_by = ${answeredBy}
     where id = ${id} and status = 'open'
     returning id
-  `
+  `)
   if (rows.length === 0) throw new QuestionWriteError('not_open')
 }

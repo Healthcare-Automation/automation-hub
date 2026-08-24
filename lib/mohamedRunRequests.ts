@@ -1,4 +1,4 @@
-import mohamedSql from './mohamedDb'
+import { isMohamedLedgerConfigured, mohamedQuery } from './mohamedDb'
 
 export type RunRequestStatus = 'pending' | 'claimed' | 'running' | 'done' | 'failed' | 'expired'
 
@@ -48,27 +48,25 @@ function toRow(raw: RawRow): RunRequestRow {
  * pending/claimed/running would just queue behind it anyway, so this makes that visible
  * to the button instead of silently accepting duplicate clicks. */
 export async function getInFlightRunRequest(): Promise<RunRequestRow | null> {
-  const sql = mohamedSql
-  if (!sql) return null
-  const rows = await sql<RawRow[]>`
+  if (!isMohamedLedgerConfigured) return null
+  const rows = await mohamedQuery(sql => sql<RawRow[]>`
     select id, requested_at, requested_by, kind, status, claimed_at, finished_at, run_id, error_code
     from mohamed_run_requests
     where status in ('pending', 'claimed', 'running')
     order by requested_at desc
     limit 1
-  `
+  `)
   return rows[0] ? toRow(rows[0]) : null
 }
 
 export async function getLatestRunRequest(): Promise<RunRequestRow | null> {
-  const sql = mohamedSql
-  if (!sql) return null
-  const rows = await sql<RawRow[]>`
+  if (!isMohamedLedgerConfigured) return null
+  const rows = await mohamedQuery(sql => sql<RawRow[]>`
     select id, requested_at, requested_by, kind, status, claimed_at, finished_at, run_id, error_code
     from mohamed_run_requests
     order by requested_at desc
     limit 1
-  `
+  `)
   return rows[0] ? toRow(rows[0]) : null
 }
 
@@ -78,12 +76,11 @@ export class EnqueueError extends Error {}
  * reachable/configured — callers should turn that into a clear "not set up yet" message,
  * not a silent no-op. */
 export async function enqueueRunRequest(requestedBy: string, kind: 'fixture' | 'live'): Promise<RunRequestRow> {
-  const sql = mohamedSql
-  if (!sql) throw new EnqueueError('Mohamed database is not configured.')
-  const rows = await sql<RawRow[]>`
+  if (!isMohamedLedgerConfigured) throw new EnqueueError('Mohamed database is not configured.')
+  const rows = await mohamedQuery(sql => sql<RawRow[]>`
     insert into mohamed_run_requests (requested_by, kind)
     values (${requestedBy}, ${kind})
     returning id, requested_at, requested_by, kind, status, claimed_at, finished_at, run_id, error_code
-  `
+  `)
   return toRow(rows[0])
 }
