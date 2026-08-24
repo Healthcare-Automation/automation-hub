@@ -59,6 +59,7 @@ export function describeRunProgress(progress: string | null): string | null {
   if (!progress) return null
   const [code, counter] = progress.split(':', 2)
   const labels: Record<string, string> = {
+    waiting_for_portal_session: 'Portal session is being repaired automatically — run will start when it recovers',
     reading_csv: 'Reading the uploaded CSV',
     checking_portal_session: 'Checking the HCPF portal session',
     checking_eligibility: 'Checking member eligibility on HCPF',
