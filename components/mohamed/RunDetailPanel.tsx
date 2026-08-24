@@ -9,6 +9,7 @@ import {
   type RunLedgerSnapshot,
 } from '@/lib/mohamedLedger'
 import type { ClaimApproval } from '@/lib/mohamedApprovals'
+import { ClaimReviewCard } from './ClaimReviewCard'
 
 const statusBadge: Record<RunLedgerSnapshot['status'], { classes: string; label: string }> = {
   review_ready: { classes: 'bg-emerald-600 text-white', label: 'Ready for review' },
@@ -36,10 +37,25 @@ type PanelState =
 /**
  * Slide-over run drill-down: clicking a run in the history table opens this
  * panel in place instead of navigating away — a full page reload was
- * disorienting mid-review. The /mohamed?run=<id> deep link still exists and
- * is offered at the bottom as "Open full report".
+ * disorienting mid-review.
+ *
+ * This is a COMPLETE review surface (Andy 2026-08-24: "I want to see every
+ * detail for every run. I want to be able to check off and review every case
+ * for each patient ID."): every claim renders as the same ClaimReviewCard
+ * used on the dashboard — member-ID headline, expandable full field list +
+ * HCPF screenshot, approve / reject-with-reason — so nothing requires
+ * leaving the panel. The /mohamed?run=<id> deep link remains as a
+ * full-page fallback.
  */
-export function RunDetailPanel({ runId, onClose }: { runId: string; onClose: () => void }) {
+export function RunDetailPanel({
+  runId,
+  canApprove,
+  onClose,
+}: {
+  runId: string
+  canApprove: boolean
+  onClose: () => void
+}) {
   const [state, setState] = useState<PanelState>({ phase: 'loading' })
 
   useEffect(() => {
@@ -58,9 +74,6 @@ export function RunDetailPanel({ runId, onClose }: { runId: string; onClose: () 
       .catch(() => {
         if (!cancelled) setState({ phase: 'error' })
       })
-    return () => {
-      cancelled = true
-    }
   }, [runId])
 
   // Escape closes, like any well-behaved overlay.
@@ -73,18 +86,32 @@ export function RunDetailPanel({ runId, onClose }: { runId: string; onClose: () 
   }, [onClose])
 
   const ledger = state.phase === 'ready' ? state.ledger : null
+  const approvals = state.phase === 'ready' ? state.approvals : {}
   const badge = ledger ? statusBadge[ledger.status] : null
   const claims = ledger ? summariseClaims(ledger) : []
+  const reviewable = claims.filter(c => c.reachedReview)
+  const notReviewable = claims.filter(c => !c.reachedReview)
   const gapAlert = ledger ? coverageGapAlert(ledger) : null
+  const decidedCount = reviewable.filter(c => {
+    const a = approvals[c.claimRef]
+    return a?.decision === 'rejected' || a?.decision === 'approved' || a?.approved
+  }).length
 
   return (
     <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="Run detail">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <aside className="absolute inset-y-0 right-0 flex w-full max-w-md flex-col overflow-y-auto bg-white shadow-2xl sm:max-w-lg">
-        <div className="sticky top-0 flex items-center justify-between gap-3 border-b border-zinc-200 bg-white px-5 py-3">
-          <h3 className="text-sm font-semibold">
-            Run <span className="font-mono text-xs text-zinc-500">{runId.slice(0, 12)}</span>
-          </h3>
+      <aside className="absolute inset-y-0 right-0 flex w-full max-w-xl flex-col overflow-y-auto bg-white shadow-2xl lg:max-w-2xl">
+        <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-zinc-200 bg-white px-5 py-3">
+          <div>
+            <h3 className="text-sm font-semibold">
+              Run <span className="font-mono text-xs text-zinc-500">{runId.slice(0, 12)}</span>
+            </h3>
+            {ledger && reviewable.length > 0 && (
+              <p className="text-[11px] text-zinc-500">
+                {decidedCount} of {reviewable.length} claim{reviewable.length === 1 ? '' : 's'} reviewed
+              </p>
+            )}
+          </div>
           <button type="button" onClick={onClose} className="rounded-md px-2 py-1 text-xs text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900">
             Close ✕
           </button>
@@ -147,43 +174,44 @@ export function RunDetailPanel({ runId, onClose }: { runId: string; onClose: () 
                 </div>
               </div>
 
+              {/* Full review, in place: the same cards as the dashboard —
+                  member-ID headline, expandable fields + screenshot,
+                  approve / reject with reason. */}
               <div>
-                <p className="mb-2 text-xs font-medium text-zinc-500">Claims</p>
+                <p className="mb-2 text-xs font-medium text-zinc-500">
+                  Claims needing review
+                  {reviewable.length > 0 && ` (${reviewable.length})`}
+                </p>
                 {claims.length === 0 && <p className="text-xs text-zinc-400">No claims in this run.</p>}
-                <ul className="space-y-1.5">
-                  {claims.map(claim => {
-                    const approval = state.phase === 'ready' ? state.approvals[claim.claimRef] : undefined
-                    return (
-                      <li key={claim.claimRef} className="flex items-center justify-between gap-2 rounded-lg border border-zinc-200 px-3 py-2 text-xs">
-                        <span className="flex items-center gap-2">
-                          <span className={`h-2 w-2 rounded-full ${claim.reachedReview ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                          <span className="font-medium">
-                            {claim.procedureCode ? claim.procedureCode.toUpperCase() : 'Claim'}
-                          </span>
-                          <span className="font-mono text-[10px] text-zinc-400">{claim.claimRef.slice(0, 8)}</span>
-                        </span>
-                        <span className="text-zinc-500">
-                          {approval?.decision === 'rejected'
-                            ? 'Rejected'
-                            : approval?.decision === 'approved'
-                              ? 'Approved'
-                              : claim.reachedReview
-                                ? 'Reached review'
-                                : 'Did not reach review'}
-                        </span>
-                      </li>
-                    )
-                  })}
-                </ul>
+                {reviewable.length > 0 && (
+                  <div className="space-y-2">
+                    {reviewable.map(claim => (
+                      <ClaimReviewCard
+                        key={claim.claimRef}
+                        runId={ledger.run_id}
+                        claim={claim}
+                        approval={approvals[claim.claimRef] ?? null}
+                        canApprove={canApprove}
+                      />
+                    ))}
+                  </div>
+                )}
+                {notReviewable.length > 0 && (
+                  <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+                    {notReviewable.length} claim{notReviewable.length === 1 ? '' : 's'} did not reach HCPF review — open the
+                    full report&apos;s technical detail for the exact failure step.
+                  </div>
+                )}
               </div>
             </div>
           )}
         </div>
 
-        <div className="sticky bottom-0 border-t border-zinc-200 bg-white px-5 py-3">
-          <a href={`/mohamed?run=${runId}`} className="text-xs font-medium text-emerald-700 hover:underline">
-            Open full report →
+        <div className="sticky bottom-0 border-t border-zinc-200 bg-white px-5 py-3 text-xs text-zinc-500">
+          <a href={`/mohamed?run=${runId}`} className="font-medium text-emerald-700 hover:underline">
+            Open as full page →
           </a>
+          <span className="ml-2">(same content, shareable link)</span>
         </div>
       </aside>
     </div>
