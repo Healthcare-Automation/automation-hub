@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import type { ClaimTrace } from '@/lib/mohamedLedger'
 import type { ClaimApproval } from '@/lib/mohamedApprovals'
-import { extractMemberId, getReviewFields } from '@/lib/mohamedReviewClient'
+import { getClaimMemberId } from '@/lib/mohamedReviewClient'
 import { groupClaimsByMember } from '@/lib/mohamedClaimGrouping'
 import { ClaimReviewCard } from './ClaimReviewCard'
 
@@ -46,10 +46,10 @@ export function ClaimsByMember({
   useEffect(() => {
     let cancelled = false
     for (const claim of claims) {
-      getReviewFields(runId, claim.claimRef, '')
-        .then(fields => {
+      getClaimMemberId(runId, claim.claimRef)
+        .then(memberId => {
           if (cancelled) return
-          setMemberIds(prev => ({ ...prev, [claim.claimRef]: extractMemberId(fields) }))
+          setMemberIds(prev => ({ ...prev, [claim.claimRef]: memberId }))
         })
         .catch(() => {
           if (!cancelled) setMemberIds(prev => ({ ...prev, [claim.claimRef]: null }))

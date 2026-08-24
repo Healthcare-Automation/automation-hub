@@ -120,6 +120,24 @@ export function extractMemberId(fields: ReviewField[] | null): string | null {
   return field?.value ?? null
 }
 
+/**
+ * Resolves a claim's member id from its captures. The top-level review
+ * fields.json holds only the SERVICE-DETAIL grid (From Date … Unit Type) —
+ * the Member ID field lives on wizard step 1, captured as
+ * steps/01-member-info/fields.json (verified live 2026-08-24, run
+ * 6c2ec3e8…). Try that step first, then fall back to the top-level fields
+ * for hypothetical captures that do include a member field. Never throws.
+ */
+export async function getClaimMemberId(runId: string, claimRef: string): Promise<string | null> {
+  try {
+    const fromStep = extractMemberId(await getReviewFields(runId, claimRef, 'steps/01-member-info'))
+    if (fromStep) return fromStep
+    return extractMemberId(await getReviewFields(runId, claimRef, ''))
+  } catch {
+    return null
+  }
+}
+
 const SERVICE_LINE_LABEL = /^03-service-line-(\d+)$/
 
 const STEP_DISPLAY_NAMES: Record<string, string> = {
