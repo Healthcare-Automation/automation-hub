@@ -21,8 +21,11 @@ function createDjcSql(): ReturnType<typeof postgres> | null {
     // its pooled connections stay checked out and idle — 14 of the pooler's 15 slots were being held
     // this way, idle for minutes, while pages failed with EMAXCONNSESSION.
     max: 1,
-    idle_timeout: 5,
-    max_lifetime: 1800,
+    idle_timeout: 2,
+    // NO max_lifetime: its recycle timer fires on thaw after a Vercel
+    // function freeze and terminates an already-destroyed socket, which
+    // postgres.js raises as an unhandled rejection that crashes the render
+    // (see lib/mohamedDb.ts, 2026-08-24). idle_timeout alone retires sockets.
     // Fail fast instead of hanging forever if the pooler is unreachable/saturated.
     connect_timeout: 10,
     // Required for Supabase's transaction pooler (port 6543), which serverless should use —

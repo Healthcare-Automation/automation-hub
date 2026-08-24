@@ -21,8 +21,11 @@ function createApprovalSql(): ReturnType<typeof postgres> | null {
   return postgres(url, {
     ssl: 'require',
     max: 2,
-    idle_timeout: 5,
-    max_lifetime: 1800,
+    idle_timeout: 2,
+    // NO max_lifetime: its recycle timer fires on thaw after a Vercel
+    // function freeze and terminates an already-destroyed socket, which
+    // postgres.js raises as an unhandled rejection that crashes the render
+    // (see lib/mohamedDb.ts, 2026-08-24). idle_timeout alone retires sockets.
     connect_timeout: 10,
     prepare: false,
     connection: { application_name: 'automation-hub-mohamed-approval' },

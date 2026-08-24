@@ -17,7 +17,10 @@ function createCbSql(): ReturnType<typeof postgres> | null {
     ssl: 'require',
     max: 3,
     idle_timeout: 20,
-    max_lifetime: 1800,
+    // NO max_lifetime: its recycle timer fires on thaw after a Vercel
+    // function freeze and terminates an already-destroyed socket, which
+    // postgres.js raises as an unhandled rejection that crashes the render
+    // (see lib/mohamedDb.ts, 2026-08-24). idle_timeout alone retires sockets.
     connect_timeout: 10,
     // Supabase transaction pooler (6543) can't keep session-level prepared statements.
     prepare: false,
