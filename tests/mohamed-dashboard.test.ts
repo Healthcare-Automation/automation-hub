@@ -84,3 +84,13 @@ test('a claim card with no step captures shows no step strip (falls back to the 
   )
   assert.doesNotMatch(html, /Service line 1/)
 })
+
+test('claims needing review render under a member header, even before the member id has resolved', () => {
+  // renderToStaticMarkup never runs effects, so memberId stays unresolved
+  // (null) for every claim -- this locks in that the pending/fallback
+  // header text renders instead of nothing.
+  const html = renderToStaticMarkup(
+    createElement(MohamedDashboard, { isAdmin: true, canApprove: true, ledger, ledgerSource: 'live' }),
+  )
+  assert.match(html, /Member \(pending\)|Member [A-Za-z0-9-]+/)
+})
