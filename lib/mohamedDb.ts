@@ -29,10 +29,16 @@ function createMohamedSql(): Sql | null {
     // page's Promise.all([ledger, history, inFlight, questions]) actually run
     // in parallel instead of queuing behind each other on one connection.
     max: 3,
-    idle_timeout: 5,
-    // Cycle sockets often: long-lived sockets are exactly the ones that die
-    // silently across Vercel function freezes.
-    max_lifetime: 300,
+    // Close idle sockets almost immediately: any socket that survives a
+    // Vercel function freeze is dead on thaw, and a query on it hangs.
+    // Server-side pooling (Supabase transaction pooler) makes reconnects
+    // cheap, so there is no benefit to keeping client sockets warm.
+    idle_timeout: 2,
+    // NO max_lifetime: its recycle timer fires on thaw after a freeze and
+    // writes a terminate to an already-destroyed socket, which postgres.js
+    // surfaces as an UNHANDLED REJECTION (write CONNECTION_DESTROYED) that
+    // crashes the whole page render — this was the /mohamed "flips to a
+    // different page on every refresh" bug (Vercel logs, 2026-08-24).
     connect_timeout: 10,
     prepare: false,
     connection: { application_name: 'automation-hub-mohamed' },

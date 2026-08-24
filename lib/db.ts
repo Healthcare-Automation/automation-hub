@@ -25,7 +25,10 @@ function createSql(): ReturnType<typeof postgres> {
     // (2026-07-24 EMAXCONNSESSION outage).
     max: 2,
     idle_timeout: 20,
-    max_lifetime: 1800,
+    // NO max_lifetime: its recycle timer fires on thaw after a Vercel
+    // function freeze and terminates an already-destroyed socket, which
+    // postgres.js raises as an unhandled rejection that crashes the render
+    // (see lib/mohamedDb.ts, 2026-08-24). idle_timeout alone retires sockets.
     // Fail fast instead of hanging forever if the pooler is unreachable/saturated — a hang
     // stacks SSR requests and holds connections, which spirals the whole dashboard down.
     connect_timeout: 10,
