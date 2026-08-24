@@ -149,11 +149,14 @@ export function MohamedDashboard({
         </section>
       )}
 
-      {ledger && ledgerSource !== 'live' && (
+      {ledgerSource === 'unavailable' && (
+        <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-900">
+          Reconnecting to the run database… the page refreshes automatically, your data is safe.
+        </p>
+      )}
+      {ledger && ledgerSource === 'synthetic' && (
         <p className="mt-3 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2 text-xs text-zinc-600">
-          {ledgerSource === 'unavailable'
-            ? 'The run ledger store is unreachable right now — showing the last synthetic run instead.'
-            : 'Showing a synthetic run. Live runs appear here once one has completed.'}
+          Showing a synthetic run. Live runs appear here once one has completed.
         </p>
       )}
 
