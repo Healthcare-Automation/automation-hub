@@ -1,8 +1,8 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
-type Phase = 'idle' | 'requesting' | 'uploading' | 'done' | 'error'
+type Phase = 'idle' | 'requesting' | 'uploading' | 'queued' | 'error'
 
 /**
  * Uploads Mohamed's Billing Report CSV directly from the browser to the
@@ -16,7 +16,27 @@ export function CsvUploadCard({ hasFile }: { hasFile: boolean }) {
   const [phase, setPhase] = useState<Phase>('idle')
   const [message, setMessage] = useState<string | null>(null)
   const [fileName, setFileName] = useState<string | null>(null)
+  const [waitingForPortalSession, setWaitingForPortalSession] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    async function poll() {
+      try {
+        const res = await fetch('/api/mohamed/portal-health')
+        const data = await res.json()
+        if (!cancelled && data.ok) setWaitingForPortalSession(Boolean(data.waitingForPortalSession))
+      } catch {
+        // Best-effort — a failed poll just leaves the notice as it was.
+      }
+    }
+    void poll()
+    const id = setInterval(poll, 15_000)
+    return () => {
+      cancelled = true
+      clearInterval(id)
+    }
+  }, [])
 
   async function upload(file: File) {
     setPhase('requesting')
@@ -50,8 +70,8 @@ export function CsvUploadCard({ hasFile }: { hasFile: boolean }) {
         )
         return
       }
-      setPhase('done')
-      setMessage('Uploaded. The run starts automatically — no need to do anything else.')
+      setPhase('queued')
+      setMessage('Queued — the runner picks this up within a minute.')
     } catch {
       setPhase('error')
       setMessage('Network error reaching the VPS. Try again.')
@@ -81,6 +101,13 @@ export function CsvUploadCard({ hasFile }: { hasFile: boolean }) {
         </p>
       </div>
       <div className="p-5">
+        {waitingForPortalSession && (
+          <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5">
+            <p className="text-xs font-medium text-amber-900">
+              Portal session is being repaired automatically — your upload will queue and start when it recovers.
+            </p>
+          </div>
+        )}
         <div
           onDrop={onDrop}
           onDragOver={e => e.preventDefault()}
@@ -101,7 +128,7 @@ export function CsvUploadCard({ hasFile }: { hasFile: boolean }) {
               {phase === 'requesting' ? 'Preparing upload…' : `Uploading ${fileName ?? 'file'}…`}
             </p>
           )}
-          {phase === 'done' && <p className="text-sm font-medium text-emerald-700">✓ {fileName}</p>}
+          {phase === 'queued' && <p className="text-sm font-medium text-emerald-700">✓ {fileName}</p>}
           {phase === 'error' && <p className="text-sm font-medium text-red-700">Upload failed — click to try again</p>}
         </div>
         {message && (
