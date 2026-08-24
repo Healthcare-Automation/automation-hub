@@ -5,8 +5,8 @@ import type { RunRequestRow } from '@/lib/mohamedRunRequests'
 import type { ClaimApproval } from '@/lib/mohamedApprovals'
 import type { ClientQuestion } from '@/lib/mohamedQuestions'
 import { coverageGapAlert, summariseClaims, summariseInPlainLanguage } from '@/lib/mohamedLedger'
-import { describeRunProgress } from '@/lib/mohamedRunRequests'
 import { RunHistory } from './RunHistory'
+import { RunProgress } from './RunProgress'
 import { CsvUploadCard } from './CsvUploadCard'
 import { ClaimReviewCard } from './ClaimReviewCard'
 import { ClientQuestionsCard } from './ClientQuestionsCard'
@@ -115,16 +115,9 @@ export function MohamedDashboard({
                 </p>
               )}
             </div>
-            {isAdmin && (
-              <div className="text-right text-[11px] text-zinc-500">
-                {inFlight ? (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-amber-900">
-                    <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
-                    {describeRunProgress(inFlight.progress) ?? `A run is ${inFlight.status}`} — updates automatically
-                  </span>
-                ) : (
-                  'Upload a CSV below to start a run'
-                )}
+            {(isAdmin || isMohamed) && (
+              <div className="w-full text-right text-[11px] text-zinc-500 sm:w-64">
+                {inFlight ? <RunProgress progress={inFlight.progress} /> : 'Upload a CSV below to start a run'}
               </div>
             )}
           </div>

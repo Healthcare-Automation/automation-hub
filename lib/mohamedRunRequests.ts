@@ -76,6 +76,62 @@ export function describeRunProgress(progress: string | null): string | null {
   return label
 }
 
+export const PROGRESS_STAGES = [
+  'reading_csv',
+  'checking_portal_session',
+  'checking_eligibility',
+  'entering_claims_on_hcpf',
+  'saving_results',
+] as const
+export type ProgressStageCode = (typeof PROGRESS_STAGES)[number]
+
+const PROGRESS_STAGE_ALIASES: Record<string, ProgressStageCode> = {
+  // The poller emits `claims_completed` when the last claim in the
+  // entering_claims_on_hcpf stage finishes — same step, not a 6th stage.
+  claims_completed: 'entering_claims_on_hcpf',
+}
+
+export type ProgressCounter = { done: number; total: number }
+export type ProgressState = {
+  paused: boolean
+  stageIndex: number
+  stageLabel: string
+  counter: ProgressCounter | null
+  percent: number
+}
+
+/** Structured view of a progress code for rendering a step list + percent
+ * bar. `describeRunProgress` stays as the plain-text one-liner used
+ * elsewhere; this is additive, not a replacement. */
+export function parseRunProgress(progress: string | null): ProgressState | null {
+  if (!progress) return null
+  const [rawCode, counterPart] = progress.split(':', 2)
+
+  if (rawCode === 'waiting_for_portal_session') {
+    return { paused: true, stageIndex: -1, stageLabel: describeRunProgress(progress) ?? rawCode, counter: null, percent: 0 }
+  }
+
+  const code = PROGRESS_STAGE_ALIASES[rawCode] ?? (rawCode as ProgressStageCode)
+  const stageIndex = PROGRESS_STAGES.indexOf(code)
+  const ofMatch = counterPart?.match(/^(\d+)_of_(\d+)$/)
+  const counter: ProgressCounter | null = ofMatch ? { done: Number(ofMatch[1]), total: Number(ofMatch[2]) } : null
+
+  const stageCount = PROGRESS_STAGES.length
+  let percent = 0
+  if (stageIndex >= 0) {
+    const fractionWithinStage = counter && counter.total > 0 ? counter.done / counter.total : 0.5
+    percent = Math.round(((stageIndex + fractionWithinStage) / stageCount) * 100)
+  }
+
+  return {
+    paused: false,
+    stageIndex,
+    stageLabel: describeRunProgress(progress) ?? rawCode.replaceAll('_', ' '),
+    counter,
+    percent: Math.min(100, Math.max(0, percent)),
+  }
+}
+
 /** Only one un-finished request in flight at a time — a second press while a run is still
  * pending/claimed/running would just queue behind it anyway, so this makes that visible
  * to the button instead of silently accepting duplicate clicks. */
