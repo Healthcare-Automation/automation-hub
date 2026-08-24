@@ -158,10 +158,6 @@ export function MohamedDashboard({
 
       {isAdmin && <CsvUploadCard hasFile={Boolean(ledger)} />}
 
-      {/* Clarifying billing-rule questions for Mohamed — answered here so
-          decisions live next to the runs they govern, not in chat threads. */}
-      <ClientQuestionsCard questions={questions} canAnswer={canApprove} />
-
       {/* The one thing everyone must see before anything can move forward:
           every claim that reached HCPF review, its full field list, its
           screenshot, and an explicit approve action. Nothing here submits
@@ -195,7 +191,11 @@ export function MohamedDashboard({
         </section>
       )}
 
-      {history.length > 0 && <RunHistory history={history} selectedRunId={ledger?.run_id ?? ''} />}
+      {history.length > 0 && <RunHistory history={history} selectedRunId={ledger?.run_id ?? ''} canApprove={canApprove} />}
+
+      {/* Clarifying billing-rule questions for Mohamed — answered here so
+          decisions live next to the runs they govern, not in chat threads. */}
+      <ClientQuestionsCard questions={questions} canAnswer={canApprove} />
 
       {ledger && (
         <details className="mt-7 rounded-2xl border border-zinc-200 bg-white">

@@ -26,7 +26,15 @@ function when(iso: string) {
  * the previous full-page navigation to /mohamed?run=<id> was disorienting.
  * That deep link still works (the panel offers it as "Open full report").
  */
-export function RunHistory({ history, selectedRunId }: { history: RunHistoryItem[]; selectedRunId: string }) {
+export function RunHistory({
+  history,
+  selectedRunId,
+  canApprove = false,
+}: {
+  history: RunHistoryItem[]
+  selectedRunId: string
+  canApprove?: boolean
+}) {
   const [openRunId, setOpenRunId] = useState<string | null>(null)
 
   if (history.length === 0) return null
@@ -46,7 +54,11 @@ export function RunHistory({ history, selectedRunId }: { history: RunHistoryItem
         </thead>
         <tbody className="divide-y divide-zinc-100">
           {history.map(item => (
-            <tr key={item.runId} className={item.runId === selectedRunId ? 'bg-zinc-50' : ''}>
+            <tr
+              key={item.runId}
+              onClick={() => setOpenRunId(item.runId)}
+              className={`cursor-pointer hover:bg-emerald-50/40 ${item.runId === selectedRunId ? 'bg-zinc-50' : ''}`}
+            >
               <td className="px-4 py-2 text-zinc-600">{when(item.startedAt)}</td>
               <td className="px-4 py-2 font-mono">
                 <button
@@ -64,14 +76,14 @@ export function RunHistory({ history, selectedRunId }: { history: RunHistoryItem
               <td className="px-4 py-2">
                 <span className={`rounded-full px-2 py-0.5 font-medium ${statusStyles[item.status]}`}>{statusLabels[item.status]}</span>
               </td>
-              <td className="px-4 py-2 text-right">
+              <td className="px-4 py-2 text-right" onClick={event => event.stopPropagation()}>
                 <RunReviewLink runId={item.runId} />
               </td>
             </tr>
           ))}
         </tbody>
       </table>
-      {openRunId && <RunDetailPanel runId={openRunId} onClose={() => setOpenRunId(null)} />}
+      {openRunId && <RunDetailPanel runId={openRunId} canApprove={canApprove} onClose={() => setOpenRunId(null)} />}
     </section>
   )
 }
