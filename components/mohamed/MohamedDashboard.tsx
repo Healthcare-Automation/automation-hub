@@ -4,7 +4,7 @@ import type { RunHistoryItem } from '@/lib/mohamedQueries'
 import type { RunRequestRow } from '@/lib/mohamedRunRequests'
 import type { ClaimApproval } from '@/lib/mohamedApprovals'
 import type { ClientQuestion } from '@/lib/mohamedQuestions'
-import { coverageGapAlert, summariseClaims, summariseInPlainLanguage } from '@/lib/mohamedLedger'
+import { coverageGapAlert, describeFailureForClient, summariseClaims, summariseInPlainLanguage } from '@/lib/mohamedLedger'
 import { RunHistory } from './RunHistory'
 import { RunProgress } from './RunProgress'
 import { CsvUploadCard } from './CsvUploadCard'
@@ -74,6 +74,7 @@ export function MohamedDashboard({
   const approvedCount = reviewable.filter(c => approvals.get(c.claimRef)?.approved).length
   const rejectedCount = reviewable.filter(c => approvals.get(c.claimRef)?.decision === 'rejected').length
   const gapAlert = ledger ? coverageGapAlert(ledger) : null
+  const failureExplanation = ledger?.status === 'failed' ? describeFailureForClient(ledger) : null
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
@@ -97,23 +98,16 @@ export function MohamedDashboard({
         </div>
       </header>
 
-      {/* Status: the one thing to read if nothing else. */}
+      {/* Status: the one thing to read if nothing else. One compact row —
+          badge, when, plain-language summary — plus the three-line failure
+          explanation underneath when the run failed. */}
       {ledger && hero ? (
-        <section data-section="status" className={`mt-7 rounded-2xl border p-5 ${hero.border} ${hero.bg}`}>
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${hero.badge}`}>{hero.label}</span>
-                <span className="text-[11px] text-zinc-500">Last run {timeAgo(ledger.finished_at ?? ledger.started_at)}</span>
-              </div>
-              <p className="mt-2 text-sm font-medium text-zinc-900">{summariseInPlainLanguage(ledger)}</p>
-              {reviewable.length > 0 && (
-                <p className="mt-2 text-xs text-zinc-600">
-                  {rejectedCount > 0
-                    ? `${approvedCount} approved · ${rejectedCount} rejected`
-                    : `${approvedCount} of ${reviewable.length} claim${reviewable.length === 1 ? '' : 's'} approved`}
-                </p>
-              )}
+        <section data-section="status" className={`mt-7 rounded-2xl border p-4 ${hero.border} ${hero.bg}`}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+              <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${hero.badge}`}>{hero.label}</span>
+              <span className="shrink-0 text-[11px] text-zinc-500">{timeAgo(ledger.finished_at ?? ledger.started_at)}</span>
+              <span className="text-sm text-zinc-900">{summariseInPlainLanguage(ledger)}</span>
             </div>
             {(isAdmin || isMohamed) && (
               <div className="w-full text-right text-[11px] text-zinc-500 sm:w-64">
@@ -121,44 +115,44 @@ export function MohamedDashboard({
               </div>
             )}
           </div>
+          {reviewable.length > 0 && (
+            <p className="mt-1.5 text-xs text-zinc-600">
+              {rejectedCount > 0
+                ? `${approvedCount} approved · ${rejectedCount} rejected`
+                : `${approvedCount} of ${reviewable.length} claim${reviewable.length === 1 ? '' : 's'} approved`}
+            </p>
+          )}
+          {failureExplanation && (
+            <dl className="mt-3 space-y-1.5 border-t border-red-200 pt-3 text-xs">
+              <div>
+                <dt className="inline font-semibold text-red-900">What happened: </dt>
+                <dd className="inline text-red-800">{failureExplanation.whatHappened}</dd>
+              </div>
+              <div>
+                <dt className="inline font-semibold text-red-900">What the system did: </dt>
+                <dd className="inline text-red-800">{failureExplanation.whatSystemDid}</dd>
+              </div>
+              {failureExplanation.whatToDo && (
+                <div>
+                  <dt className="inline font-semibold text-red-900">What to do: </dt>
+                  <dd className="inline text-red-800">{failureExplanation.whatToDo}</dd>
+                </div>
+              )}
+            </dl>
+          )}
+          {ledgerSource === 'synthetic' && (
+            <p className="mt-2 text-[11px] text-zinc-500">Showing a synthetic run. Live runs appear here once one has completed.</p>
+          )}
         </section>
       ) : (
-        <section data-section="status" className="mt-7 rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
+        <section data-section="status" className="mt-7 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
           <p className="text-sm text-emerald-900">No runs yet. Upload a CSV below to start one.</p>
-        </section>
-      )}
-
-      {/* Coverage-gap alert — client decision 2026-08-24: these visits are
-          never billed, but that must be loudly visible on every run report,
-          not buried in the event log. */}
-      {gapAlert && (
-        <section className="mt-4 rounded-2xl border border-red-300 bg-red-50 p-5">
-          <div className="flex items-start gap-3">
-            <span className="mt-0.5 text-lg" aria-hidden>⚠️</span>
-            <div>
-              <h2 className="text-sm font-semibold text-red-900">
-                {gapAlert.visitsNeverBilled} visit{gapAlert.visitsNeverBilled === 1 ? '' : 's'} NOT billed — missing required coverage
-              </h2>
-              <p className="mt-1 text-xs text-red-800">
-                {gapAlert.membersAffected} client{gapAlert.membersAffected === 1 ? '' : 's'} in this run{' '}
-                {gapAlert.membersAffected === 1 ? 'is' : 'are'} missing one of the two required coverages
-                (HCBS EBD Waiver / Community First Choice). Per your decision these visits are never billed
-                until both coverages appear. They will keep being excluded on every run until the coverage
-                shows up in the member&apos;s Medicaid record.
-              </p>
-            </div>
-          </div>
         </section>
       )}
 
       {ledgerSource === 'unavailable' && (
         <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-900">
           Reconnecting to the run database… the page refreshes automatically, your data is safe.
-        </p>
-      )}
-      {ledger && ledgerSource === 'synthetic' && (
-        <p className="mt-3 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2 text-xs text-zinc-600">
-          Showing a synthetic run. Live runs appear here once one has completed.
         </p>
       )}
 
@@ -202,6 +196,29 @@ export function MohamedDashboard({
       {ledger && claims.some(c => !c.reachedReview) && (
         <section className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
           {claims.filter(c => !c.reachedReview).length} claim(s) in this run did not reach HCPF review — see technical detail below for why.
+        </section>
+      )}
+
+      {/* Coverage-gap alert — client decision 2026-08-24: these visits are
+          never billed, but that must be visible on every affected run
+          report. It's expected, working-as-designed behaviour, not a
+          failure, so it reads as an informational card, not a red banner. */}
+      {gapAlert && (
+        <section className="mt-5 rounded-xl border border-amber-200 bg-amber-50/60 p-4">
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 shrink-0 text-base text-amber-600" aria-hidden>ⓘ</span>
+            <div>
+              <h2 className="text-xs font-semibold text-amber-900">
+                {gapAlert.visitsNeverBilled} visit{gapAlert.visitsNeverBilled === 1 ? '' : 's'} excluded — working as designed, per your rule
+              </h2>
+              <p className="mt-1 text-xs text-amber-800">
+                {gapAlert.membersAffected} client{gapAlert.membersAffected === 1 ? '' : 's'} in this run{' '}
+                {gapAlert.membersAffected === 1 ? 'is' : 'are'} missing one of the two required coverages
+                (HCBS EBD Waiver / Community First Choice). Per your decision these visits are never billed
+                until both coverages appear in the member&apos;s Medicaid record.
+              </p>
+            </div>
+          </div>
         </section>
       )}
 
