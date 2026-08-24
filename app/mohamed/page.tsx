@@ -7,7 +7,7 @@ import { isMohamedApprovalConfigured } from '@/lib/mohamedApprovalDb'
 import { getMohamedLedger, getMohamedRunHistory, type RunHistoryItem } from '@/lib/mohamedQueries'
 import { getApprovalsForRun, type ClaimApproval } from '@/lib/mohamedApprovals'
 import { getInFlightRunRequest, type RunRequestRow } from '@/lib/mohamedRunRequests'
-import { getClientQuestions, type ClientQuestion } from '@/lib/mohamedQuestions'
+import { getClientQuestions, QuestionsNotMigratedError, type ClientQuestion } from '@/lib/mohamedQuestions'
 import { MOHAMED_COOKIE_NAME, verifyMohamedCookieValue } from '@/lib/mohamedAuth'
 import { MohamedDashboard } from '@/components/mohamed/MohamedDashboard'
 import { LiveDashboardRefresh } from '@/components/LiveDashboardRefresh'
@@ -38,10 +38,13 @@ export default async function MohamedPage({ searchParams }: { searchParams: Prom
     ? undefined
     : (demoLedger as RunLedgerSnapshot)
   let history: RunHistoryItem[] = []
+  let historyDegraded = false
   let approvals = new Map<string, ClaimApproval>()
+  let approvalsDegraded = false
   let ledgerSource: 'live' | 'synthetic' | 'unavailable' = 'synthetic'
   let inFlight: RunRequestRow | null = null
   let questions: ClientQuestion[] = []
+  let questionsDegraded = false
 
   if (isMohamedLedgerConfigured) {
     const selected = typeof run === 'string' && /^[0-9a-f]{32}$/.test(run) ? run : undefined
@@ -50,16 +53,30 @@ export default async function MohamedPage({ searchParams }: { searchParams: Prom
     const [liveR, runsR, requestR, questionsR] = await Promise.allSettled([
       getMohamedLedger(selected),
       getMohamedRunHistory(),
-      isAdmin ? getInFlightRunRequest() : Promise.resolve(null),
+      isAdmin || isMohamed ? getInFlightRunRequest() : Promise.resolve(null),
       getClientQuestions(),
     ])
-    if (runsR.status === 'fulfilled') history = runsR.value
+    if (runsR.status === 'fulfilled') {
+      history = runsR.value
+    } else {
+      historyDegraded = true
+    }
     if (requestR.status === 'fulfilled') inFlight = requestR.value
-    if (questionsR.status === 'fulfilled') questions = questionsR.value
+    if (questionsR.status === 'fulfilled') {
+      questions = questionsR.value
+    } else if (questionsR.reason instanceof QuestionsNotMigratedError) {
+      questions = []
+    } else {
+      questionsDegraded = true
+    }
     if (liveR.status === 'fulfilled' && liveR.value) {
       ledger = liveR.value
       ledgerSource = 'live'
-      approvals = await getApprovalsForRun(liveR.value.run_id).catch(() => new Map())
+      try {
+        approvals = await getApprovalsForRun(liveR.value.run_id)
+      } catch {
+        approvalsDegraded = true
+      }
     } else {
       // Pooler unreachable/saturated or the ledger query failed: keep the
       // page honest — no demo data, just a retrying banner.
@@ -69,20 +86,24 @@ export default async function MohamedPage({ searchParams }: { searchParams: Prom
 
   return (
     <>
-      {/* Auto-refresh so Andy never has to hit reload: fast (5s) while a run
-          is actively in flight so "pending" resolves on its own, slower
-          (20s) the rest of the time. Only mounted for admins — Mohamed's
-          view doesn't have a trigger button, so there's nothing to wait on. */}
-      {isAdmin && <LiveDashboardRefresh intervalMs={inFlight ? 5_000 : 20_000} />}
+      {/* Auto-refresh so nobody has to hit reload: fast (5s) while a run is
+          actively in flight so "pending" resolves on its own, slower (20s)
+          the rest of the time. Mounted for both admin and Mohamed's own
+          session — Mohamed can now upload and needs to see it resolve too. */}
+      {(isAdmin || isMohamed) && <LiveDashboardRefresh intervalMs={inFlight ? 5_000 : 20_000} />}
       <MohamedDashboard
         ledger={ledger}
         ledgerSource={ledgerSource}
         history={history}
+        historyDegraded={historyDegraded}
         approvals={approvals}
+        approvalsDegraded={approvalsDegraded}
         isAdmin={isAdmin}
+        isMohamed={isMohamed}
         canApprove={canApprove}
         inFlight={inFlight}
         questions={questions}
+        questionsDegraded={questionsDegraded}
       />
     </>
   )

@@ -46,8 +46,18 @@ function toQuestion(raw: RawRow): ClientQuestion {
   }
 }
 
+export class QuestionsNotMigratedError extends Error {}
+
+function isUndefinedTable(err: unknown): boolean {
+  return Boolean(err && typeof err === 'object' && (err as { code?: string }).code === '42P01')
+}
+
 /** Open questions first (newest first), then recently answered ones so the
- * decision trail stays visible on the page. */
+ * decision trail stays visible on the page. Throws on any failure except a
+ * missing table (pre-migration installs) so the caller can tell "genuinely
+ * no questions" apart from "the query failed" — a swallowed error here is
+ * indistinguishable from an empty result and was the root cause of the
+ * questions section vanishing on transient pooler errors. */
 export async function getClientQuestions(): Promise<ClientQuestion[]> {
   if (!isMohamedLedgerConfigured) return []
   try {
@@ -59,9 +69,9 @@ export async function getClientQuestions(): Promise<ClientQuestion[]> {
       limit 20
     `)
     return rows.map(toQuestion)
-  } catch {
-    // Table not migrated yet or pooler unreachable: the section just doesn't render.
-    return []
+  } catch (err) {
+    if (isUndefinedTable(err)) throw new QuestionsNotMigratedError('mohamed_client_questions not migrated')
+    throw err
   }
 }
 

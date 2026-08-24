@@ -18,16 +18,23 @@ test('Mohamed dashboard shows claim review, not raw submission controls, and no 
   assert.doesNotMatch(html, /href="\/"/)
 })
 
-test('status hero shows a plain-language summary; upload card is admin-only', () => {
+test('status hero shows a plain-language summary; upload card is visible to admin and to Mohamed\'s own session', () => {
   const adminHtml = renderToStaticMarkup(
     createElement(MohamedDashboard, { isAdmin: true, canApprove: true, ledger, ledgerSource: 'live' }),
   )
-  const clientHtml = renderToStaticMarkup(
+  const mohamedHtml = renderToStaticMarkup(
+    createElement(MohamedDashboard, { isAdmin: false, isMohamed: true, canApprove: true, ledger, ledgerSource: 'live' }),
+  )
+  // Neither flag set cannot happen in practice (proxy.ts only ever lets an
+  // admin or Mohamed cookie reach this page) but is kept as a defensive
+  // "nothing granted, show nothing operable" baseline.
+  const unauthenticatedHtml = renderToStaticMarkup(
     createElement(MohamedDashboard, { isAdmin: false, canApprove: false, ledger, ledgerSource: 'live' }),
   )
 
   assert.match(adminHtml, /Upload billing report/)
-  assert.doesNotMatch(clientHtml, /Upload billing report/) // Mohamed views results, does not operate the pipeline
+  assert.match(mohamedHtml, /Upload billing report/) // Mohamed uploads their own billing report and needs to see it queue
+  assert.doesNotMatch(unauthenticatedHtml, /Upload billing report/)
   assert.match(adminHtml, /reached HCPF Review|Stopped during|blocked by a billing rule|found nothing to bill/)
 })
 
