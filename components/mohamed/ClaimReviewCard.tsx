@@ -81,11 +81,13 @@ export function ClaimReviewCard({
   runId,
   claim,
   approval,
+  approvalDegraded = false,
   canApprove,
 }: {
   runId: string
   claim: ClaimTrace
   approval: ClaimApproval | null
+  approvalDegraded?: boolean
   canApprove: boolean
 }) {
   const [expanded, setExpanded] = useState(false)
@@ -233,6 +235,12 @@ export function ClaimReviewCard({
           <span className="text-xs text-zinc-400">{expanded ? 'Hide' : 'Review'}</span>
         </div>
       </button>
+
+      {approvalDegraded && (
+        <p className="border-t border-amber-100 bg-amber-50 px-4 py-2 text-xs text-amber-800">
+          Reconnecting to the approvals database — any existing decision on this claim isn&apos;t shown yet, refreshes automatically.
+        </p>
+      )}
 
       {/* A rejection reason stays visible even collapsed — it's the whole
           point of the feedback loop. */}

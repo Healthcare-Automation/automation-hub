@@ -9,33 +9,46 @@ import type { ClientQuestion } from '@/lib/mohamedQuestions'
  * Mohamed to answer (billing rules, edge cases). Open questions show an
  * answer box; answered ones show the decision so the trail stays visible.
  */
-export function ClientQuestionsCard({ questions, canAnswer }: { questions: ClientQuestion[]; canAnswer: boolean }) {
-  if (questions.length === 0) return null
+export function ClientQuestionsCard({
+  questions,
+  canAnswer,
+  degraded = false,
+}: {
+  questions: ClientQuestion[]
+  canAnswer: boolean
+  degraded?: boolean
+}) {
   const open = questions.filter(q => q.status === 'open')
   const answered = questions.filter(q => q.status === 'answered')
 
   return (
-    <section className="mt-7 rounded-2xl border border-sky-200 bg-sky-50 p-5">
+    <section data-section="questions" className="mt-7 rounded-2xl border border-sky-200 bg-sky-50 p-5">
       <h2 className="text-base font-semibold text-sky-950">Questions for you</h2>
       <p className="mt-0.5 text-xs text-sky-900/70">
         The automation needs these billing-rule decisions from you. Answers here become the rules it follows.
       </p>
-      <div className="mt-3 space-y-3">
-        {open.map(q => (
-          <QuestionItem key={q.id} question={q} canAnswer={canAnswer} />
-        ))}
-        {answered.map(q => (
-          <div key={q.id} className="rounded-xl border border-sky-200 bg-white p-4">
-            <p className="text-sm text-zinc-800">{q.question}</p>
-            <div className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
-              <span className="font-medium">Answer:</span> {q.answer}
-              <span className="ml-2 text-[11px] text-emerald-700">
-                {q.answeredAt ? new Date(q.answeredAt).toLocaleDateString() : ''}
-              </span>
+      {degraded ? (
+        <p className="mt-3 text-xs text-amber-700">Reconnecting… refreshes automatically.</p>
+      ) : questions.length === 0 ? (
+        <p className="mt-3 text-xs text-sky-900/70">No open questions right now.</p>
+      ) : (
+        <div className="mt-3 space-y-3">
+          {open.map(q => (
+            <QuestionItem key={q.id} question={q} canAnswer={canAnswer} />
+          ))}
+          {answered.map(q => (
+            <div key={q.id} className="rounded-xl border border-sky-200 bg-white p-4">
+              <p className="text-sm text-zinc-800">{q.question}</p>
+              <div className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+                <span className="font-medium">Answer:</span> {q.answer}
+                <span className="ml-2 text-[11px] text-emerald-700">
+                  {q.answeredAt ? new Date(q.answeredAt).toLocaleDateString() : ''}
+                </span>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </section>
   )
 }

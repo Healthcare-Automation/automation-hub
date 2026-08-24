@@ -44,20 +44,28 @@ export function MohamedDashboard({
   ledger,
   ledgerSource = 'synthetic',
   history = [],
+  historyDegraded = false,
   approvals = new Map(),
+  approvalsDegraded = false,
   isAdmin,
+  isMohamed = false,
   canApprove,
   inFlight = null,
   questions = [],
+  questionsDegraded = false,
 }: {
   ledger?: RunLedgerSnapshot
   ledgerSource?: 'live' | 'synthetic' | 'unavailable'
   history?: RunHistoryItem[]
+  historyDegraded?: boolean
   approvals?: Map<string, ClaimApproval>
+  approvalsDegraded?: boolean
   isAdmin: boolean
+  isMohamed?: boolean
   canApprove: boolean
   inFlight?: RunRequestRow | null
   questions?: ClientQuestion[]
+  questionsDegraded?: boolean
 }) {
   const hero = ledger ? statusHero[ledger.status] : null
   const claims = ledger ? summariseClaims(ledger) : []
@@ -90,7 +98,7 @@ export function MohamedDashboard({
 
       {/* Status: the one thing to read if nothing else. */}
       {ledger && hero ? (
-        <section className={`mt-7 rounded-2xl border p-5 ${hero.border} ${hero.bg}`}>
+        <section data-section="status" className={`mt-7 rounded-2xl border p-5 ${hero.border} ${hero.bg}`}>
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
@@ -121,7 +129,7 @@ export function MohamedDashboard({
           </div>
         </section>
       ) : (
-        <section className="mt-7 rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
+        <section data-section="status" className="mt-7 rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
           <p className="text-sm text-emerald-900">No runs yet. Upload a CSV below to start one.</p>
         </section>
       )}
@@ -160,34 +168,42 @@ export function MohamedDashboard({
         </p>
       )}
 
-      {isAdmin && <CsvUploadCard hasFile={Boolean(ledger)} />}
+      {(isAdmin || isMohamed) && <CsvUploadCard hasFile={Boolean(ledger)} />}
 
       {/* The one thing everyone must see before anything can move forward:
           every claim that reached HCPF review, its full field list, its
           screenshot, and an explicit approve action. Nothing here submits
           anything -- there is no live submission path yet -- but this is
-          exactly where that gate will live once one exists. */}
-      {ledger && reviewable.length > 0 && (
-        <section className="mt-7">
-          <div className="mb-3">
-            <h2 className="text-base font-semibold">Claims needing review</h2>
-            <p className="mt-0.5 text-xs text-zinc-500">
-              Every claim that reached HCPF review. Nothing is submitted — review the fields and screenshot, then approve.
-            </p>
-          </div>
+          exactly where that gate will live once one exists. Always
+          rendered, even when the ledger itself is unavailable -- gating
+          this on `ledger` truthiness was the same vanishing-section bug
+          this task exists to kill, just one level up. */}
+      <section data-section="claims" className="mt-7">
+        <div className="mb-3">
+          <h2 className="text-base font-semibold">Claims needing review</h2>
+          <p className="mt-0.5 text-xs text-zinc-500">
+            Every claim that reached HCPF review. Nothing is submitted — review the fields and screenshot, then approve.
+          </p>
+        </div>
+        {!ledger ? (
+          <p className="text-xs text-amber-700">Reconnecting… refreshes automatically.</p>
+        ) : reviewable.length > 0 ? (
           <div className="space-y-2">
             {reviewable.map(claim => (
               <ClaimReviewCard
                 key={claim.claimRef}
                 runId={ledger.run_id}
                 claim={claim}
-                approval={approvals.get(claim.claimRef) ?? null}
+                approval={approvalsDegraded ? null : (approvals.get(claim.claimRef) ?? null)}
+                approvalDegraded={approvalsDegraded}
                 canApprove={canApprove}
               />
             ))}
           </div>
-        </section>
-      )}
+        ) : (
+          <p className="text-xs text-zinc-500">No claims reached review in this run.</p>
+        )}
+      </section>
 
       {ledger && claims.some(c => !c.reachedReview) && (
         <section className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
@@ -195,22 +211,20 @@ export function MohamedDashboard({
         </section>
       )}
 
-      {history.length > 0 && <RunHistory history={history} selectedRunId={ledger?.run_id ?? ''} canApprove={canApprove} />}
+      <RunHistory history={history} selectedRunId={ledger?.run_id ?? ''} canApprove={canApprove} degraded={historyDegraded} />
 
       {/* Clarifying billing-rule questions for Mohamed — answered here so
           decisions live next to the runs they govern, not in chat threads. */}
-      <ClientQuestionsCard questions={questions} canAnswer={canApprove} />
+      <ClientQuestionsCard questions={questions} canAnswer={canApprove} degraded={questionsDegraded} />
 
-      {ledger && (
-        <details className="mt-7 rounded-2xl border border-zinc-200 bg-white">
-          <summary className="cursor-pointer px-5 py-3 text-sm font-semibold text-zinc-600">Technical detail (for debugging)</summary>
-          <div className="border-t border-zinc-200 px-1 pb-1">
-            <RunTrace ledger={ledger} />
-          </div>
-        </details>
-      )}
+      <details data-section="technical" className="mt-7 rounded-2xl border border-zinc-200 bg-white">
+        <summary className="cursor-pointer px-5 py-3 text-sm font-semibold text-zinc-600">Technical detail (for debugging)</summary>
+        <div className="border-t border-zinc-200 px-1 pb-1">
+          {ledger ? <RunTrace ledger={ledger} /> : <p className="px-4 py-4 text-xs text-amber-700">Reconnecting… refreshes automatically.</p>}
+        </div>
+      </details>
 
-      <footer className="mt-8 border-t border-zinc-200 pt-4 text-[11px] text-zinc-500">
+      <footer data-section="footer" className="mt-8 border-t border-zinc-200 pt-4 text-[11px] text-zinc-500">
         Automation Hub · Mohamed workspace
       </footer>
     </div>
