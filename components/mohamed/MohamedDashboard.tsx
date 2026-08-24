@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import type { RunLedgerSnapshot } from '@/lib/mohamedLedger'
 import type { RunHistoryItem } from '@/lib/mohamedQueries'
 import type { RunRequestRow } from '@/lib/mohamedRunRequests'
@@ -84,8 +85,8 @@ export function MohamedDashboard({
         <div className="flex items-center gap-2 text-xs">
           {isAdmin && (
             <nav className="flex rounded-lg border border-zinc-200 bg-white p-1">
-              <a href="/" className="rounded-md px-3 py-1.5 text-zinc-500 hover:text-zinc-900">Proxi</a>
-              <a href="/mohamed" className="rounded-md bg-zinc-900 px-3 py-1.5 text-white">Mohamed</a>
+              <Link href="/" prefetch className="rounded-md px-3 py-1.5 text-zinc-500 hover:text-zinc-900">Proxi</Link>
+              <Link href="/mohamed" className="rounded-md bg-zinc-900 px-3 py-1.5 text-white">Mohamed</Link>
             </nav>
           )}
           {!isAdmin && (

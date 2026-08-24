@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { unstable_cache } from 'next/cache'
 import { getDailyStatus, getRecentRuns, getWeeklySummary, getPipelineBacklog } from '@/lib/queries'
 import { getDjcDailyStatus, getDjcRecentRuns, getDjcSummary, getDjcProfileViews, getDjcQuotaBlocked, getDjcViewYield } from '@/lib/djcQueries'
@@ -206,7 +207,7 @@ export default async function Page() {
           <ProxiLogo />
           <nav className="flex rounded-lg border border-zinc-700/60 bg-zinc-900/60 p-1 text-xs">
             <a href="/" className="rounded-md bg-white px-3 py-1.5 font-medium text-zinc-900">Proxi</a>
-            <a href="/mohamed" className="rounded-md px-3 py-1.5 text-zinc-400 transition-colors hover:text-white">Mohamed</a>
+            <Link href="/mohamed" prefetch className="rounded-md px-3 py-1.5 text-zinc-400 transition-colors hover:text-white">Mohamed</Link>
           </nav>
         </header>
 
