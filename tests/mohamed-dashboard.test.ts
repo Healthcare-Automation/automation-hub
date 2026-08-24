@@ -73,3 +73,24 @@ test('no run yet shows an empty state, not a crash', () => {
   const html = renderToStaticMarkup(createElement(MohamedDashboard, { isAdmin: false, canApprove: false }))
   assert.match(html, /No runs yet/)
 })
+
+test('a claim card with no step captures shows no step strip (falls back to the legacy single screenshot view)', () => {
+  // renderToStaticMarkup never runs useEffect, so no fetch happens and the
+  // card renders its collapsed, pre-fetch state -- this test locks in that
+  // the collapsed state itself never renders step-strip markup up front,
+  // which would be a hydration mismatch waiting to happen.
+  const html = renderToStaticMarkup(
+    createElement(MohamedDashboard, { isAdmin: true, canApprove: true, ledger, ledgerSource: 'live' }),
+  )
+  assert.doesNotMatch(html, /Service line 1/)
+})
+
+test('claims needing review render under a member header, even before the member id has resolved', () => {
+  // renderToStaticMarkup never runs effects, so memberId stays unresolved
+  // (null) for every claim -- this locks in that the pending/fallback
+  // header text renders instead of nothing.
+  const html = renderToStaticMarkup(
+    createElement(MohamedDashboard, { isAdmin: true, canApprove: true, ledger, ledgerSource: 'live' }),
+  )
+  assert.match(html, /Member \(pending\)|Member [A-Za-z0-9-]+/)
+})

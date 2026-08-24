@@ -3,6 +3,15 @@
 import { useEffect, useState } from 'react'
 import type { ClaimTrace } from '@/lib/mohamedLedger'
 import type { ClaimApproval } from '@/lib/mohamedApprovals'
+import {
+  extractMemberId,
+  getReviewFields,
+  getReviewScreenshotUrl,
+  getClaimSteps,
+  stepDisplayLabel,
+  type ReviewField,
+  type StepIndexEntry,
+} from '@/lib/mohamedReviewClient'
 
 function money(cents: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100)
@@ -10,57 +19,6 @@ function money(cents: number) {
 
 type ReviewState = 'idle' | 'loading' | 'missing' | 'error' | 'ready'
 type Decision = 'approved' | 'rejected' | null
-
-type ReviewField = { label: string; value: string }
-
-// One review token minted per page render and shared across every card —
-// runs have ≤10 claims and each card needs fields.json at mount, so this
-// avoids 10 identical token round trips. Cleared on failure so a retry
-// (expand) can mint a fresh one.
-let tokenPromise: Promise<{ token: string; uploadUrl: string }> | null = null
-
-function getReviewToken(): Promise<{ token: string; uploadUrl: string }> {
-  if (!tokenPromise) {
-    tokenPromise = (async () => {
-      const res = await fetch('/api/mohamed/review-token', { method: 'POST' })
-      const json = await res.json()
-      if (!res.ok || !json.ok || !json.uploadUrl) throw new Error('token_unavailable')
-      return { token: json.token as string, uploadUrl: json.uploadUrl as string }
-    })()
-    tokenPromise.catch(() => {
-      tokenPromise = null
-    })
-  }
-  return tokenPromise
-}
-
-// fields.json per claim, cached so mount (member id headline) and expand
-// (full field list) share one fetch. null = artifact missing (404).
-const fieldsCache = new Map<string, Promise<ReviewField[] | null>>()
-
-function getClaimFields(runId: string, claimRef: string): Promise<ReviewField[] | null> {
-  const key = `${runId}/${claimRef}`
-  let cached = fieldsCache.get(key)
-  if (!cached) {
-    cached = (async () => {
-      const { token, uploadUrl } = await getReviewToken()
-      const res = await fetch(`${uploadUrl}/review/${runId}/${claimRef}/fields.json`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      if (res.status === 404) return null
-      if (!res.ok) throw new Error('fields_unavailable')
-      const payload = await res.json()
-      return Array.isArray(payload.fields) ? (payload.fields as ReviewField[]) : []
-    })()
-    cached.catch(() => {
-      fieldsCache.delete(key)
-    })
-    fieldsCache.set(key, cached)
-  }
-  return cached
-}
-
-const MEMBER_ID_LABEL = /member.?id/i
 
 /**
  * One claim, one card: what it is, the full field list + screenshot
@@ -103,16 +61,21 @@ export function ClaimReviewCard({
   const [busy, setBusy] = useState(false)
   const [decisionError, setDecisionError] = useState<string | null>(null)
 
+  const [steps, setSteps] = useState<StepIndexEntry[] | null>(null)
+  const [selectedStep, setSelectedStep] = useState(0)
+
   // Fetch fields.json at mount purely for the member-id headline. Best
   // effort: any failure just leaves the procedure-code headline in place —
-  // the card must never block on this.
+  // the card must never block on this. The top-level fields.json always
+  // exists once a claim reaches review or fails-with-capture, whether or
+  // not it also has step captures (see review_capture.capture_review).
   useEffect(() => {
     let cancelled = false
-    getClaimFields(runId, claim.claimRef)
+    getReviewFields(runId, claim.claimRef, '')
       .then(loaded => {
-        if (cancelled || !loaded) return
-        const field = loaded.find(f => MEMBER_ID_LABEL.test(f.label))
-        if (field?.value) setMemberId(field.value)
+        if (cancelled) return
+        const id = extractMemberId(loaded)
+        if (id) setMemberId(id)
       })
       .catch(() => {})
     return () => {
@@ -120,29 +83,53 @@ export function ClaimReviewCard({
     }
   }, [runId, claim.claimRef])
 
+  useEffect(() => {
+    if (!expanded || !steps || steps.length < 2) return
+    function onKey(event: KeyboardEvent) {
+      if (event.key === 'ArrowRight') selectStep(selectedStep + 1)
+      if (event.key === 'ArrowLeft') selectStep(selectedStep - 1)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expanded, steps, selectedStep])
+
+  async function loadStep(list: StepIndexEntry[], index: number) {
+    const entry = list[index]
+    const [loadedFields, shotUrl] = await Promise.all([
+      getReviewFields(runId, claim.claimRef, entry.path),
+      entry.has_screenshot ? getReviewScreenshotUrl(runId, claim.claimRef, entry.path) : Promise.resolve(null),
+    ])
+    setFields(loadedFields ?? [])
+    setScreenshotUrl(shotUrl)
+  }
+
+  function selectStep(index: number) {
+    if (!steps || index < 0 || index >= steps.length || index === selectedStep) return
+    setSelectedStep(index)
+    loadStep(steps, index).catch(() => setState('error'))
+  }
+
   async function load() {
     if (state === 'ready' || state === 'loading') return
     setState('loading')
     try {
-      const loaded = await getClaimFields(runId, claim.claimRef)
+      const stepList = await getClaimSteps(runId, claim.claimRef)
+      if (stepList) {
+        setSteps(stepList)
+        setSelectedStep(0)
+        await loadStep(stepList, 0)
+        setState('ready')
+        return
+      }
+      setSteps(null)
+      const loaded = await getReviewFields(runId, claim.claimRef, '')
       if (loaded === null) {
         setState('missing')
         return
       }
       setFields(loaded)
-
-      try {
-        const { token, uploadUrl } = await getReviewToken()
-        const shotRes = await fetch(`${uploadUrl}/review/${runId}/${claim.claimRef}/screenshot.png`, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        if (shotRes.ok) {
-          const blob = await shotRes.blob()
-          setScreenshotUrl(URL.createObjectURL(blob))
-        }
-      } catch {
-        // Screenshot is optional; the field list alone is still reviewable.
-      }
+      setScreenshotUrl(await getReviewScreenshotUrl(runId, claim.claimRef, ''))
       setState('ready')
     } catch {
       setState('error')
@@ -252,6 +239,45 @@ export function ClaimReviewCard({
 
       {expanded && (
         <div className="border-t border-zinc-200 px-4 py-4">
+          {steps && steps.length > 1 && (
+            <>
+              <div className="mb-2 flex gap-1.5 overflow-x-auto pb-1">
+                {steps.map((step, index) => (
+                  <button
+                    key={step.label}
+                    type="button"
+                    onClick={() => selectStep(index)}
+                    className={`shrink-0 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-medium ${
+                      index === selectedStep
+                        ? 'border-emerald-600 bg-emerald-600 text-white'
+                        : 'border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50'
+                    }`}
+                  >
+                    {index + 1}. {stepDisplayLabel(step.label)}
+                  </button>
+                ))}
+              </div>
+              <div className="mb-3 flex items-center justify-between text-xs text-zinc-500">
+                <button
+                  type="button"
+                  disabled={selectedStep === 0}
+                  onClick={() => selectStep(selectedStep - 1)}
+                  className="font-medium text-emerald-700 hover:underline disabled:pointer-events-none disabled:text-zinc-300"
+                >
+                  ← Prev
+                </button>
+                <span>{stepDisplayLabel(steps[selectedStep].label)}</span>
+                <button
+                  type="button"
+                  disabled={selectedStep === steps.length - 1}
+                  onClick={() => selectStep(selectedStep + 1)}
+                  className="font-medium text-emerald-700 hover:underline disabled:pointer-events-none disabled:text-zinc-300"
+                >
+                  Next →
+                </button>
+              </div>
+            </>
+          )}
           {state === 'loading' && <p className="text-sm text-zinc-500">Loading…</p>}
           {state === 'missing' && <p className="text-sm text-zinc-500">No capture exists for this claim yet.</p>}
           {state === 'error' && <p className="text-sm text-red-700">Could not load the capture. Try again.</p>}

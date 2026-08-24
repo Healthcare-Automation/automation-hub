@@ -8,7 +8,7 @@ import { coverageGapAlert, describeFailureForClient, summariseClaims, summariseI
 import { RunHistory } from './RunHistory'
 import { RunProgress } from './RunProgress'
 import { CsvUploadCard } from './CsvUploadCard'
-import { ClaimReviewCard } from './ClaimReviewCard'
+import { ClaimsByMember } from './ClaimsByMember'
 import { ClientQuestionsCard } from './ClientQuestionsCard'
 import { RunTrace } from './RunTrace'
 
@@ -176,18 +176,13 @@ export function MohamedDashboard({
         {!ledger ? (
           <p className="text-xs text-amber-700">Reconnecting… refreshes automatically.</p>
         ) : reviewable.length > 0 ? (
-          <div className="space-y-2">
-            {reviewable.map(claim => (
-              <ClaimReviewCard
-                key={claim.claimRef}
-                runId={ledger.run_id}
-                claim={claim}
-                approval={approvalsDegraded ? null : (approvals.get(claim.claimRef) ?? null)}
-                approvalDegraded={approvalsDegraded}
-                canApprove={canApprove}
-              />
-            ))}
-          </div>
+          <ClaimsByMember
+            runId={ledger.run_id}
+            claims={reviewable}
+            approvals={approvals}
+            approvalDegraded={approvalsDegraded}
+            canApprove={canApprove}
+          />
         ) : (
           <p className="text-xs text-zinc-500">No claims reached review in this run.</p>
         )}

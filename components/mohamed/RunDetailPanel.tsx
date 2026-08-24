@@ -9,7 +9,7 @@ import {
   type RunLedgerSnapshot,
 } from '@/lib/mohamedLedger'
 import type { ClaimApproval } from '@/lib/mohamedApprovals'
-import { ClaimReviewCard } from './ClaimReviewCard'
+import { ClaimsByMember } from './ClaimsByMember'
 
 const statusBadge: Record<RunLedgerSnapshot['status'], { classes: string; label: string }> = {
   review_ready: { classes: 'bg-emerald-600 text-white', label: 'Ready for review' },
@@ -184,17 +184,7 @@ export function RunDetailPanel({
                 </p>
                 {claims.length === 0 && <p className="text-xs text-zinc-400">No claims in this run.</p>}
                 {reviewable.length > 0 && (
-                  <div className="space-y-2">
-                    {reviewable.map(claim => (
-                      <ClaimReviewCard
-                        key={claim.claimRef}
-                        runId={ledger.run_id}
-                        claim={claim}
-                        approval={approvals[claim.claimRef] ?? null}
-                        canApprove={canApprove}
-                      />
-                    ))}
-                  </div>
+                  <ClaimsByMember runId={ledger.run_id} claims={reviewable} approvals={approvals} canApprove={canApprove} />
                 )}
                 {notReviewable.length > 0 && (
                   <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
