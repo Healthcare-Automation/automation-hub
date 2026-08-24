@@ -3,7 +3,7 @@ import type { RunHistoryItem } from '@/lib/mohamedQueries'
 import type { RunRequestRow } from '@/lib/mohamedRunRequests'
 import type { ClaimApproval } from '@/lib/mohamedApprovals'
 import type { ClientQuestion } from '@/lib/mohamedQuestions'
-import { summariseClaims, summariseInPlainLanguage } from '@/lib/mohamedLedger'
+import { coverageGapAlert, summariseClaims, summariseInPlainLanguage } from '@/lib/mohamedLedger'
 import { RunHistory } from './RunHistory'
 import { CsvUploadCard } from './CsvUploadCard'
 import { ClaimReviewCard } from './ClaimReviewCard'
@@ -62,6 +62,7 @@ export function MohamedDashboard({
   const claims = ledger ? summariseClaims(ledger) : []
   const reviewable = claims.filter(c => c.reachedReview)
   const approvedCount = reviewable.filter(c => approvals.get(c.claimRef)?.approved).length
+  const gapAlert = ledger ? coverageGapAlert(ledger) : null
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
@@ -118,6 +119,29 @@ export function MohamedDashboard({
       ) : (
         <section className="mt-7 rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
           <p className="text-sm text-emerald-900">No runs yet. Upload a CSV below to start one.</p>
+        </section>
+      )}
+
+      {/* Coverage-gap alert — client decision 2026-08-24: these visits are
+          never billed, but that must be loudly visible on every run report,
+          not buried in the event log. */}
+      {gapAlert && (
+        <section className="mt-4 rounded-2xl border border-red-300 bg-red-50 p-5">
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 text-lg" aria-hidden>⚠️</span>
+            <div>
+              <h2 className="text-sm font-semibold text-red-900">
+                {gapAlert.visitsNeverBilled} visit{gapAlert.visitsNeverBilled === 1 ? '' : 's'} NOT billed — missing required coverage
+              </h2>
+              <p className="mt-1 text-xs text-red-800">
+                {gapAlert.membersAffected} client{gapAlert.membersAffected === 1 ? '' : 's'} in this run{' '}
+                {gapAlert.membersAffected === 1 ? 'is' : 'are'} missing one of the two required coverages
+                (HCBS EBD Waiver / Community First Choice). Per your decision these visits are never billed
+                until both coverages appear. They will keep being excluded on every run until the coverage
+                shows up in the member&apos;s Medicaid record.
+              </p>
+            </div>
+          </div>
         </section>
       )}
 

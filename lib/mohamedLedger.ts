@@ -125,6 +125,20 @@ export function describeFailure(ledger: RunLedgerSnapshot): string | null {
   return `${where}${what ? ` › ${what}` : ''}${claim}: ${failure.code ?? 'failed'} at event #${failure.seq}`
 }
 
+export type CoverageGapAlert = { visitsNeverBilled: number; membersAffected: number }
+
+/** The coverage-gap alert event, when this run held visits back because a
+ * member lacked one of the two required coverages (client decision
+ * 2026-08-24: never bill these — but always alert). */
+export function coverageGapAlert(ledger: RunLedgerSnapshot): CoverageGapAlert | null {
+  const event = ledger.events.find(e => e.step === 'coverage_gap_alert')
+  if (!event) return null
+  const visits = Number(event.detail['visits_never_billed'] ?? 0)
+  const members = Number(event.detail['members_affected'] ?? 0)
+  if (!visits) return null
+  return { visitsNeverBilled: visits, membersAffected: members }
+}
+
 /** A single plain-language sentence for someone who does not want to read an event log.
  * This is the first thing a non-technical reader should see. */
 export function summariseInPlainLanguage(ledger: RunLedgerSnapshot): string {
