@@ -3,6 +3,7 @@ import { test } from 'node:test'
 import demo from '../lib/mohamedDemoLedger.json' with { type: 'json' }
 import {
   describeFailure,
+  describeFailureForClient,
   ledgerLooksPhiFree,
   summariseClaims,
   summariseInPlainLanguage,
@@ -109,4 +110,39 @@ test('plain-language summary describes an all-blocked run', () => {
     events: ledger.events.filter(e => e.stage === 'extraction' || e.stage === 'billing_rules'),
   }
   assert.match(summariseInPlainLanguage(blocked), /blocked by a billing rule/)
+})
+
+test('describeFailureForClient maps known codes to plain-English three-liners', () => {
+  const base: RunLedgerSnapshot = { ...ledger, status: 'failed' }
+  const withCode = (code: string): RunLedgerSnapshot => ({
+    ...base,
+    first_failure: { ...ledger.events[0], code, seq: 1, status: 'failed' },
+  })
+
+  const reauth = describeFailureForClient(withCode('hcpf_reauthentication_required'))
+  assert.ok(reauth)
+  assert.match(reauth.whatHappened, /signed us out/)
+  assert.match(reauth.whatSystemDid, /automatically/)
+
+  const rejected = describeFailureForClient(withCode('service_line_rejected:2'))
+  assert.ok(rejected)
+  assert.match(rejected.whatToDo ?? '', /failure screenshot/)
+
+  const timeout = describeFailureForClient(withCode('WebSocketTimeoutException'))
+  assert.ok(timeout)
+  assert.match(timeout.whatSystemDid, /fresh browser tab/)
+})
+
+test('describeFailureForClient falls back to a generic-but-honest explanation for unknown codes', () => {
+  const unknown = describeFailureForClient({
+    ...ledger,
+    status: 'failed',
+    first_failure: { ...ledger.events[0], code: 'brand_new_code_2027', seq: 1, status: 'failed' },
+  })
+  assert.ok(unknown)
+  assert.match(unknown.whatToDo ?? '', /runbook/)
+})
+
+test('describeFailureForClient returns null when there is no failure', () => {
+  assert.equal(describeFailureForClient(ledger), null)
 })

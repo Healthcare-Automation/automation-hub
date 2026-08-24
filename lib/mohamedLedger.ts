@@ -163,6 +163,69 @@ export function summariseInPlainLanguage(ledger: RunLedgerSnapshot): string {
   return `All ${reached} claim${reached === 1 ? '' : 's'} reached HCPF Review successfully. Nothing was submitted — this is a dry run.`
 }
 
+export type ClientFailureExplanation = {
+  whatHappened: string
+  whatSystemDid: string
+  whatToDo: string | null
+}
+
+/** Maps a ledger failure/reason code to three plain-English fields for a
+ * non-technical reader. Source of truth for what self-heals vs needs a
+ * human: /root/projects/mohamed/docs/failure-modes-runbook.md. Falls back
+ * to a generic-but-honest explanation for any code not in the table below
+ * so a newly-introduced code never regresses to a raw string on screen. */
+const FAILURE_EXPLANATIONS: Record<string, ClientFailureExplanation> = {
+  hcpf_reauthentication_required: {
+    whatHappened: 'The billing portal signed us out and stayed signed out for more than 35 minutes.',
+    whatSystemDid: 'The system tried repeatedly to repair the session automatically and could not within that window.',
+    whatToDo:
+      'No action needed from you — this is being looked into. Your upload is safe and will retry once the session is repaired.',
+  },
+  stale_session: {
+    whatHappened: 'The billing portal detected a second, overlapping login and locked the session.',
+    whatSystemDid: 'The system is waiting out the portal’s lock (about 15–25 minutes) and will retry the login automatically.',
+    whatToDo: null,
+  },
+  service_line_rejected: {
+    whatHappened: 'HCPF rejected one or more service lines on this claim.',
+    whatSystemDid: 'The system captured a screenshot of the portal’s exact rejection message for this claim.',
+    whatToDo: 'Open the claim’s failure screenshot below to see the portal’s exact message.',
+  },
+  websockettimeoutexception: {
+    whatHappened: 'The portal page stopped responding partway through this run.',
+    whatSystemDid: 'The system recovered by opening a fresh browser tab and continued with the next claim.',
+    whatToDo: null,
+  },
+  invalid_claim_draft: {
+    whatHappened: 'A claim could not be assembled from the uploaded data.',
+    whatSystemDid: 'The system stopped before submitting anything for this claim.',
+    whatToDo: 'Check the source row in the billing report for missing or malformed fields.',
+  },
+  overlaps_present: {
+    whatHappened: 'This billing period overlaps with a period that was already billed.',
+    whatSystemDid: 'The system held these visits back rather than risk a duplicate claim.',
+    whatToDo: 'Confirm the intended billing period and re-run if it was uploaded by mistake.',
+  },
+}
+
+const GENERIC_EXPLANATION: ClientFailureExplanation = {
+  whatHappened: 'The run stopped on an error the automation has not seen described yet.',
+  whatSystemDid: 'The system stopped before submitting anything and recorded exactly where.',
+  whatToDo: 'See the technical detail below, or ask Andy to check the failure-modes runbook for this code.',
+}
+
+/** Three plain-English lines (what happened / what the system already did /
+ * what you should do) for a run's failure code, replacing raw ledger codes
+ * on the status strip. Matched by substring since the raw code often
+ * carries a suffix (e.g. "service_line_rejected:2"). */
+export function describeFailureForClient(ledger: RunLedgerSnapshot): ClientFailureExplanation | null {
+  const failure = ledger.first_failure
+  if (!failure?.code) return null
+  const code = failure.code.toLowerCase()
+  const matchedKey = Object.keys(FAILURE_EXPLANATIONS).find(key => code.includes(key))
+  return matchedKey ? FAILURE_EXPLANATIONS[matchedKey] : GENERIC_EXPLANATION
+}
+
 const IDENTIFIER_LIKE = /[A-Z]{2,}-?[A-Z0-9]{2,}|\d{4}-\d{2}-\d{2}/
 
 /** Defensive check used by tests and by the ingest path: a ledger must not contain identifier-like strings in free positions. */
