@@ -62,6 +62,7 @@ export function MohamedDashboard({
   const claims = ledger ? summariseClaims(ledger) : []
   const reviewable = claims.filter(c => c.reachedReview)
   const approvedCount = reviewable.filter(c => approvals.get(c.claimRef)?.approved).length
+  const rejectedCount = reviewable.filter(c => approvals.get(c.claimRef)?.decision === 'rejected').length
   const gapAlert = ledger ? coverageGapAlert(ledger) : null
 
   return (
@@ -98,7 +99,9 @@ export function MohamedDashboard({
               <p className="mt-2 text-sm font-medium text-zinc-900">{summariseInPlainLanguage(ledger)}</p>
               {reviewable.length > 0 && (
                 <p className="mt-2 text-xs text-zinc-600">
-                  {approvedCount} of {reviewable.length} claim{reviewable.length === 1 ? '' : 's'} approved
+                  {rejectedCount > 0
+                    ? `${approvedCount} approved · ${rejectedCount} rejected`
+                    : `${approvedCount} of ${reviewable.length} claim${reviewable.length === 1 ? '' : 's'} approved`}
                 </p>
               )}
             </div>
