@@ -29,7 +29,14 @@ export default async function MohamedPage({ searchParams }: { searchParams: Prom
   const canApprove = (isAdmin || isMohamed) && isMohamedApprovalConfigured
   const { run } = await searchParams
 
-  let ledger: RunLedgerSnapshot = demoLedger as RunLedgerSnapshot
+  // The synthetic demo ledger exists ONLY for local dev / unconfigured
+  // installs. In production (ledger configured) we never show fake data:
+  // a transient DB failure renders an honest "retrying" banner instead of
+  // silently swapping in a demo run (which made the page appear to flip
+  // between two different dashboards on refresh — Andy, 2026-08-24).
+  let ledger: RunLedgerSnapshot | undefined = isMohamedLedgerConfigured
+    ? undefined
+    : (demoLedger as RunLedgerSnapshot)
   let history: RunHistoryItem[] = []
   let approvals = new Map<string, ClaimApproval>()
   let ledgerSource: 'live' | 'synthetic' | 'unavailable' = 'synthetic'
@@ -37,24 +44,25 @@ export default async function MohamedPage({ searchParams }: { searchParams: Prom
   let questions: ClientQuestion[] = []
 
   if (isMohamedLedgerConfigured) {
-    try {
-      const selected = typeof run === 'string' && /^[0-9a-f]{32}$/.test(run) ? run : undefined
-      const [live, runs, request, clientQuestions] = await Promise.all([
-        getMohamedLedger(selected),
-        getMohamedRunHistory(),
-        isAdmin ? getInFlightRunRequest() : Promise.resolve(null),
-        getClientQuestions(),
-      ])
-      history = runs
-      inFlight = request
-      questions = clientQuestions
-      if (live) {
-        ledger = live
-        ledgerSource = 'live'
-        approvals = await getApprovalsForRun(live.run_id).catch(() => new Map())
-      }
-    } catch {
-      // Pooler unreachable or saturated: degrade to the synthetic ledger and say so.
+    const selected = typeof run === 'string' && /^[0-9a-f]{32}$/.test(run) ? run : undefined
+    // allSettled, not all: one slow/failed query must not throw away the
+    // other three (that all-or-nothing catch was half the flip-flop bug).
+    const [liveR, runsR, requestR, questionsR] = await Promise.allSettled([
+      getMohamedLedger(selected),
+      getMohamedRunHistory(),
+      isAdmin ? getInFlightRunRequest() : Promise.resolve(null),
+      getClientQuestions(),
+    ])
+    if (runsR.status === 'fulfilled') history = runsR.value
+    if (requestR.status === 'fulfilled') inFlight = requestR.value
+    if (questionsR.status === 'fulfilled') questions = questionsR.value
+    if (liveR.status === 'fulfilled' && liveR.value) {
+      ledger = liveR.value
+      ledgerSource = 'live'
+      approvals = await getApprovalsForRun(liveR.value.run_id).catch(() => new Map())
+    } else {
+      // Pooler unreachable/saturated or the ledger query failed: keep the
+      // page honest — no demo data, just a retrying banner.
       ledgerSource = 'unavailable'
     }
   }
