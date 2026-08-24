@@ -1,5 +1,9 @@
+'use client'
+
+import { useState } from 'react'
 import type { RunHistoryItem } from '@/lib/mohamedQueries'
 import { RunReviewLink } from './RunReviewLink'
+import { RunDetailPanel } from './RunDetailPanel'
 
 const statusStyles: Record<RunHistoryItem['status'], string> = {
   review_ready: 'bg-emerald-50 text-emerald-800',
@@ -17,7 +21,14 @@ function when(iso: string) {
   return iso.replace('T', ' ').slice(0, 16) + ' UTC'
 }
 
+/**
+ * Client component so a run click opens the drill-down panel in place —
+ * the previous full-page navigation to /mohamed?run=<id> was disorienting.
+ * That deep link still works (the panel offers it as "Open full report").
+ */
 export function RunHistory({ history, selectedRunId }: { history: RunHistoryItem[]; selectedRunId: string }) {
+  const [openRunId, setOpenRunId] = useState<string | null>(null)
+
   if (history.length === 0) return null
   return (
     <section className="mt-7 overflow-hidden rounded-2xl border border-zinc-200 bg-white">
@@ -38,9 +49,13 @@ export function RunHistory({ history, selectedRunId }: { history: RunHistoryItem
             <tr key={item.runId} className={item.runId === selectedRunId ? 'bg-zinc-50' : ''}>
               <td className="px-4 py-2 text-zinc-600">{when(item.startedAt)}</td>
               <td className="px-4 py-2 font-mono">
-                <a href={`/mohamed?run=${item.runId}`} className="text-emerald-700 hover:underline">
+                <button
+                  type="button"
+                  onClick={() => setOpenRunId(item.runId)}
+                  className="text-emerald-700 hover:underline"
+                >
                   {item.runId.slice(0, 12)}
-                </a>
+                </button>
               </td>
               <td className="px-4 py-2">{item.mode.replace('_', ' ')}</td>
               <td className="px-4 py-2">{item.source.replaceAll('_', ' ')}</td>
@@ -56,6 +71,7 @@ export function RunHistory({ history, selectedRunId }: { history: RunHistoryItem
           ))}
         </tbody>
       </table>
+      {openRunId && <RunDetailPanel runId={openRunId} onClose={() => setOpenRunId(null)} />}
     </section>
   )
 }
