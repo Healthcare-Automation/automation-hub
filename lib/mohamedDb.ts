@@ -92,18 +92,20 @@ async function raceTimeout<T>(fn: (sql: Sql) => Promise<T>): Promise<T> {
 }
 
 /**
- * Run a Mohamed-ledger query with a hang watchdog: if it does not settle in
- * 6s, assume a dead cached socket, reset the pool, and retry ONCE on fresh
- * connections. A second timeout throws MohamedDbTimeout — callers already
- * treat any throw as "degrade, don't 500" (synthetic ledger / empty list).
- * The page's worst case becomes ~12s degraded instead of an endless hang.
+ * Run a Mohamed-ledger query with a hang watchdog AND a dead-socket retry:
+ * if it does not settle in 6s (dead cached socket hangs) OR fails with any
+ * connection-level error (dead cached socket writes fail instantly with
+ * CONNECTION_ENDED/DESTROYED on thawed Vercel instances), reset the pool
+ * and retry ONCE on fresh connections. Only a second failure propagates —
+ * callers treat any throw as "degrade, don't 500". Retrying on every error
+ * (not just timeouts) matters: the instant-fail path was ~5% of production
+ * page loads, each one flashing the amber reconnect banner (2026-08-24).
  */
 export async function mohamedQuery<T>(fn: (sql: Sql) => Promise<T>): Promise<T> {
   if (!isMohamedLedgerConfigured) throw new MohamedDbTimeout()
   try {
     return await raceTimeout(fn)
-  } catch (err) {
-    if (!(err instanceof MohamedDbTimeout)) throw err
+  } catch {
     mohamedResetPool()
     return await raceTimeout(fn)
   }
