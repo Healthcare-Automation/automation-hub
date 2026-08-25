@@ -17,7 +17,7 @@ import {
 import { groupClaimsByMember } from '@/lib/mohamedClaimGrouping'
 import { getClaimMemberId } from '@/lib/mohamedReviewClient'
 import { RunDetailPanel } from './RunDetailPanel'
-import { RunProgress } from './RunProgress'
+import { LiveRunBoard } from './LiveRunBoard'
 
 /* ------------------------------------------------------------------ *
  * Status language: one colour per meaning, used identically everywhere
@@ -394,7 +394,10 @@ export function RunHistory({
           <p className="mt-0.5 text-xs text-zinc-500">
             It will appear at the top of this list, marked &ldquo;Just finished&rdquo;, as soon as it is done.
           </p>
-          <RunProgress progress={inFlight.progress} />
+          {/* Per-member board while the run works, coarse step bar as its
+              own fallback (LiveRunBoard renders RunProgress itself when no
+              live board is available). */}
+          <LiveRunBoard progress={inFlight.progress} requestId={inFlight.id} />
         </div>
       )}
 
