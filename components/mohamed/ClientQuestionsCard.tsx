@@ -50,25 +50,28 @@ export function ClientQuestionsCard({
   const answered = questions.filter(q => q.status === 'answered')
 
   return (
-    <section data-section="questions" className="mt-7 rounded-2xl border border-sky-200 bg-sky-50 p-5">
-      <h2 className="text-base font-semibold text-sky-950">Questions for you</h2>
-      <p className="mt-0.5 text-xs text-sky-900/70">
-        The automation needs these billing-rule decisions from you. Answers here become the rules it follows.
-      </p>
-      {degraded ? (
-        <p className="mt-3 text-xs text-amber-700">Reconnecting… refreshes automatically.</p>
-      ) : questions.length === 0 ? (
-        <p className="mt-3 text-xs text-sky-900/70">No open questions right now.</p>
-      ) : (
-        <div className="mt-3 space-y-3">
-          {open.map(q => (
-            <OpenQuestion key={q.id} question={q} canAnswer={canAnswer} />
-          ))}
-          {answered.map(q => (
-            <AnsweredQuestion key={q.id} question={q} />
-          ))}
-        </div>
-      )}
+    <section data-section="questions" className="relative mt-5 overflow-hidden rounded-2xl border border-zinc-200 bg-white pl-5 shadow-sm">
+      <span className="absolute inset-y-0 left-0 w-1 bg-sky-400" aria-hidden />
+      <div className="p-5 pl-3.5">
+        <h2 className="text-sm font-semibold text-zinc-900">Questions for you</h2>
+        <p className="mt-0.5 text-xs text-zinc-500">
+          The automation needs these billing-rule decisions from you. Answers here become the rules it follows.
+        </p>
+        {degraded ? (
+          <p className="mt-3 text-xs text-amber-700">Reconnecting… refreshes automatically.</p>
+        ) : questions.length === 0 ? (
+          <p className="mt-3 text-xs text-zinc-400">No open questions right now.</p>
+        ) : (
+          <div className="mt-3 space-y-3">
+            {open.map(q => (
+              <OpenQuestion key={q.id} question={q} canAnswer={canAnswer} />
+            ))}
+            {answered.map(q => (
+              <AnsweredQuestion key={q.id} question={q} />
+            ))}
+          </div>
+        )}
+      </div>
     </section>
   )
 }
@@ -97,9 +100,9 @@ function OpenQuestion({ question, canAnswer }: { question: ClientQuestion; canAn
   }
 
   return (
-    <div className="rounded-xl border border-sky-300 bg-white p-4">
+    <div className="rounded-xl border border-zinc-200 bg-zinc-50/60 p-4">
       <div className="flex items-start gap-2">
-        <span className="mt-1 inline-block h-2 w-2 shrink-0 animate-pulse rounded-full bg-sky-500" />
+        <span className="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-sky-500" />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-zinc-900">{topicHeadline(question.topic)}</p>
           <p className="mt-0.5 text-sm text-zinc-700">{summary}</p>
@@ -123,12 +126,12 @@ function OpenQuestion({ question, canAnswer }: { question: ClientQuestion; canAn
             rows={2}
             maxLength={4000}
             placeholder="Type your answer…"
-            className="flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-sky-400 focus:outline-none"
+            className="flex-1 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-sky-400 focus:outline-none"
           />
           <button
             onClick={submit}
             disabled={state === 'saving' || !answer.trim()}
-            className="shrink-0 rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="shrink-0 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50"
           >
             {state === 'saving' ? 'Saving…' : 'Save answer'}
           </button>
@@ -148,7 +151,7 @@ function AnsweredQuestion({ question }: { question: ClientQuestion }) {
   const { summary: answerSummary } = splitClamped(answerText)
 
   return (
-    <div className="rounded-xl border border-sky-200 bg-white p-4">
+    <div className="rounded-xl border border-zinc-200 bg-white p-4">
       <button type="button" onClick={() => setExpanded(v => !v)} className="flex w-full items-start gap-2 text-left">
         <span className="mt-0.5 shrink-0 text-emerald-600" aria-hidden>✓</span>
         <div className="min-w-0 flex-1">

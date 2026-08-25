@@ -366,10 +366,10 @@ export function RunHistory({
   const groups = groupRunsByDay(history, now)
 
   return (
-    <section id="run-history" data-section="history" className="scroll-mt-4 mt-8">
+    <section id="run-history" data-section="history" className="scroll-mt-4 mt-6">
       <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
         <div>
-          <h2 className="text-base font-semibold tracking-tight">Run history</h2>
+          <h2 className="text-sm font-semibold tracking-tight text-zinc-900">Run history</h2>
           <p className="mt-0.5 text-xs text-zinc-500">
             One card per upload, newest first. Open a card to see the claims it produced.
           </p>

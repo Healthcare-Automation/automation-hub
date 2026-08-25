@@ -93,16 +93,16 @@ export function CsvUploadCard({ hasFile }: { hasFile: boolean }) {
   const busy = phase === 'requesting' || phase === 'uploading'
 
   return (
-    <section data-section="upload" className="mt-7 overflow-hidden rounded-2xl border border-zinc-200 bg-white">
-      <div className="border-b border-zinc-200 px-5 py-4">
-        <h2 className="text-base font-semibold">Upload billing report</h2>
+    <section data-section="upload" className="mt-5 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+      <div className="border-b border-zinc-100 px-5 py-4">
+        <h2 className="text-sm font-semibold text-zinc-900">Upload billing report</h2>
         <p className="mt-1 text-xs text-zinc-500">
           Export the AxisCare Billing Report as CSV and drop it here. The run starts on its own — no separate trigger needed.
         </p>
       </div>
       <div className="p-5">
         {waitingForPortalSession && (
-          <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5">
+          <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50/70 px-3 py-2.5">
             <p className="text-xs font-medium text-amber-900">
               Portal session is being repaired automatically — your upload will queue and start when it recovers.
             </p>
@@ -113,7 +113,7 @@ export function CsvUploadCard({ hasFile }: { hasFile: boolean }) {
           onDragOver={e => e.preventDefault()}
           onClick={() => inputRef.current?.click()}
           className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-8 text-center transition-colors ${
-            busy ? 'border-zinc-200 bg-zinc-50' : 'border-zinc-300 hover:border-emerald-400 hover:bg-emerald-50/40'
+            busy ? 'border-zinc-200 bg-zinc-50' : 'border-zinc-300 bg-zinc-50/40 hover:border-emerald-400 hover:bg-emerald-50/40'
           }`}
         >
           <input ref={inputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={onFileChosen} disabled={busy} />
