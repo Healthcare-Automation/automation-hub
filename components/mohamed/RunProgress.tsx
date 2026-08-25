@@ -1,4 +1,7 @@
-import { PROGRESS_STAGES, parseRunProgress, type ProgressStageCode } from '@/lib/mohamedRunRequests'
+// Imported from mohamedRunProgress, NOT mohamedRunRequests: this component
+// renders inside the client-side run-history timeline, and the latter pulls
+// in mohamedDb (`postgres`), which cannot be bundled for the browser.
+import { PROGRESS_STAGES, parseRunProgress, type ProgressStageCode } from '@/lib/mohamedRunProgress'
 
 const STEP_LABELS: Record<ProgressStageCode, string> = {
   reading_csv: 'Reading the uploaded CSV',

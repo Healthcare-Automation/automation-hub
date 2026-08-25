@@ -6,6 +6,12 @@ import {
   type RunLedgerSnapshot,
   type StageSummary,
 } from './mohamedLedger'
+import {
+  OUTCOME_SIGNAL_STEPS,
+  computeRunOutcome,
+  type OutcomeSignal,
+  type RunOutcome,
+} from './mohamedRunSummary'
 
 export type RunRow = {
   run_id: string
@@ -31,7 +37,14 @@ export type RunHistoryItem = {
   finishedAt: string | null
   status: RunLedgerSnapshot['status']
   eventCount: number
+  /** Plain-English outcome (claims ready, visits blocked + why) used as the
+   * headline of each run card. Additive and nullable: when the outcome
+   * query degrades, the card falls back to fetching the run's ledger on
+   * expand rather than showing nothing. */
+  outcome?: RunOutcome | null
 }
+
+export type OutcomeSignalRow = OutcomeSignal & { run_id: string }
 
 function iso(value: unknown): string {
   if (value instanceof Date) return value.toISOString()
@@ -99,6 +112,20 @@ export function toHistoryItem(run: RunRow): RunHistoryItem {
   }
 }
 
+/** Pure: fold a flat, multi-run signal projection into one outcome per run. */
+export function attachRunOutcomes(items: RunHistoryItem[], signals: OutcomeSignalRow[]): RunHistoryItem[] {
+  const byRun = new Map<string, OutcomeSignal[]>()
+  for (const signal of signals) {
+    const bucket = byRun.get(signal.run_id) ?? []
+    bucket.push(signal)
+    byRun.set(signal.run_id, bucket)
+  }
+  return items.map(item => ({
+    ...item,
+    outcome: computeRunOutcome(item.status, byRun.get(item.runId) ?? []),
+  }))
+}
+
 export async function getMohamedRunHistory(limit = 20): Promise<RunHistoryItem[]> {
   if (!isMohamedLedgerConfigured) return []
   const rows = await mohamedQuery(sql => sql<RunRow[]>`
@@ -107,7 +134,29 @@ export async function getMohamedRunHistory(limit = 20): Promise<RunHistoryItem[]
     order by started_at desc
     limit ${limit}
   `)
-  return rows.map(toHistoryItem)
+  const items = rows.map(toHistoryItem)
+  if (items.length === 0) return items
+
+  // One extra round trip for the whole page of runs, not one per run: the
+  // history cards lead with a human outcome ("12 claims ready for your
+  // review"), and that needs a handful of counting events per run. The
+  // projection is deliberately narrow — the counting steps plus anything
+  // that failed — so a busy run's few hundred portal_action rows never
+  // cross the wire here. Degrading is fine: RunHistory falls back to
+  // fetching a run's full ledger when its outcome is missing.
+  try {
+    const runIds = items.map(item => item.runId)
+    const signals = await mohamedQuery(sql => sql<OutcomeSignalRow[]>`
+      select run_id, step, status, claim_ref, code, detail
+      from mohamed_run_events
+      where run_id in ${sql(runIds)}
+        and (step in ${sql([...OUTCOME_SIGNAL_STEPS])} or status = 'failed')
+      order by run_id, seq asc
+    `)
+    return attachRunOutcomes(items, signals)
+  } catch {
+    return items
+  }
 }
 
 export async function getMohamedLedger(runId?: string): Promise<RunLedgerSnapshot | null> {

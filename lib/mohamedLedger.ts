@@ -214,16 +214,21 @@ const GENERIC_EXPLANATION: ClientFailureExplanation = {
   whatToDo: 'See the technical detail below, or ask Andy to check the failure-modes runbook for this code.',
 }
 
+/** Three plain-English lines for a raw failure code, or null when there is
+ * no code. Matched by substring since the raw code often carries a suffix
+ * (e.g. "service_line_rejected:2"). */
+export function explainFailureCode(code: string | null | undefined): ClientFailureExplanation | null {
+  if (!code) return null
+  const lower = code.toLowerCase()
+  const matchedKey = Object.keys(FAILURE_EXPLANATIONS).find(key => lower.includes(key))
+  return matchedKey ? FAILURE_EXPLANATIONS[matchedKey] : GENERIC_EXPLANATION
+}
+
 /** Three plain-English lines (what happened / what the system already did /
  * what you should do) for a run's failure code, replacing raw ledger codes
- * on the status strip. Matched by substring since the raw code often
- * carries a suffix (e.g. "service_line_rejected:2"). */
+ * on the status strip. */
 export function describeFailureForClient(ledger: RunLedgerSnapshot): ClientFailureExplanation | null {
-  const failure = ledger.first_failure
-  if (!failure?.code) return null
-  const code = failure.code.toLowerCase()
-  const matchedKey = Object.keys(FAILURE_EXPLANATIONS).find(key => code.includes(key))
-  return matchedKey ? FAILURE_EXPLANATIONS[matchedKey] : GENERIC_EXPLANATION
+  return explainFailureCode(ledger.first_failure?.code)
 }
 
 const IDENTIFIER_LIKE = /[A-Z]{2,}-?[A-Z0-9]{2,}|\d{4}-\d{2}-\d{2}/
