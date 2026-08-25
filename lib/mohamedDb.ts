@@ -25,10 +25,13 @@ function createMohamedSql(): Sql | null {
     ssl: 'require',
     // This is a dedicated pooler for the Mohamed project alone (2 roles:
     // hub_reader, vps_writer) — not the shared DJC/Kimedics pooler that hit
-    // EMAXCONNSESSION from too many idle connections. max:3 (not 1) lets the
-    // page's Promise.all([ledger, history, inFlight, questions]) actually run
-    // in parallel instead of queuing behind each other on one connection.
-    max: 3,
+    // EMAXCONNSESSION from too many idle connections. max:4 matches the 4
+    // concurrent query streams the page actually issues in parallel
+    // (ledger, history, in-flight run, questions — see app/mohamed/page.tsx's
+    // Promise.allSettled); at max:3 the 4th stream queued behind whichever
+    // of the other three finished first, adding latency that looked like
+    // random slow/degraded components on every other page load.
+    max: 4,
     // Close idle sockets almost immediately: any socket that survives a
     // Vercel function freeze is dead on thaw, and a query on it hangs.
     // Server-side pooling (Supabase transaction pooler) makes reconnects
@@ -46,11 +49,22 @@ function createMohamedSql(): Sql | null {
 }
 
 let client: Sql | null | undefined
+// Bumped every time the pool is swapped, so a reset triggered by one of
+// several concurrent queries on the SAME pool doesn't get repeated by its
+// siblings — they're all about to fail the same way, and re-resetting adds
+// nothing but more forced socket closes.
+let generation = 0
 
 /** Current pool, created lazily so mohamedResetPool() can swap it. */
 export function getMohamedSql(): Sql | null {
   if (client === undefined) client = createMohamedSql()
   return client
+}
+
+/** Current pool generation, for callers that want to guard a reset against
+ * being repeated by sibling queries that fail on the same dead pool. */
+export function mohamedPoolGeneration(): number {
+  return generation
 }
 
 /**
@@ -59,12 +73,29 @@ export function getMohamedSql(): Sql | null {
  * module scope can be dead on thaw, and a query on a dead socket HANGS
  * (connect_timeout only guards new connections). mohamedQuery() calls this
  * when its watchdog fires.
+ *
+ * Regression (Andy, 2026-08-25 — "keeps re-connecting, components
+ * disappearing"): a single page load fires 6-7 queries in parallel
+ * (ledger, history, outcome signals, in-flight run, questions, approvals),
+ * ALL sharing this one pool. The old `old.end({timeout: 1})` force-killed
+ * that shared pool within 1 SECOND of any one query's failure — cutting
+ * off the other 5 queries mid-flight even though they were healthy,
+ * cascading one flaky connection into several components going degraded
+ * at once. Two fixes: (1) let the old pool drain gracefully instead of
+ * guillotining live queries on it, since callers already stopped
+ * referencing it as `client` so there's no correctness reason to rush; (2)
+ * a generation guard so N queries failing around the same moment on the
+ * same dead pool only trigger ONE reset, not N redundant ones.
  */
-export function mohamedResetPool(): void {
+export function mohamedResetPool(expectedGeneration?: number): void {
+  if (expectedGeneration !== undefined && expectedGeneration !== generation) return
   const old = client
   client = undefined
-  // Close the old pool in the background; never await it on the request path.
-  void old?.end({ timeout: 1 }).catch(() => {})
+  generation += 1
+  // Close the old pool gracefully in the background — never await it on the
+  // request path, and never force-cut queries that are still legitimately
+  // in flight on it. New queries never see this handle again regardless.
+  void old?.end().catch(() => {})
 }
 
 const QUERY_TIMEOUT_MS = 6_000
@@ -103,10 +134,14 @@ async function raceTimeout<T>(fn: (sql: Sql) => Promise<T>): Promise<T> {
  */
 export async function mohamedQuery<T>(fn: (sql: Sql) => Promise<T>): Promise<T> {
   if (!isMohamedLedgerConfigured) throw new MohamedDbTimeout()
+  const generationAtStart = mohamedPoolGeneration()
   try {
     return await raceTimeout(fn)
   } catch {
-    mohamedResetPool()
+    // Guard against N sibling queries (this page load fires 6-7 in
+    // parallel) all resetting the same already-dead pool redundantly —
+    // only the first one to notice actually swaps it.
+    mohamedResetPool(generationAtStart)
     return await raceTimeout(fn)
   }
 }
