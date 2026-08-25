@@ -8,9 +8,9 @@ import { coverageGapAlert, describeFailureForClient, summariseClaims, summariseI
 import { describeRunProgress } from '@/lib/mohamedRunProgress'
 import { RunHistory } from './RunHistory'
 import { CsvUploadCard } from './CsvUploadCard'
-import { ClaimsByMember } from './ClaimsByMember'
 import { ClientQuestionsCard } from './ClientQuestionsCard'
 import { RunTrace } from './RunTrace'
+import { UpdatedAgoIndicator } from '../UpdatedAgoIndicator'
 
 function timeAgo(iso: string | null | undefined): string {
   if (!iso) return 'never'
@@ -34,9 +34,11 @@ const statusHero = {
  * no Guacamole, no SSH, no second screen for day-to-day use. Structured
  * around one question at a time:
  *   1. Is the latest run working? (status hero)
- *   2. What needs my eyes right now? (claim review cards — full field list
- *      + screenshot, must be reviewed before approval)
- *   3. What happened before? (collapsed history)
+ *   2. What happened before, and what needs my eyes? (run history — each
+ *      run's claim review cards — full field list + screenshot, must be
+ *      reviewed before approval — live inside that run's card, newest run
+ *      open by default, so there is no separate global "needs review" list
+ *      to keep in sync with the run it belongs to)
  * The old raw stage-grid/event-log view still exists (RunTrace) but is
  * tucked below as a collapsed "Technical detail" section for debugging,
  * not the first thing anyone has to read.
@@ -89,7 +91,8 @@ export function MohamedDashboard({
           <p className="text-[11px] font-semibold tracking-[0.18em] text-emerald-700">UZU STUDIO</p>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight">Mohamed billing automation</h1>
         </div>
-        <div className="flex items-center gap-2 text-xs">
+        <div className="flex items-center gap-3 text-xs">
+          {(isAdmin || isMohamed) && <UpdatedAgoIndicator />}
           {isAdmin && (
             <nav className="flex rounded-lg border border-zinc-200 bg-white p-1">
               <Link href="/" prefetch className="rounded-md px-3 py-1.5 text-zinc-500 hover:text-zinc-900">Proxi</Link>
@@ -176,42 +179,6 @@ export function MohamedDashboard({
       )}
 
       {(isAdmin || isMohamed) && <CsvUploadCard hasFile={Boolean(ledger)} />}
-
-      {/* The one thing everyone must see before anything can move forward:
-          every claim that reached HCPF review, its full field list, its
-          screenshot, and an explicit approve action. Nothing here submits
-          anything -- there is no live submission path yet -- but this is
-          exactly where that gate will live once one exists. Always
-          rendered, even when the ledger itself is unavailable -- gating
-          this on `ledger` truthiness was the same vanishing-section bug
-          this task exists to kill, just one level up. */}
-      <section data-section="claims" className="mt-7">
-        <div className="mb-3">
-          <h2 className="text-base font-semibold">Claims needing review</h2>
-          <p className="mt-0.5 text-xs text-zinc-500">
-            Every claim that reached HCPF review. Nothing is submitted — review the fields and screenshot, then approve.
-          </p>
-        </div>
-        {!ledger ? (
-          <p className="text-xs text-amber-700">Reconnecting… refreshes automatically.</p>
-        ) : reviewable.length > 0 ? (
-          <ClaimsByMember
-            runId={ledger.run_id}
-            claims={reviewable}
-            approvals={approvals}
-            approvalDegraded={approvalsDegraded}
-            canApprove={canApprove}
-          />
-        ) : (
-          <p className="text-xs text-zinc-500">No claims reached review in this run.</p>
-        )}
-      </section>
-
-      {ledger && claims.some(c => !c.reachedReview) && (
-        <section className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
-          {claims.filter(c => !c.reachedReview).length} claim(s) in this run did not reach HCPF review — see technical detail below for why.
-        </section>
-      )}
 
       {/* Coverage-gap alert — client decision 2026-08-24: these visits are
           never billed, but that must be visible on every affected run

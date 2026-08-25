@@ -297,8 +297,17 @@ export function ClaimReviewCard({
               </div>
               <div>
                 <p className="mb-2 text-xs font-medium text-zinc-500">Screenshot</p>
+                {!claim.reachedReview && (
+                  <p className="mb-2 rounded-lg border border-zinc-200 bg-zinc-50 px-2.5 py-2 text-[11px] text-zinc-500">
+                    This is what the portal showed when the session ended mid-claim — not a form completion.
+                  </p>
+                )}
                 {screenshotUrl ? (
-                  <img src={screenshotUrl} alt="HCPF claim form screenshot" className="rounded-lg border border-zinc-200" />
+                  <img
+                    src={screenshotUrl}
+                    alt={claim.reachedReview ? 'HCPF claim form screenshot' : 'HCPF portal screen when the session ended'}
+                    className="rounded-lg border border-zinc-200"
+                  />
                 ) : (
                   <p className="text-xs text-zinc-400">No screenshot captured.</p>
                 )}
