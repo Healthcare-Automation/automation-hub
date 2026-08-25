@@ -50,20 +50,19 @@ export function ClientQuestionsCard({
   const answered = questions.filter(q => q.status === 'answered')
 
   return (
-    <section data-section="questions" className="mt-5 overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm">
-      <div className="border-b border-stone-100 px-5 py-4">
-        <h2 className="text-sm font-semibold text-stone-900">Questions for you</h2>
-        <p className="mt-0.5 text-xs text-stone-500">
+    <section data-section="questions" className="relative mt-5 overflow-hidden rounded-2xl border border-zinc-200 bg-white pl-5 shadow-sm">
+      <span className="absolute inset-y-0 left-0 w-1 bg-sky-400" aria-hidden />
+      <div className="p-5 pl-3.5">
+        <h2 className="text-sm font-semibold text-zinc-900">Questions for you</h2>
+        <p className="mt-0.5 text-xs text-zinc-500">
           The automation needs these billing-rule decisions from you. Answers here become the rules it follows.
         </p>
-      </div>
-      <div className="p-5">
         {degraded ? (
-          <p className="text-xs text-amber-700">Reconnecting… refreshes automatically.</p>
+          <p className="mt-3 text-xs text-amber-700">Reconnecting… refreshes automatically.</p>
         ) : questions.length === 0 ? (
-          <p className="text-xs text-stone-400">No open questions right now.</p>
+          <p className="mt-3 text-xs text-zinc-400">No open questions right now.</p>
         ) : (
-          <div className="space-y-3">
+          <div className="mt-3 space-y-3">
             {open.map(q => (
               <OpenQuestion key={q.id} question={q} canAnswer={canAnswer} />
             ))}
@@ -101,22 +100,22 @@ function OpenQuestion({ question, canAnswer }: { question: ClientQuestion; canAn
   }
 
   return (
-    <div className="rounded-xl border border-stone-200 bg-stone-50/60 p-4">
+    <div className="rounded-xl border border-zinc-200 bg-zinc-50/60 p-4">
       <div className="flex items-start gap-2">
-        <span className="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-indigo-500" />
+        <span className="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-sky-500" />
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-stone-900">{topicHeadline(question.topic)}</p>
-          <p className="mt-0.5 text-sm text-stone-700">{summary}</p>
+          <p className="text-sm font-semibold text-zinc-900">{topicHeadline(question.topic)}</p>
+          <p className="mt-0.5 text-sm text-zinc-700">{summary}</p>
           {rest && (
             <button
               type="button"
               onClick={() => setShowDetails(v => !v)}
-              className="mt-1 text-xs font-medium text-indigo-700 hover:underline"
+              className="mt-1 text-xs font-medium text-sky-700 hover:underline"
             >
               {showDetails ? 'Hide details' : 'Show details'}
             </button>
           )}
-          {showDetails && rest && <p className="mt-1 text-sm text-stone-700">{rest}</p>}
+          {showDetails && rest && <p className="mt-1 text-sm text-zinc-700">{rest}</p>}
         </div>
       </div>
       {canAnswer ? (
@@ -127,18 +126,18 @@ function OpenQuestion({ question, canAnswer }: { question: ClientQuestion; canAn
             rows={2}
             maxLength={4000}
             placeholder="Type your answer…"
-            className="flex-1 rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none"
+            className="flex-1 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-sky-400 focus:outline-none"
           />
           <button
             onClick={submit}
             disabled={state === 'saving' || !answer.trim()}
-            className="shrink-0 rounded-lg bg-indigo-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-800 disabled:opacity-50"
+            className="shrink-0 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50"
           >
             {state === 'saving' ? 'Saving…' : 'Save answer'}
           </button>
         </div>
       ) : (
-        <p className="mt-2 text-xs text-stone-500">Log in to answer.</p>
+        <p className="mt-2 text-xs text-zinc-500">Log in to answer.</p>
       )}
       {state === 'error' && <p className="mt-1 text-xs text-red-600">Could not save — try again.</p>}
     </div>
@@ -152,18 +151,18 @@ function AnsweredQuestion({ question }: { question: ClientQuestion }) {
   const { summary: answerSummary } = splitClamped(answerText)
 
   return (
-    <div className="rounded-xl border border-stone-200 bg-white p-4">
+    <div className="rounded-xl border border-zinc-200 bg-white p-4">
       <button type="button" onClick={() => setExpanded(v => !v)} className="flex w-full items-start gap-2 text-left">
         <span className="mt-0.5 shrink-0 text-emerald-600" aria-hidden>✓</span>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-stone-900">{topicHeadline(question.topic)}</p>
-          <p className="mt-0.5 truncate text-xs text-stone-500">{answerSummary}</p>
+          <p className="text-sm font-semibold text-zinc-900">{topicHeadline(question.topic)}</p>
+          <p className="mt-0.5 truncate text-xs text-zinc-500">{answerSummary}</p>
         </div>
-        <span className="shrink-0 text-xs text-stone-400">{expanded ? 'Hide' : 'Details'}</span>
+        <span className="shrink-0 text-xs text-zinc-400">{expanded ? 'Hide' : 'Details'}</span>
       </button>
       {expanded && (
-        <div className="mt-3 space-y-2 border-t border-stone-100 pt-3">
-          <p className="text-sm text-stone-700">{questionSummary}</p>
+        <div className="mt-3 space-y-2 border-t border-zinc-100 pt-3">
+          <p className="text-sm text-zinc-700">{questionSummary}</p>
           <div className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
             <span className="font-medium">Answer:</span> {answerText}
             <span className="ml-2 text-[11px] text-emerald-700">

@@ -58,12 +58,12 @@ const TONES: Record<RunOutcomeTone, Tone> = {
     pill: 'bg-red-100 text-red-800',
   },
   idle: {
-    dot: 'bg-stone-400 ring-stone-100',
-    icon: 'text-stone-400',
-    headline: 'text-stone-700',
-    card: 'border-stone-200 hover:border-stone-300',
-    wash: 'bg-stone-50',
-    pill: 'bg-stone-100 text-stone-700',
+    dot: 'bg-zinc-400 ring-zinc-100',
+    icon: 'text-zinc-400',
+    headline: 'text-zinc-700',
+    card: 'border-zinc-200 hover:border-zinc-300',
+    wash: 'bg-zinc-50',
+    pill: 'bg-zinc-100 text-zinc-700',
   },
 }
 
@@ -82,7 +82,7 @@ function OutcomeIcon({ tone, className }: { tone: RunOutcomeTone; className?: st
 
 function Chevron() {
   return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-stone-400 transition-transform group-open:rotate-180" aria-hidden
+    <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-zinc-400 transition-transform group-open:rotate-180" aria-hidden
       fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
       <path d="m6 9 6 6 6-6" />
     </svg>
@@ -140,7 +140,7 @@ function RunCard({
       <span className={`absolute -left-[1.8125rem] top-6 h-2.5 w-2.5 rounded-full ring-4 ${tone.dot}`} aria-hidden />
       <details
         className={`group overflow-hidden rounded-2xl border bg-white transition-colors ${tone.card} ${
-          isSelected ? 'ring-2 ring-stone-900/10' : ''
+          isSelected ? 'ring-2 ring-zinc-900/10' : ''
         }`}
         open={isOpen}
         onToggle={event => onToggle((event.target as HTMLDetailsElement).open)}
@@ -151,21 +151,21 @@ function RunCard({
           <div className="min-w-0 flex-1">
             {/* The billing period is what the client thinks in — it titles the card. */}
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <h3 className="text-sm font-semibold tracking-tight text-stone-900">
+              <h3 className="text-sm font-semibold tracking-tight text-zinc-900">
                 {formatPeriod(item.periodStart, item.periodEnd)}
               </h3>
               {justFinished && (
-                <span className="rounded-full bg-stone-900 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+                <span className="rounded-full bg-zinc-900 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
                   Just finished
                 </span>
               )}
               {isLatest && !justFinished && (
-                <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-stone-600">
+                <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-600">
                   Latest
                 </span>
               )}
               {isSelected && !isLatest && (
-                <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-stone-600">
+                <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-600">
                   Shown above
                 </span>
               )}
@@ -175,23 +175,23 @@ function RunCard({
             <p className={`mt-1 text-[15px] font-semibold leading-snug ${tone.headline}`}>
               {outcome ? outcome.headline : 'Open this run to see what happened'}
             </p>
-            {outcome?.subline && <p className="mt-0.5 text-xs leading-relaxed text-stone-600">{outcome.subline}</p>}
+            {outcome?.subline && <p className="mt-0.5 text-xs leading-relaxed text-zinc-600">{outcome.subline}</p>}
           </div>
 
           <div className="flex shrink-0 items-center gap-2 pt-0.5">
             <div className="hidden text-right sm:block">
-              <p className="text-[11px] text-stone-500">{formatClock(item.startedAt)}</p>
-              <p className="text-[10px] text-stone-400">{describeRunMode(item.mode)}</p>
+              <p className="text-[11px] text-zinc-500">{formatClock(item.startedAt)}</p>
+              <p className="text-[10px] text-zinc-400">{describeRunMode(item.mode)}</p>
             </div>
             <Chevron />
           </div>
         </summary>
 
-        <div className={`border-t border-stone-100 px-4 py-3.5 ${tone.wash}`}>
+        <div className={`border-t border-zinc-100 px-4 py-3.5 ${tone.wash}`}>
           {outcome && (outcome.visitsIn !== null || outcome.claimsReady > 0 || outcome.visitsBlocked > 0) && (
             <div className="flex flex-wrap gap-2">
               {outcome.visitsIn !== null && (
-                <Stat value={outcome.visitsIn} label="visits in" className="bg-white text-stone-700 ring-1 ring-stone-200" />
+                <Stat value={outcome.visitsIn} label="visits in" className="bg-white text-zinc-700 ring-1 ring-zinc-200" />
               )}
               {/* A bare "0 ready to review" on a run that never got that far
                   is noise; it only earns its place next to a real number. */}
@@ -209,10 +209,10 @@ function RunCard({
 
           {outcome && outcome.reasons.length > 0 && (
             <div className="mt-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-500">Why visits were held back</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Why visits were held back</p>
               <ul className="mt-1.5 space-y-1">
                 {outcome.reasons.map(reason => (
-                  <li key={reason.code} className="flex items-baseline gap-2 text-xs text-stone-700">
+                  <li key={reason.code} className="flex items-baseline gap-2 text-xs text-zinc-700">
                     <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums ${tone.pill}`}>
                       {reason.count}
                     </span>
@@ -224,18 +224,18 @@ function RunCard({
           )}
 
           <div className="mt-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-500">Claims needing review</p>
-            <p className="mt-0.5 text-xs text-stone-500">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Claims needing review</p>
+            <p className="mt-0.5 text-xs text-zinc-500">
               Every claim in this run that reached HCPF review. Nothing is submitted — review the fields and
               screenshot, then approve.
             </p>
             <div className="mt-1.5">
               {preview === undefined || preview.phase === 'loading' ? (
-                <p className="text-xs text-stone-400">Loading claims…</p>
+                <p className="text-xs text-zinc-400">Loading claims…</p>
               ) : preview.phase === 'error' ? (
                 <p className="text-xs text-red-700">Could not load this run&apos;s claims.</p>
               ) : claims.length === 0 ? (
-                <p className="text-xs text-stone-500">No claims were built in this run.</p>
+                <p className="text-xs text-zinc-500">No claims were built in this run.</p>
               ) : reviewableClaims.length > 0 ? (
                 <ClaimsByMember
                   runId={item.runId}
@@ -244,7 +244,7 @@ function RunCard({
                   canApprove={canApprove}
                 />
               ) : (
-                <p className="text-xs text-stone-500">No claims reached review in this run.</p>
+                <p className="text-xs text-zinc-500">No claims reached review in this run.</p>
               )}
             </div>
             {preview?.phase === 'ready' && notReviewableCount > 0 && (
@@ -259,12 +259,12 @@ function RunCard({
             <button
               type="button"
               onClick={onOpenReview}
-              className="rounded-lg bg-stone-900 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-stone-700"
+              className="rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-zinc-700"
             >
               Open full review →
             </button>
             {/* Plumbing, deliberately last and deliberately quiet. */}
-            <span className="font-mono text-[10px] text-stone-400">ref {item.runId.slice(0, 8)}</span>
+            <span className="font-mono text-[10px] text-zinc-400">ref {item.runId.slice(0, 8)}</span>
           </div>
         </div>
       </details>
@@ -369,13 +369,13 @@ export function RunHistory({
     <section id="run-history" data-section="history" className="scroll-mt-4 mt-6">
       <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
         <div>
-          <h2 className="text-sm font-semibold tracking-tight text-stone-900">Run history</h2>
-          <p className="mt-0.5 text-xs text-stone-500">
+          <h2 className="text-sm font-semibold tracking-tight text-zinc-900">Run history</h2>
+          <p className="mt-0.5 text-xs text-zinc-500">
             One card per upload, newest first. Open a card to see the claims it produced.
           </p>
         </div>
         {history.length > 0 && (
-          <span className="rounded-full bg-stone-100 px-2.5 py-1 text-[11px] font-medium text-stone-600">
+          <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-[11px] font-medium text-zinc-600">
             {history.length} run{history.length === 1 ? '' : 's'}
           </span>
         )}
@@ -390,9 +390,9 @@ export function RunHistory({
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
               <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
             </span>
-            <h3 className="text-sm font-semibold text-stone-900">A run is happening right now</h3>
+            <h3 className="text-sm font-semibold text-zinc-900">A run is happening right now</h3>
           </div>
-          <p className="mt-0.5 text-xs text-stone-500">
+          <p className="mt-0.5 text-xs text-zinc-500">
             It will appear at the top of this list, marked &ldquo;Just finished&rdquo;, as soon as it is done.
           </p>
           {/* Per-member board while the run works, coarse step bar as its
@@ -410,7 +410,7 @@ export function RunHistory({
           Reconnecting… this list refreshes automatically. Nothing is lost.
         </p>
       ) : history.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-stone-300 bg-white px-4 py-8 text-center text-xs text-stone-500">
+        <p className="rounded-2xl border border-dashed border-zinc-300 bg-white px-4 py-8 text-center text-xs text-zinc-500">
           No runs yet. Upload a CSV above and the first run will appear here.
         </p>
       ) : (
@@ -418,13 +418,13 @@ export function RunHistory({
           {groups.map(group => (
             <div key={group.day}>
               <div className="mb-2.5 flex items-center gap-3">
-                <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">{group.label}</h3>
-                <span className="h-px flex-1 bg-stone-200" />
-                <span className="text-[11px] text-stone-400">
+                <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">{group.label}</h3>
+                <span className="h-px flex-1 bg-zinc-200" />
+                <span className="text-[11px] text-zinc-400">
                   {group.runs.length} run{group.runs.length === 1 ? '' : 's'}
                 </span>
               </div>
-              <ol className="space-y-3 border-l border-stone-200 pl-6">
+              <ol className="space-y-3 border-l border-zinc-200 pl-6">
                 {group.runs.map(item => (
                   <RunCard
                     key={item.runId}
