@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import type { RunHistoryItem } from '@/lib/mohamedQueries'
-import type { ClaimTrace, RunLedgerSnapshot } from '@/lib/mohamedLedger'
+import type { RunLedgerSnapshot } from '@/lib/mohamedLedger'
 import type { RunRequestRow } from '@/lib/mohamedRunRequests'
+import type { ClaimApproval } from '@/lib/mohamedApprovals'
 import { summariseClaims } from '@/lib/mohamedLedger'
 import {
   describeRunMode,
@@ -14,10 +15,9 @@ import {
   type RunOutcome,
   type RunOutcomeTone,
 } from '@/lib/mohamedRunSummary'
-import { groupClaimsByMember } from '@/lib/mohamedClaimGrouping'
-import { getClaimMemberId } from '@/lib/mohamedReviewClient'
 import { RunDetailPanel } from './RunDetailPanel'
 import { LiveRunBoard } from './LiveRunBoard'
+import { ClaimsByMember } from './ClaimsByMember'
 
 /* ------------------------------------------------------------------ *
  * Status language: one colour per meaning, used identically everywhere
@@ -102,58 +102,10 @@ function Stat({ value, label, className = '' }: { value: number; label: string; 
   )
 }
 
-/** The per-claim glance inside an expanded run: grouped under the member id
- * (never the claim hash — that means nothing to anyone reading this page).
- * The full review experience still lives in RunDetailPanel. */
-function ClaimGlance({ runId, claims }: { runId: string; claims: ClaimTrace[] }) {
-  const [memberIds, setMemberIds] = useState<Record<string, string | null>>({})
-  const refs = claims.map(c => c.claimRef).join(',')
-
-  useEffect(() => {
-    let cancelled = false
-    for (const ref of refs ? refs.split(',') : []) {
-      getClaimMemberId(runId, ref)
-        .then(memberId => {
-          if (!cancelled) setMemberIds(prev => ({ ...prev, [ref]: memberId }))
-        })
-        .catch(() => {
-          if (!cancelled) setMemberIds(prev => ({ ...prev, [ref]: null }))
-        })
-    }
-    return () => {
-      cancelled = true
-    }
-  }, [runId, refs])
-
-  const groups = groupClaimsByMember(claims, memberIds, () => null)
-
-  return (
-    <ul className="space-y-1.5">
-      {groups.map(group => {
-        const ready = group.claims.filter(c => c.reachedReview).length
-        const stuck = group.claims.length - ready
-        return (
-          <li
-            key={group.memberId ?? group.claims[0].claimRef}
-            className="flex flex-wrap items-center gap-x-2.5 gap-y-1 rounded-lg bg-white px-3 py-2 text-xs ring-1 ring-zinc-200"
-          >
-            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${stuck ? 'bg-amber-500' : 'bg-emerald-500'}`} />
-            <span className="font-medium text-zinc-900">
-              {group.memberId ? `Member ${group.memberId}` : 'Member ID loading…'}
-            </span>
-            <span className="text-zinc-500">
-              {group.claims.length} claim{group.claims.length === 1 ? '' : 's'}
-            </span>
-            {ready > 0 && <span className="text-emerald-700">{ready} ready to review</span>}
-            {stuck > 0 && <span className="text-amber-700">{stuck} did not finish</span>}
-          </li>
-        )
-      })}
-    </ul>
-  )
-}
-
-type RunPreview = { phase: 'loading' } | { phase: 'error' } | { phase: 'ready'; ledger: RunLedgerSnapshot }
+type RunPreview =
+  | { phase: 'loading' }
+  | { phase: 'error' }
+  | { phase: 'ready'; ledger: RunLedgerSnapshot; approvals: Record<string, ClaimApproval> }
 
 function RunCard({
   item,
@@ -163,6 +115,7 @@ function RunCard({
   isSelected,
   justFinished,
   preview,
+  canApprove,
   onToggle,
   onOpenReview,
 }: {
@@ -173,11 +126,14 @@ function RunCard({
   isSelected: boolean
   justFinished: boolean
   preview: RunPreview | undefined
+  canApprove: boolean
   onToggle: (open: boolean) => void
   onOpenReview: () => void
 }) {
   const tone = TONES[outcome?.tone ?? 'idle']
   const claims = preview?.phase === 'ready' ? summariseClaims(preview.ledger) : []
+  const reviewableClaims = claims.filter(c => c.reachedReview)
+  const notReviewableCount = claims.length - reviewableClaims.length
 
   return (
     <li className="relative">
@@ -268,7 +224,11 @@ function RunCard({
           )}
 
           <div className="mt-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Claims in this run</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Claims needing review</p>
+            <p className="mt-0.5 text-xs text-zinc-500">
+              Every claim in this run that reached HCPF review. Nothing is submitted — review the fields and
+              screenshot, then approve.
+            </p>
             <div className="mt-1.5">
               {preview === undefined || preview.phase === 'loading' ? (
                 <p className="text-xs text-zinc-400">Loading claims…</p>
@@ -276,10 +236,23 @@ function RunCard({
                 <p className="text-xs text-red-700">Could not load this run&apos;s claims.</p>
               ) : claims.length === 0 ? (
                 <p className="text-xs text-zinc-500">No claims were built in this run.</p>
+              ) : reviewableClaims.length > 0 ? (
+                <ClaimsByMember
+                  runId={item.runId}
+                  claims={reviewableClaims}
+                  approvals={preview.approvals}
+                  canApprove={canApprove}
+                />
               ) : (
-                <ClaimGlance runId={item.runId} claims={claims} />
+                <p className="text-xs text-zinc-500">No claims reached review in this run.</p>
               )}
             </div>
+            {preview?.phase === 'ready' && notReviewableCount > 0 && (
+              <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                {notReviewableCount} claim{notReviewableCount === 1 ? '' : 's'} in this run did not reach HCPF
+                review — see technical detail for why.
+              </p>
+            )}
           </div>
 
           <div className="mt-3.5 flex flex-wrap items-center justify-between gap-2">
@@ -310,9 +283,12 @@ function RunCard({
  * ids, event counts, modes or sources in the primary view — the previous
  * flat table was engineer UI (Andy, 2026-08-25).
  *
- * Cards are still native <details>, newest expanded by default, and the full
- * per-claim review (member grouping, step viewer, approve/reject) still opens
- * in place via RunDetailPanel — none of that flow changed.
+ * Cards are native <details>, newest expanded by default. Each card's own
+ * "Claims needing review" grouping (ClaimsByMember/ClaimReviewCard — member
+ * grouping, step viewer, approve/reject) lives inside it, so there is no
+ * separate global claims section to fall out of sync with the run it belongs
+ * to (Andy, 2026-08-25). "Open full review →" still opens the same content
+ * in RunDetailPanel for a focused, full-page view.
  */
 export function RunHistory({
   history,
@@ -360,7 +336,7 @@ export function RunHistory({
       .then(async res => {
         const data = await res.json()
         if (!res.ok || !data.ok || !data.ledger) throw new Error('bad_response')
-        setPreviews(prev => ({ ...prev, [runId]: { phase: 'ready', ledger: data.ledger } }))
+        setPreviews(prev => ({ ...prev, [runId]: { phase: 'ready', ledger: data.ledger, approvals: data.approvals ?? {} } }))
       })
       .catch(() => setPreviews(prev => ({ ...prev, [runId]: { phase: 'error' } })))
   }
@@ -379,6 +355,14 @@ export function RunHistory({
   }
 
   const newestRunId = history[0]?.runId ?? ''
+  // The newest run starts expanded (its claims must be immediately visible,
+  // not just on manual toggle) but the native <details open> never fires a
+  // toggle event for that initial state -- only loadPreview's normal path,
+  // triggered from toggle(), would otherwise run. Load it explicitly once.
+  useEffect(() => {
+    if (newestRunId) loadPreview(newestRunId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newestRunId])
   const groups = groupRunsByDay(history, now)
 
   return (
@@ -456,6 +440,7 @@ export function RunHistory({
                     isSelected={item.runId === selectedRunId}
                     justFinished={isRecent(item.finishedAt ?? item.startedAt, now)}
                     preview={previews[item.runId]}
+                    canApprove={canApprove}
                     onToggle={open => toggle(item.runId, open)}
                     onOpenReview={() => setOpenRunId(item.runId)}
                   />

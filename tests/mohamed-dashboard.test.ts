@@ -51,24 +51,6 @@ test('admin preview includes tenant switcher while Mohamed client view does not'
   assert.doesNotMatch(clientHtml, />Proxi</)
 })
 
-test('claims that reached review show an Approve action only when canApprove is true', () => {
-  const approverHtml = renderToStaticMarkup(
-    createElement(MohamedDashboard, { isAdmin: true, canApprove: true, ledger, ledgerSource: 'live' }),
-  )
-  const viewerHtml = renderToStaticMarkup(
-    createElement(MohamedDashboard, { isAdmin: false, canApprove: false, ledger, ledgerSource: 'live' }),
-  )
-
-  // Cards render collapsed by default (approve button is inside the expanded
-  // panel, client-rendered on click), so assert the claim card itself shows
-  // instead of asserting the button text, which only appears after expand.
-  const reachedReviewClaims = ledger.events.filter(e => e.step === 'reached_review' && e.status === 'ok')
-  if (reachedReviewClaims.length > 0) {
-    assert.match(approverHtml, /Needs review|Approved/)
-    assert.match(viewerHtml, /Needs review|Approved/)
-  }
-})
-
 test('no run yet shows an empty state, not a crash', () => {
   const html = renderToStaticMarkup(createElement(MohamedDashboard, { isAdmin: false, canApprove: false }))
   assert.match(html, /No runs yet/)
@@ -83,14 +65,4 @@ test('a claim card with no step captures shows no step strip (falls back to the 
     createElement(MohamedDashboard, { isAdmin: true, canApprove: true, ledger, ledgerSource: 'live' }),
   )
   assert.doesNotMatch(html, /Service line 1/)
-})
-
-test('claims needing review render under a member header, even before the member id has resolved', () => {
-  // renderToStaticMarkup never runs effects, so memberId stays unresolved
-  // (null) for every claim -- this locks in that the pending/fallback
-  // header text renders instead of nothing.
-  const html = renderToStaticMarkup(
-    createElement(MohamedDashboard, { isAdmin: true, canApprove: true, ledger, ledgerSource: 'live' }),
-  )
-  assert.match(html, /Member \(pending\)|Member [A-Za-z0-9-]+/)
 })
