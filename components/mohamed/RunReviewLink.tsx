@@ -85,15 +85,15 @@ export function RunReviewLink({ runId, claimRef, label }: { runId: string; claim
           >
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-semibold">
-                Claim form submission {claimRef && <span className="font-mono text-xs text-zinc-500">claim {claimRef}</span>}{' '}
-                {step && <span className="font-normal text-zinc-500">— {step}</span>}
+                Claim form submission {claimRef && <span className="font-mono text-xs text-stone-500">claim {claimRef}</span>}{' '}
+                {step && <span className="font-normal text-stone-500">— {step}</span>}
               </h3>
-              <button type="button" onClick={close} className="text-xs text-zinc-500 hover:underline">Close</button>
+              <button type="button" onClick={close} className="text-xs text-stone-500 hover:underline">Close</button>
             </div>
 
-            {state === 'loading' && <p className="text-sm text-zinc-500">Loading…</p>}
+            {state === 'loading' && <p className="text-sm text-stone-500">Loading…</p>}
             {state === 'missing' && (
-              <p className="text-sm text-zinc-500">No submission capture exists for this run.</p>
+              <p className="text-sm text-stone-500">No submission capture exists for this run.</p>
             )}
             {state === 'error' && (
               <p className="text-sm text-red-700">Could not load the submission capture. Try again.</p>
@@ -101,23 +101,23 @@ export function RunReviewLink({ runId, claimRef, label }: { runId: string; claim
             {state === 'ready' && (
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <p className="mb-2 text-xs font-medium text-zinc-500">Fields as entered</p>
+                  <p className="mb-2 text-xs font-medium text-stone-500">Fields as entered</p>
                   <dl className="space-y-1 text-xs">
                     {fields.map((field, index) => (
-                      <div key={index} className="flex justify-between gap-2 border-b border-zinc-100 py-1">
-                        <dt className="text-zinc-500">{field.label}</dt>
+                      <div key={index} className="flex justify-between gap-2 border-b border-stone-100 py-1">
+                        <dt className="text-stone-500">{field.label}</dt>
                         <dd className="text-right font-medium">{field.value}</dd>
                       </div>
                     ))}
-                    {fields.length === 0 && <p className="text-zinc-400">No fields captured.</p>}
+                    {fields.length === 0 && <p className="text-stone-400">No fields captured.</p>}
                   </dl>
                 </div>
                 <div>
-                  <p className="mb-2 text-xs font-medium text-zinc-500">Screenshot</p>
+                  <p className="mb-2 text-xs font-medium text-stone-500">Screenshot</p>
                   {screenshotUrl ? (
-                    <img src={screenshotUrl} alt="Claim form screenshot" className="rounded-lg border border-zinc-200" />
+                    <img src={screenshotUrl} alt="Claim form screenshot" className="rounded-lg border border-stone-200" />
                   ) : (
-                    <p className="text-xs text-zinc-400">No screenshot captured.</p>
+                    <p className="text-xs text-stone-400">No screenshot captured.</p>
                   )}
                 </div>
               </div>

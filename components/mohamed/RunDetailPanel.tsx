@@ -21,7 +21,7 @@ const stageChip: Record<string, string> = {
   passed: 'bg-emerald-50 text-emerald-800 border-emerald-200',
   blocked: 'bg-amber-50 text-amber-800 border-amber-200',
   failed: 'bg-red-50 text-red-800 border-red-200',
-  not_run: 'bg-zinc-50 text-zinc-400 border-zinc-200',
+  not_run: 'bg-stone-50 text-stone-400 border-stone-200',
 }
 
 function when(iso: string | null) {
@@ -101,24 +101,24 @@ export function RunDetailPanel({
     <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="Run detail">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <aside className="absolute inset-y-0 right-0 flex w-full max-w-xl flex-col overflow-y-auto bg-white shadow-2xl lg:max-w-2xl">
-        <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-zinc-200 bg-white px-5 py-3">
+        <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-stone-200 bg-white px-5 py-3">
           <div>
             <h3 className="text-sm font-semibold">
-              Run <span className="font-mono text-xs text-zinc-500">{runId.slice(0, 12)}</span>
+              Run <span className="font-mono text-xs text-stone-500">{runId.slice(0, 12)}</span>
             </h3>
             {ledger && reviewable.length > 0 && (
-              <p className="text-[11px] text-zinc-500">
+              <p className="text-[11px] text-stone-500">
                 {decidedCount} of {reviewable.length} claim{reviewable.length === 1 ? '' : 's'} reviewed
               </p>
             )}
           </div>
-          <button type="button" onClick={onClose} className="rounded-md px-2 py-1 text-xs text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900">
+          <button type="button" onClick={onClose} className="rounded-md px-2 py-1 text-xs text-stone-500 hover:bg-stone-100 hover:text-stone-900">
             Close ✕
           </button>
         </div>
 
         <div className="flex-1 px-5 py-4">
-          {state.phase === 'loading' && <p className="text-sm text-zinc-500">Loading run…</p>}
+          {state.phase === 'loading' && <p className="text-sm text-stone-500">Loading run…</p>}
           {state.phase === 'error' && (
             <p className="text-sm text-red-700">
               Could not load this run. <a href={`/mohamed?run=${runId}`} className="underline">Open the full report</a> instead.
@@ -128,13 +128,13 @@ export function RunDetailPanel({
           {ledger && badge && (
             <div className="space-y-4">
               {/* Plain language first — same principle as the dashboard hero. */}
-              <p className="text-sm font-medium text-zinc-900">{summariseInPlainLanguage(ledger)}</p>
+              <p className="text-sm font-medium text-stone-900">{summariseInPlainLanguage(ledger)}</p>
 
-              <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-600">
+              <div className="flex flex-wrap items-center gap-2 text-xs text-stone-600">
                 <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${badge.classes}`}>{badge.label}</span>
                 <span>{ledger.period_start} → {ledger.period_end}</span>
               </div>
-              <div className="text-xs text-zinc-500">
+              <div className="text-xs text-stone-500">
                 Started {when(ledger.started_at)} · Finished {when(ledger.finished_at)}
               </div>
 
@@ -164,7 +164,7 @@ export function RunDetailPanel({
               )}
 
               <div>
-                <p className="mb-2 text-xs font-medium text-zinc-500">Stages</p>
+                <p className="mb-2 text-xs font-medium text-stone-500">Stages</p>
                 <div className="flex flex-wrap gap-1.5">
                   {ledger.stages.map(stage => (
                     <span
@@ -182,11 +182,11 @@ export function RunDetailPanel({
                   member-ID headline, expandable fields + screenshot,
                   approve / reject with reason. */}
               <div>
-                <p className="mb-2 text-xs font-medium text-zinc-500">
+                <p className="mb-2 text-xs font-medium text-stone-500">
                   Claims needing review
                   {reviewable.length > 0 && ` (${reviewable.length})`}
                 </p>
-                {claims.length === 0 && <p className="text-xs text-zinc-400">No claims in this run.</p>}
+                {claims.length === 0 && <p className="text-xs text-stone-400">No claims in this run.</p>}
                 {reviewable.length > 0 && (
                   <ClaimsByMember runId={ledger.run_id} claims={reviewable} approvals={approvals} canApprove={canApprove} />
                 )}
@@ -201,7 +201,7 @@ export function RunDetailPanel({
           )}
         </div>
 
-        <div className="sticky bottom-0 border-t border-zinc-200 bg-white px-5 py-3 text-xs text-zinc-500">
+        <div className="sticky bottom-0 border-t border-stone-200 bg-white px-5 py-3 text-xs text-stone-500">
           <a href={`/mohamed?run=${runId}`} className="font-medium text-emerald-700 hover:underline">
             Open as full page →
           </a>
