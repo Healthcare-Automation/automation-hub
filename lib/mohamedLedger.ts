@@ -206,6 +206,16 @@ const FAILURE_EXPLANATIONS: Record<string, ClientFailureExplanation> = {
     whatSystemDid: 'The system held these visits back rather than risk a duplicate claim.',
     whatToDo: 'Confirm the intended billing period and re-run if it was uploaded by mistake.',
   },
+  eligibility_lookup_failed: {
+    whatHappened: 'The portal did not answer one or more coverage checks (its page did not load in time).',
+    whatSystemDid: 'The system retried each check automatically before giving up.',
+    whatToDo: 'Usually resolves on its own — upload the same file again in a few minutes.',
+  },
+  eligibility_unavailable: {
+    whatHappened: 'The portal\u2019s coverage-check page did not answer for any client in this run, so no coverage could be confirmed.',
+    whatSystemDid: 'The system stopped the run rather than guess at coverage \u2014 nothing was checked against a billing rule and nothing was submitted.',
+    whatToDo: 'Usually a temporary portal hiccup. Upload the same file again in a few minutes; if it keeps happening, flag it to Andy.',
+  },
 }
 
 const GENERIC_EXPLANATION: ClientFailureExplanation = {
