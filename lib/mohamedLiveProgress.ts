@@ -209,6 +209,28 @@ export function isTerminalPhase(phase: string): boolean {
   return phase === 'finished' || phase === 'failed'
 }
 
+/** How many members have reached (or passed) the claim-entry leg, out of the
+ * whole board — the "N of M" Andy asked to see next to "Entering claims on
+ * the HCPF portal" so the phase label isn't just a static sentence while a
+ * run works through a long member list. Members still on the coverage leg
+ * (waiting/checking_coverage/covered) aren't counted as done yet; members
+ * who never reached claim entry (no_coverage/lookup_failed) don't count
+ * toward the denominator's "in progress" story but do count in total, same
+ * as every other board metric. Returns null for an empty board — nothing to
+ * show a count for. */
+export function enteringClaimsCount(members: LiveMember[]): { done: number; total: number } | null {
+  if (members.length === 0) return null
+  const done = members.filter(m => {
+    const leg = describeMemberState(m.state).legs[1]
+    // pending: hasn't reached claim entry yet. skipped: held back before
+    // claim entry (e.g. no_coverage) — never got there either. Everything
+    // else (active/done/warn/fail) means the automation is or was working
+    // this member's claim entry.
+    return leg !== 'pending' && leg !== 'skipped'
+  }).length
+  return { done, total: members.length }
+}
+
 export type BoardSummary = {
   total: number
   waiting: number

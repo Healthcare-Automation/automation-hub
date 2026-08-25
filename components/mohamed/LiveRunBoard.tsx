@@ -5,6 +5,7 @@ import { getReviewToken, invalidateReviewToken } from '@/lib/mohamedReviewClient
 import {
   describeMemberState,
   describePhase,
+  enteringClaimsCount,
   isBoardStale,
   isTerminalPhase,
   parseProgressPayload,
@@ -198,6 +199,10 @@ export function LiveRunBoard({ progress, requestId }: { progress: string | null;
   }
 
   const summary = summariseBoard(board.members)
+  // Andy asked to see progress against "Entering claims on the HCPF
+  // portal" the same way the summary strip already shows counts for other
+  // phases — only meaningful once claim entry has actually started.
+  const claimsCount = board.phase === 'entering_claims' ? enteringClaimsCount(board.members) : null
 
   return (
     <div className="mt-3">
@@ -206,7 +211,10 @@ export function LiveRunBoard({ progress, requestId }: { progress: string | null;
         <span className="text-xs font-medium text-zinc-900">
           {summary.total} client{summary.total === 1 ? '' : 's'} in this run
         </span>
-        <span className="text-xs text-zinc-500">{describePhase(board.phase)}</span>
+        <span className="text-xs text-zinc-500">
+          {describePhase(board.phase)}
+          {claimsCount && ` (${claimsCount.done} of ${claimsCount.total})`}
+        </span>
         <div className="flex flex-wrap gap-1.5">
           <Count value={summary.ready} label="ready to review" className="bg-emerald-100 text-emerald-900" />
           <Count value={summary.inProgress} label="in progress" className="bg-blue-100 text-blue-900" />
