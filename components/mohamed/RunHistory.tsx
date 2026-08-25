@@ -321,6 +321,7 @@ export function RunHistory({
   degraded = false,
   nowIso,
   inFlight = null,
+  inFlightDegraded = false,
 }: {
   history: RunHistoryItem[]
   selectedRunId: string
@@ -330,10 +331,26 @@ export function RunHistory({
    * server and after hydration. */
   nowIso?: string
   inFlight?: RunRequestRow | null
+  /** True when THIS render's server-side in-flight query failed — distinct
+   * from "there is genuinely no run happening". See MohamedDashboard for
+   * why this exists. */
+  inFlightDegraded?: boolean
 }) {
   const [openRunId, setOpenRunId] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(history[0] ? [history[0].runId] : []))
   const [previews, setPreviews] = useState<Record<string, RunPreview>>({})
+  // Smart cache for the live board's presence: a degraded server render
+  // must not tear down a board that was visibly there a moment ago (Andy,
+  // 2026-08-25: "things keep disappearing and reappearing... unacceptable").
+  // On a good render, trust the server's answer completely — including a
+  // genuine null (the run really did finish). Only a DEGRADED render falls
+  // back to whatever we last knew, so a real "run finished" still clears
+  // the board promptly instead of sticking around forever.
+  const [lastKnownInFlight, setLastKnownInFlight] = useState<RunRequestRow | null>(inFlight)
+  useEffect(() => {
+    if (!inFlightDegraded) setLastKnownInFlight(inFlight)
+  }, [inFlight, inFlightDegraded])
+  const effectiveInFlight = inFlightDegraded ? lastKnownInFlight : inFlight
 
   const now = nowIso ?? history[0]?.startedAt ?? '1970-01-01T00:00:00.000Z'
 
@@ -382,7 +399,7 @@ export function RunHistory({
 
       {/* A run happening right now sits at the head of the same timeline, so
           it is visibly the thing that becomes the next card. */}
-      {inFlight && !degraded && (
+      {effectiveInFlight && !degraded && (
         <div className="mb-4 rounded-2xl border border-emerald-300 bg-white p-4 shadow-[0_0_0_4px_rgba(16,185,129,0.08)]">
           <div className="flex items-center gap-2">
             <span className="relative flex h-2.5 w-2.5" aria-hidden>
@@ -396,8 +413,11 @@ export function RunHistory({
           </p>
           {/* Per-member board while the run works, coarse step bar as its
               own fallback (LiveRunBoard renders RunProgress itself when no
-              live board is available). */}
-          <LiveRunBoard progress={inFlight.progress} requestId={inFlight.id} />
+              live board is available). Keyed by requestId so React never
+              remounts this component across polls that report the SAME
+              run — LiveRunBoard's own poll loop is the source of truth for
+              live state, not this parent's refresh cadence. */}
+          <LiveRunBoard key={effectiveInFlight.id} progress={effectiveInFlight.progress} requestId={effectiveInFlight.id} />
         </div>
       )}
 

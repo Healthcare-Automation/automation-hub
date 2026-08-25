@@ -152,6 +152,11 @@ export function LiveRunBoard({ progress, requestId }: { progress: string | null;
       } catch {
         if (!cancelled) {
           setNowMs(Date.now())
+          // A transient fetch error (network blip, token refresh race) must
+          // not tear down an already-rendered board — only degrade to the
+          // coarse fallback if we never had a board to begin with. The
+          // staleness check (isBoardStale) is what actually detects a truly
+          // dead board; a single failed poll is not that.
           setState(prev => (prev.phase === 'board' ? prev : { phase: 'unavailable' }))
         }
       } finally {

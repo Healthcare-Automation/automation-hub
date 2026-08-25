@@ -138,17 +138,21 @@ export function RunDetailPanel({
                 Started {when(ledger.started_at)} · Finished {when(ledger.finished_at)}
               </div>
 
-              {/* Coverage-gap alert — same loud red treatment as the dashboard:
-                  these visits are never billed, but that must stay visible. */}
+              {/* Coverage-gap alert — client decision 2026-08-24: expected,
+                  working-as-designed behaviour per Mohamed's own billing
+                  rule, not a system failure. Matches the dashboard hero's
+                  informational (amber, not red) treatment — Andy, 2026-08-25:
+                  "when things are missing coverage, the platform
+                  sentimentally freaks out... make it more subtle." */}
               {gapAlert && (
-                <div className="rounded-xl border border-red-300 bg-red-50 p-4">
+                <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4">
                   <div className="flex items-start gap-2">
-                    <span className="mt-0.5" aria-hidden>⚠️</span>
+                    <span className="mt-0.5 shrink-0 text-base text-amber-600" aria-hidden>ⓘ</span>
                     <div>
-                      <p className="text-xs font-semibold text-red-900">
-                        {gapAlert.visitsNeverBilled} visit{gapAlert.visitsNeverBilled === 1 ? '' : 's'} NOT billed — missing required coverage
+                      <p className="text-xs font-semibold text-amber-900">
+                        {gapAlert.visitsNeverBilled} visit{gapAlert.visitsNeverBilled === 1 ? '' : 's'} excluded — working as designed, per your rule
                       </p>
-                      <p className="mt-1 text-xs text-red-800">
+                      <p className="mt-1 text-xs text-amber-800">
                         {gapAlert.membersAffected} client{gapAlert.membersAffected === 1 ? '' : 's'} in this run{' '}
                         {gapAlert.membersAffected === 1 ? 'is' : 'are'} missing one of the two required coverages
                         (HCBS EBD Waiver / Community First Choice). Per your decision these visits are never billed

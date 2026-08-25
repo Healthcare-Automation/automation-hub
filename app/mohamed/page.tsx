@@ -43,6 +43,13 @@ export default async function MohamedPage({ searchParams }: { searchParams: Prom
   let approvalsDegraded = false
   let ledgerSource: 'live' | 'synthetic' | 'unavailable' = 'synthetic'
   let inFlight: RunRequestRow | null = null
+  // Distinguishes "the in-flight query itself failed" (transient DB hiccup)
+  // from "genuinely nothing is running" — collapsing both to null made the
+  // live board flicker: pop away on a blip, pop back on the next 5s poll
+  // (Andy, 2026-08-25: "things keep disappearing and reappearing... that
+  // live run component disappears too. Unacceptable."). The client keeps
+  // its last-known board when this is true instead of tearing it down.
+  let inFlightDegraded = false
   let questions: ClientQuestion[] = []
   let questionsDegraded = false
 
@@ -61,7 +68,11 @@ export default async function MohamedPage({ searchParams }: { searchParams: Prom
     } else {
       historyDegraded = true
     }
-    if (requestR.status === 'fulfilled') inFlight = requestR.value
+    if (requestR.status === 'fulfilled') {
+      inFlight = requestR.value
+    } else {
+      inFlightDegraded = true
+    }
     if (questionsR.status === 'fulfilled') {
       questions = questionsR.value
     } else if (questionsR.reason instanceof QuestionsNotMigratedError) {
@@ -102,6 +113,7 @@ export default async function MohamedPage({ searchParams }: { searchParams: Prom
         isMohamed={isMohamed}
         canApprove={canApprove}
         inFlight={inFlight}
+        inFlightDegraded={inFlightDegraded}
         questions={questions}
         questionsDegraded={questionsDegraded}
       />

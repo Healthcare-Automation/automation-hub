@@ -216,6 +216,16 @@ const FAILURE_EXPLANATIONS: Record<string, ClientFailureExplanation> = {
     whatSystemDid: 'The system stopped the run rather than guess at coverage \u2014 nothing was checked against a billing rule and nothing was submitted.',
     whatToDo: 'Usually a temporary portal hiccup. Upload the same file again in a few minutes; if it keeps happening, flag it to Andy.',
   },
+  hcpf_session_died: {
+    whatHappened: 'The billing portal ended your session partway through this run.',
+    whatSystemDid: 'The system stopped entering claims the moment it noticed, rather than continuing to try against a session that had already ended.',
+    whatToDo: 'No action needed — the system repairs the session automatically. Upload the same file again in a few minutes.',
+  },
+  structural_data_missing: {
+    whatHappened: 'One or more rows in the uploaded file are missing required billing information (like a service code or billing amount).',
+    whatSystemDid: 'The system refused to run rather than bill the clean rows and silently skip the broken ones.',
+    whatToDo: 'Check the flagged rows in AxisCare\u2019s Billing Report export, fix the missing fields, and upload again.',
+  },
 }
 
 const GENERIC_EXPLANATION: ClientFailureExplanation = {

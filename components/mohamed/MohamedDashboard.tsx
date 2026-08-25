@@ -52,6 +52,7 @@ export function MohamedDashboard({
   isMohamed = false,
   canApprove,
   inFlight = null,
+  inFlightDegraded = false,
   questions = [],
   questionsDegraded = false,
 }: {
@@ -65,6 +66,11 @@ export function MohamedDashboard({
   isMohamed?: boolean
   canApprove: boolean
   inFlight?: RunRequestRow | null
+  /** True when the server's in-flight-run query itself failed this render
+   * (not the same as "nothing is running") — RunHistory keeps its last
+   * known live board on the client instead of tearing it down, so a
+   * transient DB blip can't make the live board flicker away and back. */
+  inFlightDegraded?: boolean
   questions?: ClientQuestion[]
   questionsDegraded?: boolean
 }) {
@@ -240,6 +246,7 @@ export function MohamedDashboard({
         degraded={historyDegraded}
         nowIso={new Date().toISOString()}
         inFlight={isAdmin || isMohamed ? inFlight : null}
+        inFlightDegraded={inFlightDegraded}
       />
 
       {/* Clarifying billing-rule questions for Mohamed — answered here so
