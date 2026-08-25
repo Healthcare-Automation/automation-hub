@@ -12,7 +12,7 @@ export {
   type ProgressState,
 } from './mohamedRunProgress'
 
-export type RunRequestStatus = 'pending' | 'claimed' | 'running' | 'done' | 'failed' | 'expired'
+export type RunRequestStatus = 'pending' | 'claimed' | 'running' | 'done' | 'failed' | 'expired' | 'cancelled'
 
 export type RunRequestRow = {
   id: number
@@ -26,6 +26,7 @@ export type RunRequestRow = {
   errorCode: string | null
   progress: string | null
   progressAt: string | null
+  cancelRequestedAt: string | null
 }
 
 type RawRow = {
@@ -40,6 +41,7 @@ type RawRow = {
   error_code: string | null
   progress: string | null
   progress_at: string | Date | null
+  cancel_requested_at: string | Date | null
 }
 
 function iso(value: string | Date): string {
@@ -59,6 +61,7 @@ function toRow(raw: RawRow): RunRequestRow {
     errorCode: raw.error_code,
     progress: raw.progress ?? null,
     progressAt: raw.progress_at ? iso(raw.progress_at) : null,
+    cancelRequestedAt: raw.cancel_requested_at ? iso(raw.cancel_requested_at) : null,
   }
 }
 
@@ -101,4 +104,25 @@ export async function enqueueRunRequest(requestedBy: string, kind: 'fixture' | '
     returning *
   `)
   return toRow(rows[0])
+}
+
+export class CancelError extends Error {}
+
+/** Flags an in-flight request for cooperative cancellation — the VPS
+ * poller (already mid-run) is the only thing that actually stops it; this
+ * only sets the flag it watches for. Returns false (not an error) when
+ * there's nothing to cancel: the request already finished, or a cancel is
+ * already in flight. The `where` clause is the same guard the poller's SQL
+ * enforces, so a stale double-click can't ever set the flag twice. */
+export async function requestRunCancel(requestId: number, requestedBy: string): Promise<boolean> {
+  if (!isMohamedLedgerConfigured) throw new CancelError('Mohamed database is not configured.')
+  const rows = await mohamedQuery(sql => sql<{ id: number }[]>`
+    update mohamed_run_requests
+    set cancel_requested_at = now(), cancel_requested_by = ${requestedBy}
+    where id = ${requestId}
+      and status in ('pending', 'claimed', 'running')
+      and cancel_requested_at is null
+    returning id
+  `)
+  return rows.length > 0
 }

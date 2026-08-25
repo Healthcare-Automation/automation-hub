@@ -96,6 +96,80 @@ function Count({ value, label, className }: { value: number; label: string; clas
   )
 }
 
+/** Stop button for an in-flight run — cooperative cancel (see
+ * app/api/mohamed/cancel/route.ts). Requires an explicit confirm click
+ * (accidental stops on a real HCPF run are expensive) and shows the request
+ * as sent immediately; the run itself keeps going until the poller notices
+ * between claims, so this deliberately does not claim to have stopped
+ * anything yet. */
+function CancelButton({ requestId }: { requestId: number }) {
+  const [state, setState] = useState<'idle' | 'confirming' | 'sending' | 'sent' | 'error'>('idle')
+  const [error, setError] = useState<string | null>(null)
+
+  async function confirm() {
+    setState('sending')
+    setError(null)
+    try {
+      const res = await fetch('/api/mohamed/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId }),
+      })
+      const data = await res.json().catch(() => ({ ok: false, error: 'bad_response' }))
+      if (!res.ok || !data.ok) {
+        setState('error')
+        setError(data.error ?? 'Could not send the stop request.')
+        return
+      }
+      setState('sent')
+    } catch {
+      setState('error')
+      setError('Network error — try again.')
+    }
+  }
+
+  if (state === 'sent') {
+    return <p className="text-[11px] font-medium text-amber-800">Stop requested — finishing the current claim, then stopping.</p>
+  }
+
+  if (state === 'confirming') {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="text-[11px] text-zinc-600">Stop this run? It finishes the claim in progress first.</span>
+        <button
+          type="button"
+          onClick={confirm}
+          disabled={state === ('sending' as typeof state)}
+          className="rounded-lg bg-red-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-red-700"
+        >
+          Yes, stop
+        </button>
+        <button
+          type="button"
+          onClick={() => setState('idle')}
+          className="rounded-lg border border-zinc-300 px-2.5 py-1 text-[11px] font-medium text-zinc-600 hover:bg-zinc-50"
+        >
+          Cancel
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        onClick={() => setState('confirming')}
+        disabled={state === 'sending'}
+        className="rounded-lg border border-red-300 px-2.5 py-1 text-[11px] font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
+      >
+        {state === 'sending' ? 'Sending…' : 'Stop run'}
+      </button>
+      {state === 'error' && error && <span className="text-[11px] text-red-700">{error}</span>}
+    </div>
+  )
+}
+
 type Fetched =
   | { phase: 'loading' }
   | { phase: 'unavailable' }
@@ -119,7 +193,16 @@ type Fetched =
  * runner, endpoint unreachable, board not written yet, or a stale board), so
  * this can only ever add detail — never take the existing progress away.
  */
-export function LiveRunBoard({ progress, requestId }: { progress: string | null; requestId: number }) {
+export function LiveRunBoard({
+  progress,
+  requestId,
+  canCancel = false,
+}: {
+  progress: string | null
+  requestId: number
+  /** Admin-only: shows the Stop button while the run is active. */
+  canCancel?: boolean
+}) {
   const [state, setState] = useState<Fetched>({ phase: 'loading' })
   const [nowMs, setNowMs] = useState(0)
 
@@ -172,7 +255,18 @@ export function LiveRunBoard({ progress, requestId }: { progress: string | null;
     }
   }, [requestId])
 
-  if (state.phase !== 'board') return <RunProgress progress={progress} />
+  if (state.phase !== 'board') {
+    return (
+      <>
+        <RunProgress progress={progress} />
+        {canCancel && (
+          <div className="mt-3">
+            <CancelButton requestId={requestId} />
+          </div>
+        )}
+      </>
+    )
+  }
 
   const { board } = state
   const stale = isBoardStale(board.updatedAt, nowMs || state.fetchedAtMs)
@@ -184,6 +278,11 @@ export function LiveRunBoard({ progress, requestId }: { progress: string | null;
           Waiting for the automation… no update in the last few minutes.
         </p>
         <RunProgress progress={progress} />
+        {canCancel && (
+          <div className="mt-3">
+            <CancelButton requestId={requestId} />
+          </div>
+        )}
       </>
     )
   }
@@ -192,7 +291,11 @@ export function LiveRunBoard({ progress, requestId }: { progress: string | null;
     return (
       <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5">
         <p className="text-xs font-medium text-emerald-900">
-          {board.phase === 'failed' ? 'Run stopped — see the result below.' : 'Run finished — see the result below.'}
+          {board.phase === 'failed'
+            ? 'Run stopped — see the result below.'
+            : board.phase === 'cancelled'
+              ? 'Run stopped — cancelled from the hub. See the result below.'
+              : 'Run finished — see the result below.'}
         </p>
       </div>
     )
@@ -227,6 +330,12 @@ export function LiveRunBoard({ progress, requestId }: { progress: string | null;
       <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-zinc-200">
         <div className="h-full rounded-full bg-emerald-500 transition-all duration-500" style={{ width: `${summary.percent}%` }} />
       </div>
+
+      {canCancel && (
+        <div className="mt-2.5">
+          <CancelButton requestId={requestId} />
+        </div>
+      )}
 
       {board.members.length === 0 ? (
         <p className="mt-3 text-xs text-zinc-500">Reading the uploaded file — clients appear here as the run picks them up.</p>

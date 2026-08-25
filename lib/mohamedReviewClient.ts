@@ -125,6 +125,37 @@ export function getClaimSteps(runId: string, claimRef: string): Promise<StepInde
   return cached
 }
 
+const coverageGapMembersCache = new Map<string, Promise<string[] | null>>()
+
+/** Fetches the member ids behind a run's coverage-gap alert (Andy,
+ * 2026-08-25: "I should be able to drill down on those people and see who
+ * we missed"). Returns null when the run predates this feature or the
+ * artifact isn't reachable — callers show the aggregate count only, same
+ * degrade-gracefully rule as every other review artifact fetch here. */
+export function getCoverageGapMembers(runId: string): Promise<string[] | null> {
+  let cached = coverageGapMembersCache.get(runId)
+  if (!cached) {
+    cached = (async () => {
+      try {
+        const { token, uploadUrl } = await getReviewToken()
+        const res = await fetch(`${uploadUrl}/review/${runId}/coverage-gap-members.json`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (!res.ok) return null
+        const payload = await res.json()
+        return Array.isArray(payload.members) ? (payload.members as string[]) : null
+      } catch {
+        return null
+      }
+    })()
+    cached.catch(() => {
+      coverageGapMembersCache.delete(runId)
+    })
+    coverageGapMembersCache.set(runId, cached)
+  }
+  return cached
+}
+
 const MEMBER_ID_LABEL = /member.?id/i
 
 /** The member id is how Mohamed identifies claims -- pulled from whichever

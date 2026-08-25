@@ -13,7 +13,7 @@
  * rendering a raw code at a non-technical reader.
  */
 
-export type LivePhase = 'starting' | 'checking_coverage' | 'entering_claims' | 'finished' | 'failed'
+export type LivePhase = 'starting' | 'checking_coverage' | 'entering_claims' | 'finished' | 'failed' | 'cancelled'
 
 export type LiveMember = {
   /** The member id is the human identifier — the only member data on this board. */
@@ -199,6 +199,7 @@ const PHASE_LABELS: Record<LivePhase, string> = {
   entering_claims: 'Entering claims on the HCPF portal',
   finished: 'Run finished',
   failed: 'Run stopped',
+  cancelled: 'Run stopped — cancelled from the hub',
 }
 
 export function describePhase(phase: string): string {
@@ -206,7 +207,7 @@ export function describePhase(phase: string): string {
 }
 
 export function isTerminalPhase(phase: string): boolean {
-  return phase === 'finished' || phase === 'failed'
+  return phase === 'finished' || phase === 'failed' || phase === 'cancelled'
 }
 
 /** How many members have reached (or passed) the claim-entry leg, out of the
