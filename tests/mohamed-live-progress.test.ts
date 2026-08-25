@@ -4,6 +4,7 @@ import {
   describeMemberState,
   describePhase,
   describeStepLabel,
+  enteringClaimsCount,
   isBoardStale,
   isTerminalPhase,
   parseProgressPayload,
@@ -159,4 +160,23 @@ test('a half-written board keeps the members it can read and defaults the rest',
 
 test('step labels stay readable for an unseen step', () => {
   assert.equal(describeStepLabel('07-mystery-step'), 'mystery step')
+})
+
+test('enteringClaimsCount counts members that have reached the claim-entry leg', () => {
+  const board = [
+    member('A1', 'waiting'),
+    member('A2', 'checking_coverage'),
+    member('A3', 'covered'),
+    member('A4', 'entering_claim'),
+    member('A5', 'step:02-diagnosis'),
+    member('A6', 'review_reached'),
+    member('A7', 'claim_failed'),
+    member('A8', 'no_coverage'),
+  ]
+  const count = enteringClaimsCount(board)
+  assert.deepEqual(count, { done: 4, total: 8 }) // entering_claim, step:*, review_reached, claim_failed
+})
+
+test('enteringClaimsCount returns null for an empty board', () => {
+  assert.equal(enteringClaimsCount([]), null)
 })
