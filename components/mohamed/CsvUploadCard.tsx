@@ -93,10 +93,10 @@ export function CsvUploadCard({ hasFile }: { hasFile: boolean }) {
   const busy = phase === 'requesting' || phase === 'uploading'
 
   return (
-    <section data-section="upload" className="mt-5 overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm">
-      <div className="border-b border-stone-100 px-5 py-4">
-        <h2 className="text-sm font-semibold text-stone-900">Upload billing report</h2>
-        <p className="mt-1 text-xs text-stone-500">
+    <section data-section="upload" className="mt-5 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+      <div className="border-b border-zinc-100 px-5 py-4">
+        <h2 className="text-sm font-semibold text-zinc-900">Upload billing report</h2>
+        <p className="mt-1 text-xs text-zinc-500">
           Export the AxisCare Billing Report as CSV and drop it here. The run starts on its own — no separate trigger needed.
         </p>
       </div>
@@ -113,18 +113,18 @@ export function CsvUploadCard({ hasFile }: { hasFile: boolean }) {
           onDragOver={e => e.preventDefault()}
           onClick={() => inputRef.current?.click()}
           className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-8 text-center transition-colors ${
-            busy ? 'border-stone-200 bg-stone-50' : 'border-stone-300 bg-stone-50/40 hover:border-indigo-400 hover:bg-indigo-50/40'
+            busy ? 'border-zinc-200 bg-zinc-50' : 'border-zinc-300 bg-zinc-50/40 hover:border-emerald-400 hover:bg-emerald-50/40'
           }`}
         >
           <input ref={inputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={onFileChosen} disabled={busy} />
           {phase === 'idle' && (
             <>
-              <p className="text-sm font-medium text-stone-700">Drag a CSV here, or click to choose a file</p>
-              <p className="text-xs text-stone-400">One file, straight to the VPS — not stored on Vercel</p>
+              <p className="text-sm font-medium text-zinc-700">Drag a CSV here, or click to choose a file</p>
+              <p className="text-xs text-zinc-400">One file, straight to the VPS — not stored on Vercel</p>
             </>
           )}
           {busy && (
-            <p className="text-sm font-medium text-stone-700">
+            <p className="text-sm font-medium text-zinc-700">
               {phase === 'requesting' ? 'Preparing upload…' : `Uploading ${fileName ?? 'file'}…`}
             </p>
           )}
@@ -135,7 +135,7 @@ export function CsvUploadCard({ hasFile }: { hasFile: boolean }) {
           <p className={`mt-3 text-xs ${phase === 'error' ? 'text-red-700' : 'text-emerald-700'}`}>{message}</p>
         )}
         {!hasFile && phase === 'idle' && (
-          <p className="mt-3 text-[11px] text-stone-400">No run has been started from an upload yet.</p>
+          <p className="mt-3 text-[11px] text-zinc-400">No run has been started from an upload yet.</p>
         )}
       </div>
     </section>

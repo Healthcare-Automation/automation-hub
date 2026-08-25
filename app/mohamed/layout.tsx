@@ -6,5 +6,5 @@ export const metadata: Metadata = {
 }
 
 export default function MohamedLayout({ children }: { children: React.ReactNode }) {
-  return <main className="min-h-screen bg-stone-100 text-stone-900">{children}</main>
+  return <main className="min-h-screen bg-[#f4f5f7] text-zinc-900">{children}</main>
 }

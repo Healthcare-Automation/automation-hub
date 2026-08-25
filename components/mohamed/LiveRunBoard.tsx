@@ -21,28 +21,28 @@ import { RunProgress } from './RunProgress'
 const POLL_MS = 3_000
 
 const TONE_TEXT: Record<StateTone, string> = {
-  zinc: 'text-stone-500',
-  blue: 'text-indigo-700',
+  zinc: 'text-zinc-500',
+  blue: 'text-blue-700',
   emerald: 'text-emerald-700',
   amber: 'text-amber-700',
   red: 'text-red-700',
 }
 
 const TONE_DOT: Record<StateTone, string> = {
-  zinc: 'bg-stone-300',
-  blue: 'bg-indigo-500',
+  zinc: 'bg-zinc-300',
+  blue: 'bg-blue-500',
   emerald: 'bg-emerald-500',
   amber: 'bg-amber-500',
   red: 'bg-red-500',
 }
 
 const LEG_FILL: Record<LegState, string> = {
-  pending: 'bg-stone-200',
-  active: 'bg-indigo-500 animate-pulse',
+  pending: 'bg-zinc-200',
+  active: 'bg-blue-500 animate-pulse',
   done: 'bg-emerald-500',
   warn: 'bg-amber-400',
   fail: 'bg-red-500',
-  skipped: 'bg-stone-100',
+  skipped: 'bg-zinc-100',
 }
 
 /** Three segments — Coverage → Claim entry → Review — as one compact bar so
@@ -66,7 +66,7 @@ function MemberRow({ member }: { member: LiveMember }) {
   const claimCount = Object.keys(member.claims).length
 
   return (
-    <li className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg bg-white px-3 py-2 text-xs ring-1 ring-stone-200">
+    <li className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg bg-white px-3 py-2 text-xs ring-1 ring-zinc-200">
       <span className="flex shrink-0 items-center gap-2">
         {view.busy ? (
           <span className="relative flex h-1.5 w-1.5">
@@ -76,12 +76,12 @@ function MemberRow({ member }: { member: LiveMember }) {
         ) : (
           <span className={`h-1.5 w-1.5 rounded-full ${TONE_DOT[view.tone]}`} />
         )}
-        <span className="font-medium tabular-nums text-stone-900">Member {member.memberId}</span>
+        <span className="font-medium tabular-nums text-zinc-900">Member {member.memberId}</span>
       </span>
       <LegTracker legs={view.legs} />
       <span className={`min-w-0 flex-1 ${TONE_TEXT[view.tone]}`}>{view.label}</span>
       {claimCount > 1 && (
-        <span className="shrink-0 text-[11px] text-stone-400">{claimCount} claims</span>
+        <span className="shrink-0 text-[11px] text-zinc-400">{claimCount} claims</span>
       )}
     </li>
   )
@@ -208,28 +208,28 @@ export function LiveRunBoard({ progress, requestId }: { progress: string | null;
     <div className="mt-3">
       {/* Summary strip: the whole run in one line, before any per-member detail. */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-        <span className="text-xs font-medium text-stone-900">
+        <span className="text-xs font-medium text-zinc-900">
           {summary.total} client{summary.total === 1 ? '' : 's'} in this run
         </span>
-        <span className="text-xs text-stone-500">
+        <span className="text-xs text-zinc-500">
           {describePhase(board.phase)}
           {claimsCount && ` (${claimsCount.done} of ${claimsCount.total})`}
         </span>
         <div className="flex flex-wrap gap-1.5">
           <Count value={summary.ready} label="ready to review" className="bg-emerald-100 text-emerald-900" />
-          <Count value={summary.inProgress} label="in progress" className="bg-indigo-100 text-indigo-900" />
+          <Count value={summary.inProgress} label="in progress" className="bg-blue-100 text-blue-900" />
           <Count value={summary.heldBack} label="held back" className="bg-amber-100 text-amber-900" />
           <Count value={summary.failed} label="failed" className="bg-red-100 text-red-900" />
-          <Count value={summary.waiting} label="waiting" className="bg-stone-100 text-stone-600" />
+          <Count value={summary.waiting} label="waiting" className="bg-zinc-100 text-zinc-600" />
         </div>
       </div>
 
-      <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-stone-200">
+      <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-zinc-200">
         <div className="h-full rounded-full bg-emerald-500 transition-all duration-500" style={{ width: `${summary.percent}%` }} />
       </div>
 
       {board.members.length === 0 ? (
-        <p className="mt-3 text-xs text-stone-500">Reading the uploaded file — clients appear here as the run picks them up.</p>
+        <p className="mt-3 text-xs text-zinc-500">Reading the uploaded file — clients appear here as the run picks them up.</p>
       ) : (
         <ul className={`mt-3 space-y-1.5 ${board.members.length > 10 ? 'max-h-96 overflow-y-auto pr-1' : ''}`}>
           {board.members.map(member => (
