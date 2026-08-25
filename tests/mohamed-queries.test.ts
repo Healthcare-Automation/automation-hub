@@ -2,7 +2,14 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import demo from '../lib/mohamedDemoLedger.json' with { type: 'json' }
 import { describeFailure, type RunLedgerSnapshot } from '../lib/mohamedLedger'
-import { buildSnapshot, toHistoryItem, type EventRow, type RunRow } from '../lib/mohamedQueries'
+import {
+  attachRunOutcomes,
+  buildSnapshot,
+  toHistoryItem,
+  type EventRow,
+  type OutcomeSignalRow,
+  type RunRow,
+} from '../lib/mohamedQueries'
 
 const ledger = demo as RunLedgerSnapshot
 
@@ -49,4 +56,24 @@ test('history items normalise dates and counts', () => {
   assert.equal(item.periodStart, ledger.period_start)
   assert.equal(item.startedAt, new Date(ledger.started_at).toISOString())
   assert.equal(item.eventCount, ledger.events.length)
+})
+
+test('a flat multi-run signal projection folds into one outcome per run', () => {
+  const items = [
+    toHistoryItem({ ...runRow(), run_id: 'run-a' }),
+    toHistoryItem({ ...runRow(), run_id: 'run-b', status: 'blocked' }),
+    toHistoryItem({ ...runRow(), run_id: 'run-c' }),
+  ]
+  const signals: OutcomeSignalRow[] = [
+    { run_id: 'run-a', step: 'rows_received', status: 'ok', claim_ref: null, code: null, detail: { rows: 5 } },
+    { run_id: 'run-a', step: 'reached_review', status: 'ok', claim_ref: 'c1', code: null, detail: {} },
+    { run_id: 'run-b', step: 'rows_evaluated', status: 'blocked', claim_ref: null, code: null, detail: { ready: 0, blocked: 3, units_invalid: 3 } },
+  ]
+
+  const [a, b, c] = attachRunOutcomes(items, signals)
+  assert.equal(a.outcome?.headline, '1 claim ready for your review')
+  assert.equal(a.outcome?.visitsIn, 5)
+  assert.match(b.outcome?.headline ?? '', /No claims built — 3 visits blocked: visit has no billable hours/)
+  // A run with no signal rows still gets an honest outcome, not a crash.
+  assert.equal(c.outcome?.tone, 'idle')
 })

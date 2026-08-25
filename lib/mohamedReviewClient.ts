@@ -21,9 +21,17 @@ export type StepIndexEntry = {
 }
 
 let tokenPromise: Promise<{ token: string; uploadUrl: string }> | null = null
+let tokenMintedAt = 0
+
+/** The minted token is valid for 120s (lib/mohamedUploadToken.ts). Re-mint
+ * well before that so a long-lived caller — the live progress board polls
+ * every ~3s for the whole run — never sends an expired one. */
+const TOKEN_REUSE_MS = 90_000
 
 export function getReviewToken(): Promise<{ token: string; uploadUrl: string }> {
+  if (tokenPromise && Date.now() - tokenMintedAt > TOKEN_REUSE_MS) tokenPromise = null
   if (!tokenPromise) {
+    tokenMintedAt = Date.now()
     tokenPromise = (async () => {
       const res = await fetch('/api/mohamed/review-token', { method: 'POST' })
       const json = await res.json()
@@ -35,6 +43,13 @@ export function getReviewToken(): Promise<{ token: string; uploadUrl: string }> 
     })
   }
   return tokenPromise
+}
+
+/** Drops the cached token so the next call mints a fresh one — for callers
+ * that got a 401 from the VPS despite the reuse window (clock skew, a
+ * restarted VPS). */
+export function invalidateReviewToken(): void {
+  tokenPromise = null
 }
 
 function artifactUrl(uploadUrl: string, runId: string, claimRef: string, path: string, artifact: string): string {

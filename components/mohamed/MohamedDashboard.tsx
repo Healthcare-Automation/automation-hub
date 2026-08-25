@@ -5,8 +5,8 @@ import type { RunRequestRow } from '@/lib/mohamedRunRequests'
 import type { ClaimApproval } from '@/lib/mohamedApprovals'
 import type { ClientQuestion } from '@/lib/mohamedQuestions'
 import { coverageGapAlert, describeFailureForClient, summariseClaims, summariseInPlainLanguage } from '@/lib/mohamedLedger'
+import { describeRunProgress } from '@/lib/mohamedRunProgress'
 import { RunHistory } from './RunHistory'
-import { RunProgress } from './RunProgress'
 import { CsvUploadCard } from './CsvUploadCard'
 import { ClaimsByMember } from './ClaimsByMember'
 import { ClientQuestionsCard } from './ClientQuestionsCard'
@@ -109,9 +109,22 @@ export function MohamedDashboard({
               <span className="shrink-0 text-[11px] text-zinc-500">{timeAgo(ledger.finished_at ?? ledger.started_at)}</span>
               <span className="text-sm text-zinc-900">{summariseInPlainLanguage(ledger)}</span>
             </div>
+            {/* Compact only: the step-by-step progress list lives at the head
+                of the run-history timeline, where the in-flight run becomes
+                the next card — one place, not two. */}
             {(isAdmin || isMohamed) && (
               <div className="w-full text-right text-[11px] text-zinc-500 sm:w-64">
-                {inFlight ? <RunProgress progress={inFlight.progress} /> : 'Upload a CSV below to start a run'}
+                {inFlight ? (
+                  <a href="#run-history" className="inline-flex items-center gap-1.5 font-medium text-emerald-800 hover:underline">
+                    <span className="relative flex h-2 w-2" aria-hidden>
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                    </span>
+                    {describeRunProgress(inFlight.progress) ?? 'A run is in progress'}
+                  </a>
+                ) : (
+                  'Upload a CSV below to start a run'
+                )}
               </div>
             )}
           </div>
@@ -217,7 +230,17 @@ export function MohamedDashboard({
         </section>
       )}
 
-      <RunHistory history={history} selectedRunId={ledger?.run_id ?? ''} canApprove={canApprove} degraded={historyDegraded} />
+      {/* `nowIso` is resolved here, on the server, and passed down: RunHistory
+          is a client component, and a bare Date.now() inside it would render
+          'Today' on the server and possibly 'Yesterday' on hydration. */}
+      <RunHistory
+        history={history}
+        selectedRunId={ledger?.run_id ?? ''}
+        canApprove={canApprove}
+        degraded={historyDegraded}
+        nowIso={new Date().toISOString()}
+        inFlight={isAdmin || isMohamed ? inFlight : null}
+      />
 
       {/* Clarifying billing-rule questions for Mohamed — answered here so
           decisions live next to the runs they govern, not in chat threads. */}
