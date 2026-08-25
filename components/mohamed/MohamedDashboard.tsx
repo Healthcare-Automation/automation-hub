@@ -9,6 +9,7 @@ import { describeRunProgress } from '@/lib/mohamedRunProgress'
 import { RunHistory } from './RunHistory'
 import { CsvUploadCard } from './CsvUploadCard'
 import { ClientQuestionsCard } from './ClientQuestionsCard'
+import { CoverageGapAlertCard } from './CoverageGapAlertCard'
 import { RunTrace } from './RunTrace'
 import { UpdatedAgoIndicator } from '../UpdatedAgoIndicator'
 
@@ -201,27 +202,9 @@ export function MohamedDashboard({
 
       {/* Coverage-gap alert — client decision 2026-08-24: these visits are
           never billed, but that must be visible on every affected run
-          report. It's expected, working-as-designed behaviour, not a
-          failure, so it reads as an informational card, not a red banner. */}
-      {gapAlert && (
-        <section className="relative mt-5 overflow-hidden rounded-2xl border border-zinc-200 bg-white pl-5 shadow-sm">
-          <span className="absolute inset-y-0 left-0 w-1 bg-amber-400" aria-hidden />
-          <div className="flex items-start gap-3 p-4 pl-3.5">
-            <InfoIcon className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
-            <div>
-              <h2 className="text-xs font-semibold text-zinc-900">
-                {gapAlert.visitsNeverBilled} visit{gapAlert.visitsNeverBilled === 1 ? '' : 's'} excluded — working as designed, per your rule
-              </h2>
-              <p className="mt-1 text-xs text-zinc-600">
-                {gapAlert.membersAffected} client{gapAlert.membersAffected === 1 ? '' : 's'} in this run{' '}
-                {gapAlert.membersAffected === 1 ? 'is' : 'are'} missing one of the two required coverages
-                (HCBS EBD Waiver / Community First Choice). Per your decision these visits are never billed
-                until both coverages appear in the member&apos;s Medicaid record.
-              </p>
-            </div>
-          </div>
-        </section>
-      )}
+          report. Drill-down (Andy 2026-08-25) lives in its own client
+          component since it fetches member ids from the VPS on demand. */}
+      {gapAlert && ledger && <CoverageGapAlertCard runId={ledger.run_id} alert={gapAlert} />}
 
       {/* `nowIso` is resolved here, on the server, and passed down: RunHistory
           is a client component, and a bare Date.now() inside it would render
@@ -230,6 +213,7 @@ export function MohamedDashboard({
         history={history}
         selectedRunId={ledger?.run_id ?? ''}
         canApprove={canApprove}
+        canCancel={isAdmin}
         degraded={historyDegraded}
         nowIso={new Date().toISOString()}
         inFlight={isAdmin || isMohamed ? inFlight : null}

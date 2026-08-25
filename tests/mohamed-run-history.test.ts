@@ -114,6 +114,7 @@ test('an in-flight run is announced at the head of the timeline', () => {
       errorCode: null,
       progress: 'checking_eligibility:3_of_9',
       progressAt: null,
+      cancelRequestedAt: null,
     },
   })
   assert.match(html, /A run is happening right now/)

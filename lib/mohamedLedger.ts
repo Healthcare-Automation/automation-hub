@@ -226,6 +226,11 @@ const FAILURE_EXPLANATIONS: Record<string, ClientFailureExplanation> = {
     whatSystemDid: 'The system refused to run rather than bill the clean rows and silently skip the broken ones.',
     whatToDo: 'Check the flagged rows in AxisCare\u2019s Billing Report export, fix the missing fields, and upload again.',
   },
+  cancelled_by_client: {
+    whatHappened: 'This run was stopped from the hub before it finished.',
+    whatSystemDid: 'The system finished the claim it was already working on, then stopped rather than start another.',
+    whatToDo: 'Any claims already reached review before the stop are still shown below. Upload the file again to bill the rest.',
+  },
 }
 
 const GENERIC_EXPLANATION: ClientFailureExplanation = {

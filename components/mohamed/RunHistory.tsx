@@ -294,6 +294,7 @@ export function RunHistory({
   history,
   selectedRunId,
   canApprove = false,
+  canCancel = false,
   degraded = false,
   nowIso,
   inFlight = null,
@@ -302,6 +303,8 @@ export function RunHistory({
   history: RunHistoryItem[]
   selectedRunId: string
   canApprove?: boolean
+  /** Admin-only: shows the Stop button on the live board for the in-flight run. */
+  canCancel?: boolean
   degraded?: boolean
   /** Server-supplied "now" so 'Today'/'Yesterday' render identically on the
    * server and after hydration. */
@@ -401,7 +404,7 @@ export function RunHistory({
               remounts this component across polls that report the SAME
               run — LiveRunBoard's own poll loop is the source of truth for
               live state, not this parent's refresh cadence. */}
-          <LiveRunBoard key={effectiveInFlight.id} progress={effectiveInFlight.progress} requestId={effectiveInFlight.id} />
+          <LiveRunBoard key={effectiveInFlight.id} progress={effectiveInFlight.progress} requestId={effectiveInFlight.id} canCancel={canCancel} />
         </div>
       )}
 
