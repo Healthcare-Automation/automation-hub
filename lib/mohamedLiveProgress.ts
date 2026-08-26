@@ -29,6 +29,11 @@ export type LiveBoard = {
   phase: string
   updatedAt: string | null
   members: LiveMember[]
+  /** True claim counts from the runner (claim_assembly's actual output),
+   * not derived from member count — a member can have more than one claim.
+   * Both null until claim_assembly has run (nothing to show yet). */
+  totalClaims: number | null
+  claimsEntered: number
 }
 
 /** How far a member has got, per leg of the journey the client cares about. */
@@ -210,26 +215,19 @@ export function isTerminalPhase(phase: string): boolean {
   return phase === 'finished' || phase === 'failed' || phase === 'cancelled'
 }
 
-/** How many members have reached (or passed) the claim-entry leg, out of the
- * whole board — the "N of M" Andy asked to see next to "Entering claims on
- * the HCPF portal" so the phase label isn't just a static sentence while a
- * run works through a long member list. Members still on the coverage leg
- * (waiting/checking_coverage/covered) aren't counted as done yet; members
- * who never reached claim entry (no_coverage/lookup_failed) don't count
- * toward the denominator's "in progress" story but do count in total, same
- * as every other board metric. Returns null for an empty board — nothing to
- * show a count for. */
-export function enteringClaimsCount(members: LiveMember[]): { done: number; total: number } | null {
-  if (members.length === 0) return null
-  const done = members.filter(m => {
-    const leg = describeMemberState(m.state).legs[1]
-    // pending: hasn't reached claim entry yet. skipped: held back before
-    // claim entry (e.g. no_coverage) — never got there either. Everything
-    // else (active/done/warn/fail) means the automation is or was working
-    // this member's claim entry.
-    return leg !== 'pending' && leg !== 'skipped'
-  }).length
-  return { done, total: members.length }
+/** How many claims have finished claim entry (reached HCPF review or
+ * failed), out of the true claim total for this run — the "N of M" Andy
+ * asked to see next to "Entering claims on the HCPF portal" so the phase
+ * label isn't just a static sentence while a run works through a long
+ * member list. Sourced directly from the runner's claims_entered /
+ * total_claims (claim_assembly's actual drafted-claim count), NOT derived
+ * from member states: a member can have more than one claim in a period,
+ * so counting members under-reports M whenever that happens. Returns null
+ * before claim_assembly has run (total_claims still unknown) or for an
+ * empty board. */
+export function enteringClaimsCount(board: Pick<LiveBoard, 'totalClaims' | 'claimsEntered'>): { done: number; total: number } | null {
+  if (board.totalClaims === null || board.totalClaims === 0) return null
+  return { done: board.claimsEntered, total: board.totalClaims }
 }
 
 export type BoardSummary = {
@@ -308,5 +306,7 @@ export function parseProgressPayload(payload: unknown): LiveBoard | null {
     phase: typeof progress.phase === 'string' ? progress.phase : 'starting',
     updatedAt: typeof progress.updated_at === 'string' ? progress.updated_at : null,
     members,
+    totalClaims: typeof progress.total_claims === 'number' ? progress.total_claims : null,
+    claimsEntered: typeof progress.claims_entered === 'number' ? progress.claims_entered : 0,
   }
 }

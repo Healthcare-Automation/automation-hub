@@ -125,6 +125,8 @@ test('a real payload parses into sorted member rows', () => {
       run_id: 'bb6263b8',
       phase: 'entering_claims',
       updated_at: '2026-08-25T06:28:12+00:00',
+      total_claims: 8,
+      claims_entered: 3,
       members: {
         F736896: { state: 'step:02-diagnosis', claims: { deadbeef: 'step:02-diagnosis' } },
         A100000: { state: 'waiting', claims: {} },
@@ -135,6 +137,8 @@ test('a real payload parses into sorted member rows', () => {
   assert.equal(board.requestId, 22)
   assert.equal(board.runId, 'bb6263b8')
   assert.equal(board.phase, 'entering_claims')
+  assert.equal(board.totalClaims, 8)
+  assert.equal(board.claimsEntered, 3)
   assert.deepEqual(board.members.map(m => m.memberId), ['A100000', 'F736896'])
   assert.equal(board.members[1].claims.deadbeef, 'step:02-diagnosis')
 })
@@ -154,6 +158,8 @@ test('a half-written board keeps the members it can read and defaults the rest',
   assert.ok(board)
   assert.equal(board.requestId, null)
   assert.equal(board.updatedAt, null)
+  assert.equal(board.totalClaims, null)
+  assert.equal(board.claimsEntered, 0)
   assert.deepEqual(board.members.map(m => `${m.memberId}:${m.state}`), ['A1:waiting', 'A3:covered'])
   assert.deepEqual(board.members[1].claims, {}) // non-string claim state dropped
 })
@@ -162,21 +168,14 @@ test('step labels stay readable for an unseen step', () => {
   assert.equal(describeStepLabel('07-mystery-step'), 'mystery step')
 })
 
-test('enteringClaimsCount counts members that have reached the claim-entry leg', () => {
-  const board = [
-    member('A1', 'waiting'),
-    member('A2', 'checking_coverage'),
-    member('A3', 'covered'),
-    member('A4', 'entering_claim'),
-    member('A5', 'step:02-diagnosis'),
-    member('A6', 'review_reached'),
-    member('A7', 'claim_failed'),
-    member('A8', 'no_coverage'),
-  ]
-  const count = enteringClaimsCount(board)
-  assert.deepEqual(count, { done: 4, total: 8 }) // entering_claim, step:*, review_reached, claim_failed
+test('enteringClaimsCount reads the true claim counts from the board, not member states', () => {
+  assert.deepEqual(enteringClaimsCount({ totalClaims: 8, claimsEntered: 3 }), { done: 3, total: 8 })
 })
 
-test('enteringClaimsCount returns null for an empty board', () => {
-  assert.equal(enteringClaimsCount([]), null)
+test('enteringClaimsCount returns null before claim_assembly has reported a total', () => {
+  assert.equal(enteringClaimsCount({ totalClaims: null, claimsEntered: 0 }), null)
+})
+
+test('enteringClaimsCount returns null when the run built zero claims', () => {
+  assert.equal(enteringClaimsCount({ totalClaims: 0, claimsEntered: 0 }), null)
 })
