@@ -305,7 +305,7 @@ export function LiveRunBoard({
   // Andy asked to see progress against "Entering claims on the HCPF
   // portal" the same way the summary strip already shows counts for other
   // phases — only meaningful once claim entry has actually started.
-  const claimsCount = board.phase === 'entering_claims' ? enteringClaimsCount(board.members) : null
+  const claimsCount = board.phase === 'entering_claims' ? enteringClaimsCount(board) : null
 
   return (
     <div className="mt-3">
