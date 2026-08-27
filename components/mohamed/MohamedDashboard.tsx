@@ -6,6 +6,7 @@ import type { ClaimApproval } from '@/lib/mohamedApprovals'
 import type { ClientQuestion } from '@/lib/mohamedQuestions'
 import { coverageGapAlert, describeFailureForClient, summariseClaims, summariseInPlainLanguage } from '@/lib/mohamedLedger'
 import { describeRunProgress } from '@/lib/mohamedRunProgress'
+import { formatDuration } from '@/lib/mohamedRunSummary'
 import { RunHistory } from './RunHistory'
 import { CsvUploadCard } from './CsvUploadCard'
 import { ClientQuestionsCard } from './ClientQuestionsCard'
@@ -134,6 +135,9 @@ export function MohamedDashboard({
                   {hero.label}
                 </span>
                 <span className="shrink-0 text-[11px] text-zinc-400">{timeAgo(ledger.finished_at ?? ledger.started_at)}</span>
+                {formatDuration(ledger.started_at, ledger.finished_at) && (
+                  <span className="shrink-0 text-[11px] text-zinc-400">· took {formatDuration(ledger.started_at, ledger.finished_at)}</span>
+                )}
                 <span className="text-sm text-zinc-800">{summariseInPlainLanguage(ledger)}</span>
               </div>
               {/* Compact only: the step-by-step progress list lives at the head

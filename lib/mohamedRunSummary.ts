@@ -78,6 +78,21 @@ export function formatClock(iso: string | null): string {
   return `${iso.slice(11, 16)} UTC`
 }
 
+/** How long a run actually took, end to end. Andy, 2026-08-27: live runs
+ * can take 30-90+ minutes against the real portal -- worth showing so a
+ * long-but-healthy run doesn't read as "stuck" next to a short one. */
+export function formatDuration(startedAt: string | null | undefined, finishedAt: string | null | undefined): string | null {
+  if (!startedAt || !finishedAt) return null
+  const ms = new Date(finishedAt).getTime() - new Date(startedAt).getTime()
+  if (!Number.isFinite(ms) || ms < 0) return null
+  const totalMinutes = Math.round(ms / 60_000)
+  if (totalMinutes < 1) return '<1 min'
+  const hours = Math.floor(totalMinutes / 60)
+  const minutes = totalMinutes % 60
+  if (hours === 0) return `${minutes} min`
+  return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}min`
+}
+
 function addDaysToDay(day: string, days: number): string {
   const date = new Date(`${day}T00:00:00Z`)
   date.setUTCDate(date.getUTCDate() + days)
