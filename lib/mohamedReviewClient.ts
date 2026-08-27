@@ -166,6 +166,43 @@ export function extractMemberId(fields: ReviewField[] | null): string | null {
   return field?.value ?? null
 }
 
+/** From/To Date labels as captured by review_capture.py's JS_COLLECT_FIELDS:
+ * plain "From Date"/"To Date" while the service line is still live inputs,
+ * or "Service Details row N: From Date"/"...To Date" once it has collapsed
+ * into the committed grid (see JS_COLLECT_FIELDS's GRID_HEADERS scan and
+ * ClaimReviewCard's fields.json capture, same VPS-local artifact). Every
+ * claim built by claims.py carries exactly one period across all its rows,
+ * so the first row's dates are the claim's dates. */
+const FROM_DATE_LABEL = /^(Service Details row \d+: )?From Date$/
+const TO_DATE_LABEL = /^(Service Details row \d+: )?To Date$/
+
+export type ClaimDateRange = { from: string; to: string } | null
+
+/** MM/DD/YYYY -> a short "Aug 13" label, for the review card's headline.
+ * Falls back to the raw string if it isn't in that shape. */
+export function formatReviewDate(raw: string): string {
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(raw)
+  if (!match) return raw
+  const [, month, day] = match
+  const monthNames = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ]
+  const name = monthNames[Number(month) - 1]
+  return name ? `${name} ${Number(day)}` : raw
+}
+
+/** The claim's service period (From Date – To Date), pulled from the same
+ * captured field list as extractMemberId -- distinguishes claims for the
+ * same member and procedure code that only differ by which week they
+ * cover (client decision 2026-08-21: billing periods split at 7 days). */
+export function extractDateRange(fields: ReviewField[] | null): ClaimDateRange {
+  if (!fields) return null
+  const from = fields.find(f => FROM_DATE_LABEL.test(f.label))?.value
+  const to = fields.find(f => TO_DATE_LABEL.test(f.label))?.value
+  if (!from || !to) return null
+  return { from, to }
+}
+
 /**
  * Resolves a claim's member id from its captures. The top-level review
  * fields.json holds only the SERVICE-DETAIL grid (From Date … Unit Type) —

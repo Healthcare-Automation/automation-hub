@@ -4,11 +4,14 @@ import { useEffect, useState } from 'react'
 import type { ClaimTrace } from '@/lib/mohamedLedger'
 import type { ClaimApproval } from '@/lib/mohamedApprovals'
 import {
+  extractDateRange,
   extractMemberId,
+  formatReviewDate,
   getReviewFields,
   getReviewScreenshotUrl,
   getClaimSteps,
   stepDisplayLabel,
+  type ClaimDateRange,
   type ReviewField,
   type StepIndexEntry,
 } from '@/lib/mohamedReviewClient'
@@ -53,6 +56,7 @@ export function ClaimReviewCard({
   const [fields, setFields] = useState<ReviewField[]>([])
   const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null)
   const [memberId, setMemberId] = useState<string | null>(null)
+  const [dateRange, setDateRange] = useState<ClaimDateRange>(null)
   const [decision, setDecision] = useState<Decision>(approval?.decision ?? (approval?.approved ? 'approved' : null))
   const [reason, setReason] = useState<string | null>(approval?.reason ?? null)
   const [decidedBy, setDecidedBy] = useState<string | null>(approval?.approvedBy ?? null)
@@ -64,11 +68,12 @@ export function ClaimReviewCard({
   const [steps, setSteps] = useState<StepIndexEntry[] | null>(null)
   const [selectedStep, setSelectedStep] = useState(0)
 
-  // Fetch fields.json at mount purely for the member-id headline. Best
-  // effort: any failure just leaves the procedure-code headline in place —
-  // the card must never block on this. The top-level fields.json always
-  // exists once a claim reaches review or fails-with-capture, whether or
-  // not it also has step captures (see review_capture.capture_review).
+  // Fetch fields.json at mount purely for the member-id and date-range
+  // headline. Best effort: any failure just leaves the procedure-code
+  // headline in place -- the card must never block on this. The top-level
+  // fields.json always exists once a claim reaches review or
+  // fails-with-capture, whether or not it also has step captures (see
+  // review_capture.capture_review).
   useEffect(() => {
     let cancelled = false
     getReviewFields(runId, claim.claimRef, '')
@@ -76,6 +81,8 @@ export function ClaimReviewCard({
         if (cancelled) return
         const id = extractMemberId(loaded)
         if (id) setMemberId(id)
+        const range = extractDateRange(loaded)
+        if (range) setDateRange(range)
       })
       .catch(() => {})
     return () => {
@@ -170,12 +177,8 @@ export function ClaimReviewCard({
     }
   }
 
-  const secondary = [
-    claim.procedureCode ? claim.procedureCode.toUpperCase() : null,
-    claim.modifiers && claim.modifiers !== 'none' ? claim.modifiers.replaceAll('_', ', ').toUpperCase() : null,
-    claim.unitsX100 != null ? `${(claim.unitsX100 / 100).toFixed(2)} units` : null,
-    claim.chargeCents != null ? money(claim.chargeCents) : null,
-  ].filter(Boolean)
+  const unitsLabel = claim.unitsX100 != null ? `${(claim.unitsX100 / 100).toFixed(2)} units` : null
+  const amountLabel = claim.chargeCents != null ? money(claim.chargeCents) : null
 
   return (
     <div className={`overflow-hidden rounded-xl border bg-white ${decision === 'rejected' ? 'border-red-300' : 'border-zinc-200'}`}>
@@ -184,32 +187,42 @@ export function ClaimReviewCard({
         onClick={toggle}
         className="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-3 text-left hover:bg-zinc-50"
       >
-        <div className="flex items-center gap-3">
-          <span className={`h-2 w-2 rounded-full ${claim.reachedReview ? 'bg-emerald-500' : 'bg-red-500'}`} />
-          <div>
+        <div className="flex min-w-0 items-start gap-3">
+          <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${claim.reachedReview ? 'bg-emerald-500' : 'bg-red-500'}`} />
+          <div className="min-w-0">
             <p className="text-sm font-medium text-zinc-900">
               {/* Member ID is the headline — that's how Mohamed identifies
                   claims. Falls back to procedure code while (or if) the
                   fields.json fetch hasn't produced one. */}
               {memberId ? `Member ${memberId}` : claim.procedureCode ? claim.procedureCode.toUpperCase() : 'Claim'}
-              {!memberId && claim.modifiers && claim.modifiers !== 'none' && (
-                <span className="ml-1 font-normal text-zinc-500">· {claim.modifiers.replaceAll('_', ', ').toUpperCase()}</span>
+            </p>
+            {/* The two things that actually tell same-member, same-procedure
+                claims apart at a glance -- date range and procedure code --
+                as their own badges, not buried in a plain-text join (Andy,
+                2026-08-27: "4 pills... we need to know that before clicking
+                on them"). Everything else stays plain text alongside. */}
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              {dateRange && (
+                <span className="inline-flex items-center rounded-md bg-blue-50 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-blue-700 ring-1 ring-inset ring-blue-200">
+                  {formatReviewDate(dateRange.from)} – {formatReviewDate(dateRange.to)}
+                </span>
               )}
-            </p>
-            <p className="text-xs text-zinc-500">
-              {memberId
-                ? secondary.join(' · ')
-                : [
-                    claim.unitsX100 != null ? `${(claim.unitsX100 / 100).toFixed(2)} units` : null,
-                    claim.chargeCents != null ? money(claim.chargeCents) : null,
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
-              {!claim.reachedReview && ' · did not reach review'}
-            </p>
+              {claim.procedureCode && (
+                <span className="inline-flex items-center gap-1 rounded-md bg-violet-50 px-1.5 py-0.5 text-[11px] font-semibold text-violet-700 ring-1 ring-inset ring-violet-200">
+                  {claim.procedureCode.toUpperCase()}
+                  {claim.modifiers && claim.modifiers !== 'none' && (
+                    <span className="font-normal text-violet-500">{claim.modifiers.replaceAll('_', ', ').toUpperCase()}</span>
+                  )}
+                </span>
+              )}
+              {(unitsLabel || amountLabel) && (
+                <span className="text-[11px] text-zinc-500">{[unitsLabel, amountLabel].filter(Boolean).join(' · ')}</span>
+              )}
+              {!claim.reachedReview && <span className="text-[11px] font-medium text-red-600">did not reach review</span>}
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2 pt-0.5">
           {decision === 'approved' && (
             <span className="rounded-full bg-emerald-600 px-2.5 py-1 text-[11px] font-semibold text-white">Approved</span>
           )}
