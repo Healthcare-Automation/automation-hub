@@ -9,6 +9,7 @@ import { summariseClaims } from '@/lib/mohamedLedger'
 import {
   describeRunMode,
   formatClock,
+  formatDuration,
   formatPeriod,
   groupRunsByDay,
   runOutcomeFromLedger,
@@ -180,7 +181,12 @@ function RunCard({
 
           <div className="flex shrink-0 items-center gap-2 pt-0.5">
             <div className="hidden text-right sm:block">
-              <p className="text-[11px] text-zinc-500">{formatClock(item.startedAt)}</p>
+              <p className="text-[11px] text-zinc-500">
+                {formatClock(item.startedAt)}
+                {formatDuration(item.startedAt, item.finishedAt) && (
+                  <span className="text-zinc-400"> · {formatDuration(item.startedAt, item.finishedAt)}</span>
+                )}
+              </p>
               <p className="text-[10px] text-zinc-400">{describeRunMode(item.mode)}</p>
             </div>
             <Chevron />
