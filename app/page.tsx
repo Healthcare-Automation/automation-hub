@@ -208,6 +208,7 @@ export default async function Page() {
           <nav className="flex rounded-lg border border-zinc-700/60 bg-zinc-900/60 p-1 text-xs">
             <a href="/" className="rounded-md bg-white px-3 py-1.5 font-medium text-zinc-900">Proxi</a>
             <Link href="/mohamed" prefetch className="rounded-md px-3 py-1.5 text-zinc-400 transition-colors hover:text-white">Mohamed</Link>
+            <Link href="/outreach" prefetch className="rounded-md px-3 py-1.5 text-zinc-400 transition-colors hover:text-white">Outreach</Link>
           </nav>
         </header>
 
