@@ -1,14 +1,24 @@
 @import "tailwindcss";
 
+/*
+ * Theme is driven by a `.dark` class on <html> (set before paint by the inline script in
+ * app/layout.tsx, then maintained by components/ThemeToggle.tsx) rather than by
+ * prefers-color-scheme, so the user's `hub-theme` choice — including the time-of-day `auto`
+ * mode — always wins over the OS setting.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
+  --background: #f4f5f7;
+  --foreground: #18181b;
+  color-scheme: light;
+}
+
+.dark {
   --background: #0e0e12;
   --foreground: #f9fafb;
-}
-
-html {
   color-scheme: dark;
 }
-
 
 body {
   background-color: var(--background);
@@ -49,10 +59,16 @@ body {
   font-weight: 600;
 }
 .sf-jd-html a {
-  color: #7dd3fc;
+  color: #0369a1;
   text-decoration: underline;
 }
 .sf-jd-html a:hover {
+  color: #0284c7;
+}
+.dark .sf-jd-html a {
+  color: #7dd3fc;
+}
+.dark .sf-jd-html a:hover {
   color: #bae6fd;
 }
 
@@ -64,10 +80,10 @@ body {
 .sf-jd-html-diff del,
 .sf-jd-html-diff del.diffdel,
 .sf-jd-html-diff del.diffmod {
-  background-color: rgba(136, 19, 55, 0.35);
-  color: rgb(254 205 211);
+  background-color: rgba(254, 226, 226, 0.9);
+  color: rgb(153 27 27);
   text-decoration: line-through;
-  text-decoration-color: rgba(251, 113, 133, 0.9);
+  text-decoration-color: rgba(239, 68, 68, 0.9);
   border-radius: 0.125rem;
   padding: 0.05rem 0.2rem;
 }
@@ -75,21 +91,45 @@ body {
 .sf-jd-html-diff.sf-jd-diff-tone-emerald ins,
 .sf-jd-html-diff.sf-jd-diff-tone-emerald ins.diffins,
 .sf-jd-html-diff.sf-jd-diff-tone-emerald ins.diffmod {
-  background-color: rgba(6, 78, 59, 0.55);
-  color: rgb(209 250 229);
+  background-color: rgba(209, 250, 229, 0.9);
+  color: rgb(6 95 70);
   text-decoration: none;
   border-radius: 0.125rem;
   padding: 0.05rem 0.2rem;
-  box-shadow: 0 0 0 1px rgba(52, 211, 153, 0.4);
+  box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.35);
 }
 
 .sf-jd-html-diff.sf-jd-diff-tone-blue ins,
 .sf-jd-html-diff.sf-jd-diff-tone-blue ins.diffins,
 .sf-jd-html-diff.sf-jd-diff-tone-blue ins.diffmod {
-  background-color: rgba(12, 74, 110, 0.55);
-  color: rgb(224 242 254);
+  background-color: rgba(224, 242, 254, 0.9);
+  color: rgb(7 89 133);
   text-decoration: none;
   border-radius: 0.125rem;
   padding: 0.05rem 0.2rem;
+  box-shadow: 0 0 0 1px rgba(14, 165, 233, 0.4);
+}
+
+.dark .sf-jd-html-diff del,
+.dark .sf-jd-html-diff del.diffdel,
+.dark .sf-jd-html-diff del.diffmod {
+  background-color: rgba(136, 19, 55, 0.35);
+  color: rgb(254 205 211);
+  text-decoration-color: rgba(251, 113, 133, 0.9);
+}
+
+.dark .sf-jd-html-diff.sf-jd-diff-tone-emerald ins,
+.dark .sf-jd-html-diff.sf-jd-diff-tone-emerald ins.diffins,
+.dark .sf-jd-html-diff.sf-jd-diff-tone-emerald ins.diffmod {
+  background-color: rgba(6, 78, 59, 0.55);
+  color: rgb(209 250 229);
+  box-shadow: 0 0 0 1px rgba(52, 211, 153, 0.4);
+}
+
+.dark .sf-jd-html-diff.sf-jd-diff-tone-blue ins,
+.dark .sf-jd-html-diff.sf-jd-diff-tone-blue ins.diffins,
+.dark .sf-jd-html-diff.sf-jd-diff-tone-blue ins.diffmod {
+  background-color: rgba(12, 74, 110, 0.55);
+  color: rgb(224 242 254);
   box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.45);
 }
