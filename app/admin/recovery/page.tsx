@@ -418,15 +418,15 @@ export default function AdminRecoveryPage() {
   }, [failures, selected, runBulk])
 
   const actionColor = (a: string) => {
-    if (a === 're_parsed' || a === 'transient_retried' || a === 're_scraped') return 'text-emerald-300'
-    if (a === 'field_dropped' || a === 're_scraped_with_warning') return 'text-amber-300'
-    if (a === 'quarantined' || a === 'unhandled' || a === 'rescrape_parse_failed') return 'text-red-300'
-    return 'text-zinc-300'
+    if (a === 're_parsed' || a === 'transient_retried' || a === 're_scraped') return 'text-emerald-700 dark:text-emerald-300'
+    if (a === 'field_dropped' || a === 're_scraped_with_warning') return 'text-amber-700 dark:text-amber-300'
+    if (a === 'quarantined' || a === 'unhandled' || a === 'rescrape_parse_failed') return 'text-red-700 dark:text-red-300'
+    return 'text-zinc-700 dark:text-zinc-300'
   }
 
   // ── Render ────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 p-3 sm:p-6 md:p-10">
+    <div className="min-h-screen bg-[#f4f5f7] dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 p-3 sm:p-6 md:p-10">
       <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6">
 
         {/* Header */}
@@ -441,13 +441,13 @@ export default function AdminRecoveryPage() {
           <div className="flex items-center gap-2 shrink-0">
             <a
               href="/admin/checkin"
-              className="text-xs text-zinc-400 hover:text-zinc-200 border border-zinc-800 rounded px-2.5 py-1"
+              className="text-xs text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 border border-zinc-200 dark:border-zinc-800 rounded px-2.5 py-1"
             >
               Check-In →
             </a>
             <button
               onClick={logout}
-              className="text-xs text-zinc-400 hover:text-zinc-200 border border-zinc-800 rounded px-2.5 py-1"
+              className="text-xs text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 border border-zinc-200 dark:border-zinc-800 rounded px-2.5 py-1"
             >
               Sign out
             </button>
@@ -455,12 +455,12 @@ export default function AdminRecoveryPage() {
         </div>
 
         {/* Toolbar */}
-        <div className="flex flex-wrap items-center gap-3 bg-zinc-900/60 border border-zinc-800 rounded-lg p-3">
-          <label className="text-xs text-zinc-400">Window:</label>
+        <div className="flex flex-wrap items-center gap-3 bg-white dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 rounded-lg p-3">
+          <label className="text-xs text-zinc-600 dark:text-zinc-400">Window:</label>
           <select
             value={hours}
             onChange={(e) => setHours(Number(e.target.value))}
-            className="bg-zinc-950 border border-zinc-800 rounded-md px-2 py-1 text-xs"
+            className="bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md px-2 py-1 text-xs"
           >
             {WINDOW_CHOICES.map((w) => (
               <option key={w.hours} value={w.hours}>{w.label}</option>
@@ -469,12 +469,12 @@ export default function AdminRecoveryPage() {
           <button
             onClick={loadAll}
             disabled={loading}
-            className="text-xs bg-zinc-800 hover:bg-zinc-700 disabled:bg-zinc-900 disabled:text-zinc-600 rounded-md px-2.5 py-1"
+            className="text-xs bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 disabled:bg-zinc-100 dark:disabled:bg-zinc-900 disabled:text-zinc-400 dark:disabled:text-zinc-600 rounded-md px-2.5 py-1"
           >
             {loading ? 'Loading…' : 'Refresh'}
           </button>
           <div className="flex-1" />
-          <label className="text-xs text-zinc-400 inline-flex items-center gap-1.5">
+          <label className="text-xs text-zinc-600 dark:text-zinc-400 inline-flex items-center gap-1.5">
             <input type="checkbox" checked={dryRun} onChange={(e) => setDryRun(e.target.checked)} />
             Dry run (re-push classify only)
           </label>
@@ -482,30 +482,30 @@ export default function AdminRecoveryPage() {
 
         {/* Bulk action bar */}
         {failures.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2 px-3 py-2 bg-zinc-900/40 border border-zinc-800 rounded-lg text-xs">
+          <div className="flex flex-wrap items-center gap-2 px-3 py-2 bg-white dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-800 rounded-lg text-xs">
             <span className="text-zinc-500">{selected.size} of {failures.length} selected</span>
-            <button onClick={selectAll} disabled={!failures.length} className="text-zinc-400 hover:text-zinc-200 disabled:text-zinc-700">Select all</button>
-            <button onClick={clearSel} disabled={!selected.size} className="text-zinc-400 hover:text-zinc-200 disabled:text-zinc-700">Clear</button>
+            <button onClick={selectAll} disabled={!failures.length} className="text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 disabled:text-zinc-400 dark:disabled:text-zinc-700">Select all</button>
+            <button onClick={clearSel} disabled={!selected.size} className="text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 disabled:text-zinc-400 dark:disabled:text-zinc-700">Clear</button>
             <div className="flex-1" />
             <button
               onClick={applyRecommended}
               disabled={running || selected.size === 0}
               title="For each selected row, runs whichever action is recommended (re-push or full rescrape)."
-              className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-800 disabled:text-zinc-500 rounded-md px-3 py-1 font-medium"
+              className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-200 dark:disabled:bg-zinc-800 disabled:text-zinc-500 rounded-md px-3 py-1 font-medium"
             >
               ✨ Apply recommended ({selected.size})
             </button>
             <button
               onClick={() => doRepush(Array.from(selected))}
               disabled={running || selected.size === 0}
-              className="bg-zinc-800 hover:bg-zinc-700 disabled:bg-zinc-900 disabled:text-zinc-600 rounded-md px-3 py-1"
+              className="bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 disabled:bg-zinc-100 dark:disabled:bg-zinc-900 disabled:text-zinc-400 dark:disabled:text-zinc-600 rounded-md px-3 py-1"
             >
               Re-push selected
             </button>
             <button
               onClick={() => doRescrape(Array.from(selected))}
               disabled={running || selected.size === 0}
-              className="bg-zinc-800 hover:bg-zinc-700 disabled:bg-zinc-900 disabled:text-zinc-600 rounded-md px-3 py-1"
+              className="bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 disabled:bg-zinc-100 dark:disabled:bg-zinc-900 disabled:text-zinc-400 dark:disabled:text-zinc-600 rounded-md px-3 py-1"
             >
               Rescrape selected
             </button>
@@ -514,26 +514,26 @@ export default function AdminRecoveryPage() {
 
         {/* Progress bar (visible only while a bulk operation is in flight) */}
         {progress && (
-          <div className="bg-zinc-900/60 border border-zinc-800 rounded-lg p-3 space-y-2">
+          <div className="bg-white dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 rounded-lg p-3 space-y-2">
             <div className="flex items-center justify-between gap-3 text-xs">
-              <div className="text-zinc-300 min-w-0 truncate">
+              <div className="text-zinc-700 dark:text-zinc-300 min-w-0 truncate">
                 Processing&nbsp;
-                <span className="text-zinc-100 font-semibold tabular-nums">{progress.done}</span>
+                <span className="text-zinc-900 dark:text-zinc-100 font-semibold tabular-nums">{progress.done}</span>
                 &nbsp;/&nbsp;
-                <span className="text-zinc-300 tabular-nums">{progress.total}</span>
+                <span className="text-zinc-700 dark:text-zinc-300 tabular-nums">{progress.total}</span>
                 {progress.currentJobId && (
-                  <span className="text-zinc-500"> · current: <span className="font-mono text-zinc-300">job {progress.currentJobId}</span></span>
+                  <span className="text-zinc-500"> · current: <span className="font-mono text-zinc-700 dark:text-zinc-300">job {progress.currentJobId}</span></span>
                 )}
               </div>
               <button
                 onClick={cancelBulk}
                 disabled={cancelRequestedRef.current}
-                className="text-[11px] border border-zinc-700/60 hover:bg-zinc-700/30 disabled:border-zinc-800 disabled:text-zinc-600 rounded-md px-2.5 py-1 whitespace-nowrap"
+                className="text-[11px] border border-zinc-200 dark:border-zinc-700/60 hover:bg-zinc-200 dark:hover:bg-zinc-700/30 disabled:border-zinc-200 dark:disabled:border-zinc-800 disabled:text-zinc-400 dark:disabled:text-zinc-600 rounded-md px-2.5 py-1 whitespace-nowrap"
               >
                 {cancelRequestedRef.current ? 'Cancelling…' : 'Cancel after current'}
               </button>
             </div>
-            <div className="h-2 w-full bg-zinc-800/80 rounded-full overflow-hidden">
+            <div className="h-2 w-full bg-zinc-100 dark:bg-zinc-800/80 rounded-full overflow-hidden">
               <div
                 className="h-full bg-emerald-500 transition-[width] duration-300 ease-out"
                 style={{ width: `${progress.total === 0 ? 0 : Math.round((progress.done / progress.total) * 100)}%` }}
@@ -545,14 +545,14 @@ export default function AdminRecoveryPage() {
           </div>
         )}
 
-        {error && <p className="text-sm text-red-400">{error}</p>}
-        {actionError && <p className="text-sm text-red-400">{actionError}</p>}
-        {statusMsg && <p className="text-sm text-emerald-300">{statusMsg}</p>}
+        {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+        {actionError && <p className="text-sm text-red-600 dark:text-red-400">{actionError}</p>}
+        {statusMsg && <p className="text-sm text-emerald-700 dark:text-emerald-300">{statusMsg}</p>}
 
         {/* Unified failures table */}
-        <div className="bg-zinc-900/40 border border-zinc-800 rounded-lg overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-800">
-            <div className="text-xs text-zinc-300 font-medium">
+        <div className="bg-white dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-200 dark:border-zinc-800">
+            <div className="text-xs text-zinc-700 dark:text-zinc-300 font-medium">
               Failed jobs <span className="text-zinc-500 font-normal">({failures.length})</span>
             </div>
             <div className="text-[11px] text-zinc-500">
@@ -561,13 +561,13 @@ export default function AdminRecoveryPage() {
           </div>
 
           {failures.length === 0 ? (
-            <p className="px-4 py-10 text-center text-xs text-zinc-600">
+            <p className="px-4 py-10 text-center text-xs text-zinc-500 dark:text-zinc-600">
               {loading ? 'Loading…' : 'No failed jobs in this window. 🎉'}
             </p>
           ) : (
             <div className="overflow-x-auto"><table className="w-full text-sm min-w-[820px]">
               <thead>
-                <tr className="text-zinc-500 text-[11px] uppercase tracking-wider bg-zinc-950/40">
+                <tr className="text-zinc-500 text-[11px] uppercase tracking-wider bg-zinc-50 dark:bg-zinc-950/40">
                   <th className="w-8 py-2 px-3"></th>
                   <th className="text-left py-2 px-3">Job</th>
                   <th className="text-left py-2 px-3">Failed</th>
@@ -583,7 +583,7 @@ export default function AdminRecoveryPage() {
                   const isExpanded = expanded.has(expandKey)
                   return (
                     <Fragment key={expandKey}>
-                      <tr className="border-t border-zinc-800 hover:bg-zinc-900/40 align-top">
+                      <tr className="border-t border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-white dark:bg-zinc-900/40 align-top">
                         <td className="py-3 px-3">
                           <input
                             type="checkbox"
@@ -591,21 +591,21 @@ export default function AdminRecoveryPage() {
                             onChange={() => toggleSelect(f.jobId)}
                           />
                         </td>
-                        <td className="py-3 px-3 font-mono text-zinc-200 whitespace-nowrap text-xs">
+                        <td className="py-3 px-3 font-mono text-zinc-800 dark:text-zinc-200 whitespace-nowrap text-xs">
                           <div>{f.jobId}</div>
-                          <div className="text-[10px] text-zinc-600 mt-0.5">
+                          <div className="text-[10px] text-zinc-500 dark:text-zinc-600 mt-0.5">
                             {timeAgo(f.createdAt)} · {fmt(f.createdAt)}
                           </div>
                           {f.runId != null && (
-                            <div className="text-[10px] text-zinc-600">run #{f.runId}</div>
+                            <div className="text-[10px] text-zinc-500 dark:text-zinc-600">run #{f.runId}</div>
                           )}
                         </td>
                         <td className="py-3 px-3 max-w-md">
-                          <div className="text-zinc-200 text-xs font-medium">
+                          <div className="text-zinc-800 dark:text-zinc-200 text-xs font-medium">
                             {EVENT_LABEL[f.eventType] ?? f.eventType}
                           </div>
                           <div className="text-[11px] text-zinc-500 mt-0.5 line-clamp-2 break-words">
-                            {f.errorText || <span className="text-zinc-700 italic">(no details)</span>}
+                            {f.errorText || <span className="text-zinc-400 dark:text-zinc-700 italic">(no details)</span>}
                           </div>
                           <div className="flex flex-wrap items-center gap-2 mt-1.5">
                             {f.kimedicsLink && (
@@ -613,7 +613,7 @@ export default function AdminRecoveryPage() {
                                 href={f.kimedicsLink}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-[10px] text-blue-400 hover:text-blue-300 underline"
+                                className="text-[10px] text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 underline"
                               >
                                 Open in Kimedics
                               </a>
@@ -627,15 +627,15 @@ export default function AdminRecoveryPage() {
                                   return n
                                 })
                               }
-                              className="text-[10px] text-zinc-500 hover:text-zinc-300"
+                              className="text-[10px] text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300"
                             >
                               {isExpanded ? 'Hide details' : 'Show details'}
                             </button>
-                            <span className="text-[10px] text-zinc-700 font-mono">{f.eventType}</span>
+                            <span className="text-[10px] text-zinc-400 dark:text-zinc-700 font-mono">{f.eventType}</span>
                           </div>
                         </td>
                         <td className="py-3 px-3 max-w-xs">
-                          <div className={`text-xs font-medium ${recIsRepush ? 'text-zinc-200' : 'text-sky-300'}`}>
+                          <div className={`text-xs font-medium ${recIsRepush ? 'text-zinc-800 dark:text-zinc-200' : 'text-sky-700 dark:text-sky-300'}`}>
                             {recIsRepush ? '⚡ Re-push' : '🔄 Full rescrape'}
                           </div>
                           <div className="text-[11px] text-zinc-500 mt-0.5 break-words">
@@ -653,22 +653,22 @@ export default function AdminRecoveryPage() {
                                 </div>
                               )
                               if (s.state === 'queued')
-                                return pill('Queued', 'border-zinc-700/60 text-zinc-400')
+                                return pill('Queued', 'border-zinc-200 dark:border-zinc-700/60 text-zinc-600 dark:text-zinc-400')
                               if (s.state === 'running')
                                 return pill(
                                   s.kind === 'rescrape' ? 'Rescraping…' : 'Pushing…',
-                                  'border-amber-500/40 bg-amber-500/10 text-amber-300',
+                                  'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300',
                                   <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-300 animate-pulse" />,
                                 )
                               if (s.state === 'done')
-                                return pill('✓ Done', 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300')
+                                return pill('✓ Done', 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300')
                               if (s.state === 'failed')
                                 return pill(
                                   s.detail ? `✕ Failed: ${s.detail.slice(0, 40)}` : '✕ Failed',
-                                  'border-red-500/40 bg-red-500/10 text-red-300',
+                                  'border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300',
                                 )
                               if (s.state === 'cancelled')
-                                return pill('Cancelled', 'border-zinc-700/60 text-zinc-500')
+                                return pill('Cancelled', 'border-zinc-200 dark:border-zinc-700/60 text-zinc-500')
                               return null
                             })()}
                             <div>
@@ -677,7 +677,7 @@ export default function AdminRecoveryPage() {
                               <button
                                 onClick={() => doRepush([f.jobId])}
                                 disabled={running}
-                                className="text-[11px] bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-800 disabled:text-zinc-500 rounded-md px-2.5 py-1 font-medium"
+                                className="text-[11px] bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-200 dark:disabled:bg-zinc-800 disabled:text-zinc-500 rounded-md px-2.5 py-1 font-medium"
                               >
                                 Re-push
                               </button>
@@ -685,7 +685,7 @@ export default function AdminRecoveryPage() {
                                 onClick={() => doRescrape([f.jobId])}
                                 disabled={running}
                                 title="Alternative: full rescrape from Kimedics"
-                                className="text-[11px] border border-zinc-700/60 hover:bg-zinc-700/30 disabled:border-zinc-800 disabled:text-zinc-600 rounded-md px-2 py-1"
+                                className="text-[11px] border border-zinc-200 dark:border-zinc-700/60 hover:bg-zinc-200 dark:hover:bg-zinc-700/30 disabled:border-zinc-200 dark:disabled:border-zinc-800 disabled:text-zinc-400 dark:disabled:text-zinc-600 rounded-md px-2 py-1"
                               >
                                 Rescrape
                               </button>
@@ -695,7 +695,7 @@ export default function AdminRecoveryPage() {
                               <button
                                 onClick={() => doRescrape([f.jobId])}
                                 disabled={running}
-                                className="text-[11px] bg-sky-600 hover:bg-sky-500 disabled:bg-zinc-800 disabled:text-zinc-500 rounded-md px-2.5 py-1 font-medium"
+                                className="text-[11px] bg-sky-600 hover:bg-sky-500 disabled:bg-zinc-200 dark:disabled:bg-zinc-800 disabled:text-zinc-500 rounded-md px-2.5 py-1 font-medium"
                               >
                                 Rescrape
                               </button>
@@ -703,7 +703,7 @@ export default function AdminRecoveryPage() {
                                 onClick={() => doRepush([f.jobId])}
                                 disabled={running}
                                 title="Alternative: retry SF push only"
-                                className="text-[11px] border border-zinc-700/60 hover:bg-zinc-700/30 disabled:border-zinc-800 disabled:text-zinc-600 rounded-md px-2 py-1"
+                                className="text-[11px] border border-zinc-200 dark:border-zinc-700/60 hover:bg-zinc-200 dark:hover:bg-zinc-700/30 disabled:border-zinc-200 dark:disabled:border-zinc-800 disabled:text-zinc-400 dark:disabled:text-zinc-600 rounded-md px-2 py-1"
                               >
                                 Re-push
                               </button>
@@ -714,25 +714,25 @@ export default function AdminRecoveryPage() {
                         </td>
                       </tr>
                       {isExpanded && (
-                        <tr className="bg-zinc-950/60 border-t border-zinc-800/60">
+                        <tr className="bg-zinc-50 dark:bg-zinc-950/60 border-t border-zinc-200 dark:border-zinc-800/60">
                           <td></td>
                           <td colSpan={4} className="py-3 px-3">
-                            <div className="text-[11px] text-zinc-400 space-y-2">
+                            <div className="text-[11px] text-zinc-600 dark:text-zinc-400 space-y-2">
                               {f.practiceValue && (
-                                <div><span className="text-zinc-600">Practice:</span> <span className="font-mono">{f.practiceValue}</span></div>
+                                <div><span className="text-zinc-500 dark:text-zinc-600">Practice:</span> <span className="font-mono">{f.practiceValue}</span></div>
                               )}
                               {f.errorText && (
                                 <div>
-                                  <div className="text-zinc-600 mb-0.5">Full error:</div>
-                                  <pre className="text-[11px] text-zinc-400 overflow-auto max-h-48 whitespace-pre-wrap break-words bg-zinc-950/50 rounded p-2 border border-zinc-800/60">
+                                  <div className="text-zinc-500 dark:text-zinc-600 mb-0.5">Full error:</div>
+                                  <pre className="text-[11px] text-zinc-600 dark:text-zinc-400 overflow-auto max-h-48 whitespace-pre-wrap break-words bg-zinc-50 dark:bg-zinc-950/50 rounded p-2 border border-zinc-200 dark:border-zinc-800/60">
                                     {f.errorText}
                                   </pre>
                                 </div>
                               )}
                               {f.attempt && (
                                 <div>
-                                  <div className="text-zinc-600 mb-0.5">Attempt log:</div>
-                                  <pre className="text-[11px] text-zinc-400 overflow-auto max-h-48 whitespace-pre-wrap break-words bg-zinc-950/50 rounded p-2 border border-zinc-800/60">
+                                  <div className="text-zinc-500 dark:text-zinc-600 mb-0.5">Attempt log:</div>
+                                  <pre className="text-[11px] text-zinc-600 dark:text-zinc-400 overflow-auto max-h-48 whitespace-pre-wrap break-words bg-zinc-50 dark:bg-zinc-950/50 rounded p-2 border border-zinc-200 dark:border-zinc-800/60">
                                     {JSON.stringify(f.attempt, null, 2)}
                                   </pre>
                                 </div>
@@ -751,8 +751,8 @@ export default function AdminRecoveryPage() {
 
         {/* Last action results */}
         {results && (
-          <div className="bg-zinc-900/40 border border-zinc-800 rounded-lg">
-            <div className="px-4 py-2 border-b border-zinc-800 text-xs text-zinc-400">
+          <div className="bg-white dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-800 rounded-lg">
+            <div className="px-4 py-2 border-b border-zinc-200 dark:border-zinc-800 text-xs text-zinc-600 dark:text-zinc-400">
               Last re-push results ({results.length})
             </div>
             <div className="overflow-x-auto"><table className="w-full text-sm min-w-[640px]">
@@ -768,13 +768,13 @@ export default function AdminRecoveryPage() {
               </thead>
               <tbody>
                 {results.map((r, i) => (
-                  <tr key={`${r.job_id}-${i}`} className="border-t border-zinc-800">
+                  <tr key={`${r.job_id}-${i}`} className="border-t border-zinc-200 dark:border-zinc-800">
                     <td className="py-2 px-3 font-mono">{r.job_id}</td>
                     <td className={`py-2 px-3 font-medium ${actionColor(r.action)}`}>{r.action}</td>
-                    <td className="py-2 px-3 font-mono text-xs text-zinc-400">{r.sf_job_id || '—'}</td>
+                    <td className="py-2 px-3 font-mono text-xs text-zinc-600 dark:text-zinc-400">{r.sf_job_id || '—'}</td>
                     <td className="py-2 px-3 text-right tabular-nums">{r.fields_pushed.length}</td>
                     <td className="py-2 px-3 text-right tabular-nums">{r.fields_quarantined.length}</td>
-                    <td className="py-2 px-3 text-zinc-400 text-xs">{r.error || ''}</td>
+                    <td className="py-2 px-3 text-zinc-600 dark:text-zinc-400 text-xs">{r.error || ''}</td>
                   </tr>
                 ))}
               </tbody>
@@ -783,23 +783,23 @@ export default function AdminRecoveryPage() {
         )}
 
         {/* Manual push log (collapsed by default) */}
-        <div className="bg-zinc-900/40 border border-zinc-800 rounded-lg">
+        <div className="bg-white dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-800 rounded-lg">
           <button
             onClick={() => setHistoryOpen((v) => !v)}
-            className="w-full flex items-center justify-between px-4 py-2 text-left hover:bg-zinc-900/60"
+            className="w-full flex items-center justify-between px-4 py-2 text-left hover:bg-zinc-50 dark:hover:bg-white dark:bg-zinc-900/60"
           >
-            <span className="text-xs text-zinc-400 font-medium">
+            <span className="text-xs text-zinc-600 dark:text-zinc-400 font-medium">
               Manual push log {historyOpen ? '' : '(click to expand)'}
             </span>
-            <span className="text-[11px] text-zinc-600">{historyOpen ? '▾ Hide' : '▸ Show'}</span>
+            <span className="text-[11px] text-zinc-500 dark:text-zinc-600">{historyOpen ? '▾ Hide' : '▸ Show'}</span>
           </button>
           {historyOpen && (
             history.length === 0 ? (
-              <p className="px-4 py-6 text-center text-xs text-zinc-600">
+              <p className="px-4 py-6 text-center text-xs text-zinc-500 dark:text-zinc-600">
                 {historyLoading ? 'Loading…' : 'No manual pushes yet.'}
               </p>
             ) : (
-              <div className="overflow-x-auto border-t border-zinc-800"><table className="w-full text-sm min-w-[640px]">
+              <div className="overflow-x-auto border-t border-zinc-200 dark:border-zinc-800"><table className="w-full text-sm min-w-[640px]">
                 <thead>
                   <tr className="text-zinc-500 text-[11px] uppercase tracking-wider">
                     <th className="text-left py-2 px-3">When</th>
@@ -831,21 +831,21 @@ export default function AdminRecoveryPage() {
                             ? 'Auto retry'
                             : (h.invocation || '—')
                     return (
-                      <tr key={h.id} className="border-t border-zinc-800">
-                        <td className="py-2 px-3 text-zinc-400 text-xs whitespace-nowrap">{fmt(h.createdAt)}</td>
-                        <td className="py-2 px-3 font-mono text-zinc-200">{h.jobId}</td>
-                        <td className="py-2 px-3 text-zinc-400 text-xs">
-                          {h.eventType === 'sf_scrape_fields_recovered' && <span className="text-emerald-300">recovered</span>}
-                          {h.eventType === 'manual_rescrape_completed' && <span className="text-sky-300">rescraped</span>}
-                          {h.eventType === 'auto_retry_completed' && <span className="text-cyan-300">auto retry</span>}
-                          {h.eventType === 'sf_field_quarantined' && <span className="text-amber-300">quarantined</span>}
-                          {h.eventType === 'sf_push_unhandled_error' && <span className="text-red-300">unhandled</span>}
+                      <tr key={h.id} className="border-t border-zinc-200 dark:border-zinc-800">
+                        <td className="py-2 px-3 text-zinc-600 dark:text-zinc-400 text-xs whitespace-nowrap">{fmt(h.createdAt)}</td>
+                        <td className="py-2 px-3 font-mono text-zinc-800 dark:text-zinc-200">{h.jobId}</td>
+                        <td className="py-2 px-3 text-zinc-600 dark:text-zinc-400 text-xs">
+                          {h.eventType === 'sf_scrape_fields_recovered' && <span className="text-emerald-700 dark:text-emerald-300">recovered</span>}
+                          {h.eventType === 'manual_rescrape_completed' && <span className="text-sky-700 dark:text-sky-300">rescraped</span>}
+                          {h.eventType === 'auto_retry_completed' && <span className="text-cyan-700 dark:text-cyan-300">auto retry</span>}
+                          {h.eventType === 'sf_field_quarantined' && <span className="text-amber-700 dark:text-amber-300">quarantined</span>}
+                          {h.eventType === 'sf_push_unhandled_error' && <span className="text-red-700 dark:text-red-300">unhandled</span>}
                         </td>
                         <td className={`py-2 px-3 text-xs ${actionColor(actionOrField)}`}>{actionOrField}</td>
                         <td className="py-2 px-3 text-zinc-500 text-xs">{src}</td>
                         <td className="py-2 px-3 text-right tabular-nums text-xs">{h.fieldsPushed.length || ''}</td>
                         <td className="py-2 px-3 text-right tabular-nums text-xs">{h.fieldsQuarantined.length || ''}</td>
-                        <td className="py-2 px-3 text-zinc-400 text-xs">
+                        <td className="py-2 px-3 text-zinc-600 dark:text-zinc-400 text-xs">
                           <span className="line-clamp-2 break-all">{detail}</span>
                         </td>
                       </tr>

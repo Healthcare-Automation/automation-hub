@@ -110,12 +110,14 @@ export interface CompanyDetail {
     confidence: string | null
   } | null
   emails: { id: number; subject: string | null; body: string | null; status: string;
-    sent_at: string | null; created_at: string | null }[]
+    sent_at: string | null; created_at: string | null; step_number: number | null;
+    channel: string | null; qa_notes: string | null }[]
   linkedinActions: { id: number; recommended_action: string | null; connection_note: string | null;
     dm_draft: string | null; urgency: string | null; profile_confidence: string | null;
     profile_summary: string | null; site_evidence: string | null;
     status: string; verification_note: string | null; contact_name: string | null;
-    linkedin_url: string | null }[]
+    linkedin_url: string | null; step_number: number | null }[]
+  sequence: { id: number; status: string; channel_plan: string | null } | null
   replies: { id: number; channel: string | null; body: string | null; classification: string | null;
     recommended_response: string | null; next_action: string | null; received_at: string | null }[]
   findings: { category: string | null; finding: string; evidence_label: string }[]
@@ -156,18 +158,27 @@ export async function getCompanyDetail(id: number): Promise<CompanyDetail | null
   `
   const hypothesis = hypRows[0] ?? null
   const emails = await sql<CompanyDetail['emails']>`
-    select id, subject, body, status, sent_at, created_at::text as created_at
-    from outreach_emails where company_id = ${id} order by created_at desc
+    select e.id, e.subject, e.body, e.status, e.sent_at, e.created_at::text as created_at,
+           ss.step_number, ss.channel, e.qa_notes
+    from outreach_emails e
+    left join outreach_sequence_steps ss on ss.id = e.sequence_step_id
+    where e.company_id = ${id} order by coalesce(ss.step_number, 0) asc, e.created_at desc
   `
   const linkedinActions = await sql<CompanyDetail['linkedinActions']>`
     select la.id, la.recommended_action, la.connection_note, la.dm_draft, la.urgency,
            la.profile_confidence, la.profile_summary, la.site_evidence,
            la.status, la.verification_note,
-           ct.full_name as contact_name, ct.linkedin_url
+           ct.full_name as contact_name, ct.linkedin_url, ss.step_number
     from outreach_linkedin_actions la
     left join outreach_contacts ct on ct.id = la.contact_id
+    left join outreach_sequence_steps ss on ss.id = la.sequence_step_id
     where la.company_id = ${id} order by la.created_at desc
   `
+  const seqRows = await sql<NonNullable<CompanyDetail['sequence']>[]>`
+    select id, status, channel_plan
+    from outreach_sequences where company_id = ${id} order by created_at desc limit 1
+  `
+  const sequence = seqRows[0] ?? null
   const replies = await sql<CompanyDetail['replies']>`
     select id, channel, body, classification, recommended_response, next_action,
            received_at::text as received_at
@@ -178,7 +189,55 @@ export async function getCompanyDetail(id: number): Promise<CompanyDetail | null
     from outreach_research_findings where company_id = ${id} order by created_at desc
   `
   return { company, scoreBreakdown: scoreBreakdown ?? null, hypothesis: hypothesis ?? null,
-    emails, linkedinActions, replies, findings }
+    emails, linkedinActions, sequence, replies, findings }
+}
+
+export async function setEmailDecision(
+  id: number, status: 'approved' | 'qa_failed', note: string | null
+) {
+  await sql`
+    update outreach_emails
+    set status = ${status}, qa_notes = ${note}
+    where id = ${id}
+  `
+}
+
+export async function logReply(
+  companyId: number,
+  contactId: number | null,
+  channel: string,
+  body: string,
+  classification: string
+) {
+  await sql`
+    insert into outreach_replies (company_id, contact_id, channel, body, classification, received_at)
+    values (${companyId}, ${contactId}, ${channel}, ${body}, ${classification}, now())
+  `
+  // Reply-intelligence hard rule: any human reply pauses the sequence and cancels pending steps.
+  if (classification !== 'bounce' && classification !== 'ooo' && classification !== 'automated') {
+    await sql`
+      update outreach_sequences set status = 'paused'
+      where company_id = ${companyId} and status not in ('paused', 'stopped', 'completed')
+    `
+    await sql`
+      update outreach_sequence_steps ss
+      set status = 'cancelled'
+      from outreach_sequences s
+      where ss.sequence_id = s.id and s.company_id = ${companyId}
+        and ss.status in ('pending', 'ready')
+    `
+  }
+  if (classification === 'unsubscribe' || classification === 'negative') {
+    await sql`
+      update outreach_companies set pipeline_stage = 'suppressed', do_not_contact = 1,
+        do_not_contact_reason = ${'reply: ' + classification}
+      where id = ${companyId}
+    `
+  } else {
+    await sql`
+      update outreach_companies set pipeline_stage = 'replied' where id = ${companyId}
+    `
+  }
 }
 
 export async function setLinkedinActionDecision(
