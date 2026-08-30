@@ -305,7 +305,7 @@ export function ClaimReviewCard({
                       <dd className="text-right font-medium">{field.value}</dd>
                     </div>
                   ))}
-                  {fields.length === 0 && <p className="text-zinc-400">No fields captured.</p>}
+                  {fields.length === 0 && <p className="text-zinc-400 dark:text-zinc-500">No fields captured.</p>}
                 </dl>
               </div>
               <div>
@@ -322,7 +322,7 @@ export function ClaimReviewCard({
                     className="rounded-lg border border-zinc-200 dark:border-zinc-800"
                   />
                 ) : (
-                  <p className="text-xs text-zinc-400">No screenshot captured.</p>
+                  <p className="text-xs text-zinc-400 dark:text-zinc-500">No screenshot captured.</p>
                 )}
               </div>
             </div>
