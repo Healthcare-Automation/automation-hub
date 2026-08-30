@@ -20,10 +20,10 @@ function ScoreBar({ label, value, max }: { label: string; value: number | null; 
   return (
     <div>
       <div className="flex items-center justify-between text-[11px]">
-        <span className="text-zinc-400">{label}</span>
-        <span className="tabular-nums text-zinc-300">{value ?? '—'} / {max}</span>
+        <span className="text-zinc-600 dark:text-zinc-400">{label}</span>
+        <span className="tabular-nums text-zinc-700 dark:text-zinc-300">{value ?? '—'} / {max}</span>
       </div>
-      <div className="mt-1 h-1.5 rounded-full bg-zinc-800">
+      <div className="mt-1 h-1.5 rounded-full bg-zinc-200 dark:bg-zinc-800">
         <div className="h-1.5 rounded-full bg-cyan-500/70" style={{ width: `${pct}%` }} />
       </div>
     </div>
@@ -31,7 +31,7 @@ function ScoreBar({ label, value, max }: { label: string; value: number | null; 
 }
 
 const CONFIDENCE_TONE: Record<string, string> = {
-  High: 'text-emerald-300', Medium: 'text-amber-300', Low: 'text-red-400',
+  High: 'text-emerald-700 dark:text-emerald-300', Medium: 'text-amber-700 dark:text-amber-300', Low: 'text-red-600 dark:text-red-400',
 }
 
 function LinkedinCard({
@@ -48,19 +48,19 @@ function LinkedinCard({
   const decided = action.status === 'approved' || action.status === 'rejected'
 
   return (
-    <div className="rounded-lg bg-zinc-800/30 p-3 ring-1 ring-zinc-800/60">
+    <div className="rounded-lg bg-zinc-50 ring-zinc-200 dark:bg-zinc-800/30 dark:ring-zinc-800/60 p-3 ring-1">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="text-[12.5px] font-medium text-zinc-200">{action.contact_name ?? 'Unnamed contact'}</p>
+          <p className="text-[12.5px] font-medium text-zinc-800 dark:text-zinc-200">{action.contact_name ?? 'Unnamed contact'}</p>
           {action.linkedin_url && (
             <a href={action.linkedin_url} target="_blank" rel="noreferrer"
-               className="text-[11px] text-cyan-400 hover:underline">{action.linkedin_url}</a>
+               className="text-[11px] text-cyan-600 dark:text-cyan-400 hover:underline">{action.linkedin_url}</a>
           )}
         </div>
         <div className="flex items-center gap-1.5 text-[10.5px]">
-          <span className="rounded-full bg-zinc-700/40 px-2 py-0.5 text-zinc-400">{action.recommended_action}</span>
-          <span className="rounded-full bg-zinc-700/40 px-2 py-0.5 text-zinc-400">urgency: {action.urgency}</span>
-          <span className={`rounded-full bg-zinc-700/40 px-2 py-0.5 ${CONFIDENCE_TONE[action.profile_confidence ?? ''] ?? 'text-zinc-400'}`}>
+          <span className="rounded-full bg-zinc-200/70 dark:bg-zinc-700/40 px-2 py-0.5 text-zinc-600 dark:text-zinc-400">{action.recommended_action}</span>
+          <span className="rounded-full bg-zinc-200/70 dark:bg-zinc-700/40 px-2 py-0.5 text-zinc-600 dark:text-zinc-400">urgency: {action.urgency}</span>
+          <span className={`rounded-full bg-zinc-200/70 dark:bg-zinc-700/40 px-2 py-0.5 ${CONFIDENCE_TONE[action.profile_confidence ?? ''] ?? 'text-zinc-600 dark:text-zinc-400'}`}>
             match confidence: {action.profile_confidence ?? 'unknown'}
           </span>
         </div>
@@ -70,13 +70,13 @@ function LinkedinCard({
           confirms, so Andy can verify the match without opening a new tab. */}
       {(action.profile_summary || action.site_evidence) && (
         <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <div className="rounded-md bg-zinc-900/50 p-2.5 ring-1 ring-zinc-800/50">
+          <div className="rounded-md bg-white ring-zinc-200 dark:bg-zinc-900/50 dark:ring-zinc-800/50 p-2.5 ring-1">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">On LinkedIn</p>
-            <p className="mt-1 text-[11px] leading-relaxed text-zinc-300">{action.profile_summary ?? '—'}</p>
+            <p className="mt-1 text-[11px] leading-relaxed text-zinc-700 dark:text-zinc-300">{action.profile_summary ?? '—'}</p>
           </div>
-          <div className="rounded-md bg-zinc-900/50 p-2.5 ring-1 ring-zinc-800/50">
+          <div className="rounded-md bg-white ring-zinc-200 dark:bg-zinc-900/50 dark:ring-zinc-800/50 p-2.5 ring-1">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">Confirmed by company site</p>
-            <p className="mt-1 text-[11px] leading-relaxed text-zinc-300">{action.site_evidence ?? '—'}</p>
+            <p className="mt-1 text-[11px] leading-relaxed text-zinc-700 dark:text-zinc-300">{action.site_evidence ?? '—'}</p>
           </div>
         </div>
       )}
@@ -84,20 +84,20 @@ function LinkedinCard({
       <div className="mt-2.5 space-y-2 text-[11.5px]">
         <div>
           <p className="text-zinc-500">Connection note</p>
-          <p className="mt-0.5 whitespace-pre-wrap text-zinc-300">{action.connection_note}</p>
+          <p className="mt-0.5 whitespace-pre-wrap text-zinc-700 dark:text-zinc-300">{action.connection_note}</p>
         </div>
         {action.dm_draft && (
           <div>
             <p className="text-zinc-500">DM draft</p>
-            <p className="mt-0.5 whitespace-pre-wrap text-zinc-300">{action.dm_draft}</p>
+            <p className="mt-0.5 whitespace-pre-wrap text-zinc-700 dark:text-zinc-300">{action.dm_draft}</p>
           </div>
         )}
       </div>
 
       <div className="mt-3 flex items-center justify-between gap-2">
         <span className={`text-[11px] font-medium ${
-          action.status === 'approved' ? 'text-emerald-300'
-          : action.status === 'rejected' ? 'text-red-400' : 'text-amber-300'
+          action.status === 'approved' ? 'text-emerald-700 dark:text-emerald-300'
+          : action.status === 'rejected' ? 'text-red-600 dark:text-red-400' : 'text-amber-700 dark:text-amber-300'
         }`}>
           {action.status === 'queued' ? 'Awaiting your review' : action.status}
           {action.verification_note && ` — ${action.verification_note}`}
@@ -120,7 +120,7 @@ function LinkedinCard({
             <button
               disabled={busy}
               onClick={() => setRejecting(true)}
-              className="rounded-md bg-zinc-700/60 px-2.5 py-1 text-[11px] font-medium text-zinc-200 hover:bg-zinc-700"
+              className="rounded-md bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-700/60 dark:hover:bg-zinc-700 px-2.5 py-1 text-[11px] font-medium text-zinc-800 dark:text-zinc-200"
             >
               Reject
             </button>
@@ -132,7 +132,7 @@ function LinkedinCard({
               value={note}
               onChange={e => setNote(e.target.value)}
               placeholder="Why is this the wrong person?"
-              className="flex-1 rounded-md border border-zinc-700/60 bg-zinc-900/60 px-2 py-1 text-[11px] text-zinc-200 placeholder:text-zinc-600"
+              className="flex-1 rounded-md border border-zinc-200 bg-white placeholder:text-zinc-400 dark:border-zinc-700/60 dark:bg-zinc-900/60 dark:placeholder:text-zinc-600 px-2 py-1 text-[11px] text-zinc-800 dark:text-zinc-200"
             />
             <button
               disabled={busy || note.trim().length === 0}
@@ -148,13 +148,13 @@ function LinkedinCard({
               Confirm reject
             </button>
             <button onClick={() => setRejecting(false)}
-              className="rounded-md px-2 py-1 text-[11px] text-zinc-500 hover:text-zinc-300">Cancel</button>
+              className="rounded-md px-2 py-1 text-[11px] text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300">Cancel</button>
           </div>
         )}
       </div>
-      {error && <p className="mt-1.5 text-[11px] text-red-400">{error}</p>}
+      {error && <p className="mt-1.5 text-[11px] text-red-600 dark:text-red-400">{error}</p>}
       {!isAdmin && !decided && (
-        <p className="mt-2 text-[10.5px] text-zinc-600">Log in as admin on the hub to approve/reject this match.</p>
+        <p className="mt-2 text-[10.5px] text-zinc-500 dark:text-zinc-600">Log in as admin on the hub to approve/reject this match.</p>
       )}
     </div>
   )
@@ -215,14 +215,14 @@ export default function CompanyPanel({
   ] : []
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-[2px]" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex justify-end bg-zinc-900/40 dark:bg-black/50 backdrop-blur-[2px]" onClick={onClose}>
       <div
-        className="flex h-full w-full max-w-2xl flex-col border-l border-zinc-700 bg-zinc-900 shadow-2xl"
+        className="flex h-full w-full max-w-2xl flex-col border-l border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900 shadow-2xl"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-zinc-800 px-5 py-4">
+        <div className="flex items-start justify-between gap-4 border-b border-zinc-200 dark:border-zinc-800 px-5 py-4">
           <div className="min-w-0">
-            <h3 className="truncate text-[15px] font-semibold text-zinc-100">
+            <h3 className="truncate text-[15px] font-semibold text-zinc-900 dark:text-zinc-100">
               {data?.company.name ?? 'Loading…'}
             </h3>
             {data && (
@@ -231,36 +231,38 @@ export default function CompanyPanel({
                   .filter(Boolean).join(' · ')}
                 {data.company.website && (
                   <> · <a href={data.company.website} target="_blank" rel="noreferrer"
-                    className="text-cyan-400 hover:underline">{data.company.website}</a></>
+                    className="text-cyan-600 dark:text-cyan-400 hover:underline">{data.company.website}</a></>
                 )}
               </p>
             )}
           </div>
           <button onClick={onClose}
-            className="shrink-0 rounded-md px-2 py-1 text-[12px] text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200">
+            className="shrink-0 rounded-md px-2 py-1 text-[12px] text-zinc-600 dark:text-zinc-400 hover:bg-zinc-800 hover:text-zinc-800 dark:text-zinc-200">
             Close
           </button>
         </div>
 
         {failReason === 'unauthorized' ? (
-          <p className="px-5 py-10 text-center text-[12px] text-amber-300/80">
+          <p className="px-5 py-10 text-center text-[12px] text-amber-700 dark:text-amber-300/80">
             Log in as admin on the hub to view this prospect's contact details and drafts.
           </p>
         ) : failReason === 'error' ? (
-          <p className="px-5 py-10 text-center text-[12px] text-amber-300/80">
+          <p className="px-5 py-10 text-center text-[12px] text-amber-700 dark:text-amber-300/80">
             The database was busy. Close and try again in a few seconds.
           </p>
         ) : !data ? (
-          <p className="px-5 py-10 text-center text-[12px] text-zinc-600">Loading…</p>
+          <p className="px-5 py-10 text-center text-[12px] text-zinc-500 dark:text-zinc-600">Loading…</p>
         ) : (
           <>
-            <div className="flex shrink-0 gap-1 border-b border-zinc-800 px-5 pt-3">
+            <div className="flex shrink-0 gap-1 border-b border-zinc-200 dark:border-zinc-800 px-5 pt-3">
               {TABS.map(t => (
                 <button
                   key={t.key}
                   onClick={() => setTab(t.key)}
                   className={`rounded-t-md px-3 py-1.5 text-[12px] font-medium transition-colors ${
-                    tab === t.key ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'
+                    tab === t.key
+                      ? 'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-white'
+                      : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
                   }`}
                 >
                   {t.label}{t.count !== undefined ? ` (${t.count})` : ''}
@@ -271,14 +273,14 @@ export default function CompanyPanel({
             <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
               {tab === 'score' && (
                 <div className="space-y-4">
-                  <div className="flex items-center gap-4 rounded-lg bg-zinc-800/30 p-3.5 ring-1 ring-zinc-800/60">
-                    <p className="text-[30px] font-semibold tabular-nums text-cyan-300">
+                  <div className="flex items-center gap-4 rounded-lg bg-zinc-50 ring-zinc-200 dark:bg-zinc-800/30 dark:ring-zinc-800/60 p-3.5 ring-1">
+                    <p className="text-[30px] font-semibold tabular-nums text-cyan-700 dark:text-cyan-300">
                       {data.company.lead_score ?? '—'}
                     </p>
                     <div className="text-[11px] text-zinc-500">
-                      <p>pipeline stage: <span className="text-zinc-300">{data.company.pipeline_stage}</span></p>
-                      <p>research tier: <span className="text-zinc-300">{data.company.research_tier ?? '—'}</span></p>
-                      {data.company.do_not_contact && <p className="text-red-400">DO NOT CONTACT{data.company.do_not_contact_reason ? `: ${data.company.do_not_contact_reason}` : ''}</p>}
+                      <p>pipeline stage: <span className="text-zinc-700 dark:text-zinc-300">{data.company.pipeline_stage}</span></p>
+                      <p>research tier: <span className="text-zinc-700 dark:text-zinc-300">{data.company.research_tier ?? '—'}</span></p>
+                      {data.company.do_not_contact && <p className="text-red-600 dark:text-red-400">DO NOT CONTACT{data.company.do_not_contact_reason ? `: ${data.company.do_not_contact_reason}` : ''}</p>}
                     </div>
                   </div>
 
@@ -294,14 +296,14 @@ export default function CompanyPanel({
                         <ScoreBar label="Personalization evidence" value={data.scoreBreakdown.personalization_evidence} max={10} />
                       </div>
                       {data.scoreBreakdown.rationale && (
-                        <p className="mt-2 text-[11.5px] leading-relaxed text-zinc-400">{data.scoreBreakdown.rationale}</p>
+                        <p className="mt-2 text-[11.5px] leading-relaxed text-zinc-600 dark:text-zinc-400">{data.scoreBreakdown.rationale}</p>
                       )}
                     </Section>
                   )}
 
                   {data.hypothesis && (
                     <Section title="Opportunity hypothesis">
-                      <div className="space-y-2 text-[11.5px] leading-relaxed text-zinc-300">
+                      <div className="space-y-2 text-[11.5px] leading-relaxed text-zinc-700 dark:text-zinc-300">
                         {data.hypothesis.problem_hypothesis && <p><span className="text-zinc-500">Problem: </span>{data.hypothesis.problem_hypothesis}</p>}
                         {data.hypothesis.opportunity_hypothesis && <p><span className="text-zinc-500">Opportunity: </span>{data.hypothesis.opportunity_hypothesis}</p>}
                         {data.hypothesis.why_uzu && <p><span className="text-zinc-500">Why UZU: </span>{data.hypothesis.why_uzu}</p>}
@@ -313,7 +315,7 @@ export default function CompanyPanel({
 
                   {data.company.contact_name && (
                     <Section title="Decision maker">
-                      <p className="text-[11.5px] text-zinc-300">
+                      <p className="text-[11.5px] text-zinc-700 dark:text-zinc-300">
                         {data.company.contact_name}{data.company.contact_title ? ` — ${data.company.contact_title}` : ''}
                       </p>
                       <p className="text-[11px] text-zinc-500">
@@ -326,15 +328,15 @@ export default function CompanyPanel({
 
               {tab === 'emails' && (
                 <div className="space-y-3">
-                  {data.emails.length === 0 && <p className="text-[12px] text-zinc-600">No drafts yet.</p>}
+                  {data.emails.length === 0 && <p className="text-[12px] text-zinc-500 dark:text-zinc-600">No drafts yet.</p>}
                   {data.emails.map(e => (
-                    <div key={e.id} className="rounded-lg bg-zinc-800/30 p-3.5 ring-1 ring-zinc-800/60">
+                    <div key={e.id} className="rounded-lg bg-zinc-50 ring-zinc-200 dark:bg-zinc-800/30 dark:ring-zinc-800/60 p-3.5 ring-1">
                       <div className="flex items-center justify-between">
-                        <p className="text-[12.5px] font-medium text-zinc-200">{e.subject}</p>
-                        <span className="rounded-full bg-zinc-700/40 px-2 py-0.5 text-[10.5px] text-zinc-400">{e.status}</span>
+                        <p className="text-[12.5px] font-medium text-zinc-800 dark:text-zinc-200">{e.subject}</p>
+                        <span className="rounded-full bg-zinc-200/70 dark:bg-zinc-700/40 px-2 py-0.5 text-[10.5px] text-zinc-600 dark:text-zinc-400">{e.status}</span>
                       </div>
-                      <p className="mt-2 whitespace-pre-wrap text-[11.5px] leading-relaxed text-zinc-300">{e.body}</p>
-                      <p className="mt-2 text-[10.5px] text-zinc-600">
+                      <p className="mt-2 whitespace-pre-wrap text-[11.5px] leading-relaxed text-zinc-700 dark:text-zinc-300">{e.body}</p>
+                      <p className="mt-2 text-[10.5px] text-zinc-500 dark:text-zinc-600">
                         {e.sent_at ? `sent ${e.sent_at}` : `drafted ${e.created_at ?? ''}`}
                       </p>
                     </div>
@@ -344,7 +346,7 @@ export default function CompanyPanel({
 
               {tab === 'linkedin' && (
                 <div className="space-y-3">
-                  {data.linkedinActions.length === 0 && <p className="text-[12px] text-zinc-600">No LinkedIn actions queued.</p>}
+                  {data.linkedinActions.length === 0 && <p className="text-[12px] text-zinc-500 dark:text-zinc-600">No LinkedIn actions queued.</p>}
                   {data.linkedinActions.map(a => (
                     <LinkedinCard key={a.id} action={a} isAdmin={isAdmin} onDecision={handleDecision} />
                   ))}
@@ -353,17 +355,17 @@ export default function CompanyPanel({
 
               {tab === 'replies' && (
                 <div className="space-y-3">
-                  {data.replies.length === 0 && <p className="text-[12px] text-zinc-600">No replies yet.</p>}
+                  {data.replies.length === 0 && <p className="text-[12px] text-zinc-500 dark:text-zinc-600">No replies yet.</p>}
                   {data.replies.map(r => (
-                    <div key={r.id} className="rounded-lg bg-zinc-800/30 p-3.5 ring-1 ring-zinc-800/60">
+                    <div key={r.id} className="rounded-lg bg-zinc-50 ring-zinc-200 dark:bg-zinc-800/30 dark:ring-zinc-800/60 p-3.5 ring-1">
                       <div className="flex items-center justify-between">
-                        <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10.5px] font-medium text-emerald-300">
+                        <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10.5px] font-medium text-emerald-700 dark:text-emerald-300">
                           {r.classification ?? 'unclassified'}
                         </span>
-                        <span className="text-[10.5px] text-zinc-600">{r.channel} · {r.received_at}</span>
+                        <span className="text-[10.5px] text-zinc-500 dark:text-zinc-600">{r.channel} · {r.received_at}</span>
                       </div>
-                      {r.body && <p className="mt-2 whitespace-pre-wrap text-[11.5px] text-zinc-300">{r.body}</p>}
-                      {r.next_action && <p className="mt-2 text-[11px] text-cyan-300">Next: {r.next_action}</p>}
+                      {r.body && <p className="mt-2 whitespace-pre-wrap text-[11.5px] text-zinc-700 dark:text-zinc-300">{r.body}</p>}
+                      {r.next_action && <p className="mt-2 text-[11px] text-cyan-700 dark:text-cyan-300">Next: {r.next_action}</p>}
                     </div>
                   ))}
                 </div>
@@ -371,18 +373,18 @@ export default function CompanyPanel({
 
               {tab === 'research' && (
                 <div className="space-y-2">
-                  {data.findings.length === 0 && <p className="text-[12px] text-zinc-600">No findings recorded.</p>}
+                  {data.findings.length === 0 && <p className="text-[12px] text-zinc-500 dark:text-zinc-600">No findings recorded.</p>}
                   {data.findings.map((f, i) => (
-                    <div key={i} className="rounded-lg bg-zinc-800/30 p-3 ring-1 ring-zinc-800/60">
+                    <div key={i} className="rounded-lg bg-zinc-50 ring-zinc-200 dark:bg-zinc-800/30 dark:ring-zinc-800/60 p-3 ring-1">
                       <div className="flex items-center justify-between">
                         <span className="text-[10.5px] uppercase tracking-wide text-zinc-500">{f.category ?? 'general'}</span>
                         <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                          f.evidence_label === 'FACT' ? 'bg-emerald-500/15 text-emerald-300'
-                          : f.evidence_label === 'INFERENCE' ? 'bg-amber-500/15 text-amber-300'
-                          : 'bg-zinc-700/40 text-zinc-400'
+                          f.evidence_label === 'FACT' ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                          : f.evidence_label === 'INFERENCE' ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                          : 'bg-zinc-200/70 text-zinc-600 dark:bg-zinc-700/40 dark:text-zinc-400'
                         }`}>{f.evidence_label}</span>
                       </div>
-                      <p className="mt-1.5 text-[11.5px] leading-relaxed text-zinc-300">{f.finding}</p>
+                      <p className="mt-1.5 text-[11.5px] leading-relaxed text-zinc-700 dark:text-zinc-300">{f.finding}</p>
                     </div>
                   ))}
                 </div>
