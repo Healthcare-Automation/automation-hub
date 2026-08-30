@@ -34,8 +34,8 @@ export default function PipelineView({
       {/* States the tab's job outright: the Overview answers "how are we doing", this answers
           "why", and without a header saying so it reads as a second Overview. */}
       <header className="max-w-3xl">
-        <h1 className="text-[20px] font-semibold text-zinc-100">Why candidates do or don&rsquo;t get placed</h1>
-        <p className="mt-2 text-[13px] leading-relaxed text-zinc-400">
+        <h1 className="text-[20px] font-semibold text-zinc-900 dark:text-zinc-100">Why candidates do or don&rsquo;t get placed</h1>
+        <p className="mt-2 text-[13px] leading-relaxed text-zinc-600 dark:text-zinc-400">
           The Overview shows what happened. This is the mechanism underneath it — which candidates
           recruiters work, what actually predicts a hire, what is moving right now, and how long the
           pool takes to convert.
@@ -44,10 +44,10 @@ export default function PipelineView({
 
       {/* Headline stats */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat value={data.automationEra.applications} label="applications from automation-sourced candidates" accent="text-emerald-300" />
-        <Stat value={data.automationEra.placedOrExtended} label="of them already placed or extended" accent="text-cyan-300" />
+        <Stat value={data.automationEra.applications} label="applications from automation-sourced candidates" accent="text-emerald-700 dark:text-emerald-300" />
+        <Stat value={data.automationEra.placedOrExtended} label="of them already placed or extended" accent="text-cyan-700 dark:text-cyan-300" />
         <Stat value={`${data.repeatPlacements.people}`} label="professionals placed more than once" detail={`${data.repeatPlacements.placements} repeat placements — placed people get re-placed`} />
-        <Stat value={`${stalePct}%`} label="of Salesforce candidates never got an application" detail={`${data.staleContacts.neverApplied.toLocaleString()} of ${data.staleContacts.total.toLocaleString()} — the funnel's biggest opportunity`} accent="text-amber-300" />
+        <Stat value={`${stalePct}%`} label="of Salesforce candidates never got an application" detail={`${data.staleContacts.neverApplied.toLocaleString()} of ${data.staleContacts.total.toLocaleString()} — the funnel's biggest opportunity`} accent="text-amber-700 dark:text-amber-300" />
       </div>
 
       {/* The actual pipeline */}
@@ -69,9 +69,9 @@ export default function PipelineView({
         title="The database flywheel"
         sub="Placements don't come from fresh signups — they come from the accumulated pool."
       >
-        <p className="text-sm leading-relaxed text-zinc-300">
+        <p className="text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
           Among placed candidates with a known DJC signup date (n={SIGNUP_TO_PLACEMENT.n}), the median gap
-          from <span className="text-zinc-100">signing up on DJC to first placement is {Math.round(SIGNUP_TO_PLACEMENT.medianDays / 365 * 10) / 10} years</span>.
+          from <span className="text-zinc-900 dark:text-zinc-100">signing up on DJC to first placement is {Math.round(SIGNUP_TO_PLACEMENT.medianDays / 365 * 10) / 10} years</span>.
           Only {SIGNUP_TO_PLACEMENT.within90d} placed within 90 days of joining; {SIGNUP_TO_PLACEMENT.within1y} within a year.
           The candidate database is a compounding asset — every profile captured today is inventory for the
           next several years, which is exactly what the automation builds every hour.
@@ -85,7 +85,7 @@ export default function PipelineView({
         action={
           <button
             onClick={() => setEvidenceOpen(v => !v)}
-            className="rounded-md border border-zinc-700/60 bg-zinc-800/40 px-2.5 py-1 text-[11px] font-medium text-zinc-400 transition-colors hover:text-zinc-200"
+            className="rounded-md border border-zinc-200 bg-white dark:border-zinc-700/60 dark:bg-zinc-800/40 px-2.5 py-1 text-[11px] font-medium text-zinc-600 dark:text-zinc-400 transition-colors hover:text-zinc-900 dark:hover:text-zinc-200"
           >
             {evidenceOpen ? 'Hide' : 'Show'}
           </button>
@@ -95,29 +95,29 @@ export default function PipelineView({
           <p className="text-[12px] leading-relaxed text-zinc-500">
             {SCIENCE_META.universe.toLocaleString()} linked candidates · {SCIENCE_META.applied} worked
             by recruiters · {SCIENCE_META.placed} placed. Strongest signals:{' '}
-            <span className="text-emerald-300">General Dentistry</span>,{' '}
-            <span className="text-emerald-300">open to locums</span> and{' '}
-            <span className="text-emerald-300">10+ years&rsquo; experience</span> all raise the odds
-            of being worked; <span className="text-amber-300">hygienists and assistants</span> are
+            <span className="text-emerald-700 dark:text-emerald-300">General Dentistry</span>,{' '}
+            <span className="text-emerald-700 dark:text-emerald-300">open to locums</span> and{' '}
+            <span className="text-emerald-700 dark:text-emerald-300">10+ years&rsquo; experience</span> all raise the odds
+            of being worked; <span className="text-amber-700 dark:text-amber-300">hygienists and assistants</span> are
             far less likely to be. Open for the full analysis and its caveats.
           </p>
         ) : (
         <>
-        <div className="mb-5 rounded-lg border border-zinc-700/40 bg-zinc-900/40 p-4 text-[11px] leading-relaxed text-zinc-400">
-          <p className="mb-1.5 font-medium text-zinc-300">How to read this, and how it was computed</p>
+        <div className="mb-5 rounded-lg border border-zinc-200 bg-zinc-50 dark:border-zinc-700/40 dark:bg-zinc-900/40 p-4 text-[11px] leading-relaxed text-zinc-600 dark:text-zinc-400">
+          <p className="mb-1.5 font-medium text-zinc-700 dark:text-zinc-300">How to read this, and how it was computed</p>
           <p>
-            Each row is an <span className="text-zinc-300">odds ratio</span> with a 95% confidence
+            Each row is an <span className="text-zinc-700 dark:text-zinc-300">odds ratio</span> with a 95% confidence
             interval. A dot to the right of the dashed line means the trait makes the outcome more
             likely; whiskers crossing the line mean no detectable effect. ✓ marks p&lt;0.05.
           </p>
           <p className="mt-1.5">
-            <span className="text-zinc-300">Complete-case per trait.</span> A candidate only enters a
+            <span className="text-zinc-700 dark:text-zinc-300">Complete-case per trait.</span> A candidate only enters a
             comparison when that trait is actually known for them — several are parsed from résumés
             and known for half the pool. Counting “unknown” as “doesn’t have it” compares different
             populations, and did previously reverse the sign on experience.
           </p>
           <p className="mt-1.5">
-            <span className="text-zinc-300">Traits deliberately excluded.</span> Job availability
+            <span className="text-zinc-700 dark:text-zinc-300">Traits deliberately excluded.</span> Job availability
             nearby looked like a strong negative, but 99% of the candidates it is known for were
             added by the automation, and those are worked 4% of the time versus 21% for everyone
             else — it measured how someone was sourced, not their prospects.
@@ -136,14 +136,14 @@ export default function PipelineView({
             <SmallLabel>Stage 2 — who converts to a placement, once worked</SmallLabel>
             <ForestPlot factors={PLACED_FACTORS} />
           </div>
-          <div className="rounded-lg border border-zinc-700/40 bg-zinc-900/40 p-4 text-xs leading-relaxed text-zinc-400">
-            <p className="mb-1.5 font-semibold text-zinc-200">What the evidence says, in one breath:</p>
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 dark:border-zinc-700/40 dark:bg-zinc-900/40 p-4 text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
+            <p className="mb-1.5 font-semibold text-zinc-800 dark:text-zinc-200">What the evidence says, in one breath:</p>
             <p>
-              <span className="text-zinc-200">Specialty demand drives everything</span> — General Dentists are 3.3× more
+              <span className="text-zinc-800 dark:text-zinc-200">Specialty demand drives everything</span> — General Dentists are 3.3× more
               likely to get worked and 3.8× more likely to place once worked.{' '}
-              <span className="text-zinc-200">Experience gets attention but doesn&apos;t close</span> — 10+ years doubles the
+              <span className="text-zinc-800 dark:text-zinc-200">Experience gets attention but doesn&apos;t close</span> — 10+ years doubles the
               odds of being worked, yet shows no effect on placing afterward; recruiters may be over-selecting on it.{' '}
-              <span className="text-zinc-200">Hygienists and assistants are the untapped pool</span> — only 3% ever get an
+              <span className="text-zinc-800 dark:text-zinc-200">Hygienists and assistants are the untapped pool</span> — only 3% ever get an
               application versus 21% of everyone else. Credentials (residency, US training, languages) show no detectable
               effect at current sample sizes.
             </p>
@@ -164,7 +164,7 @@ export default function PipelineView({
         >
           <div className="max-h-72 overflow-y-auto overflow-x-auto">
             <table className="w-full min-w-[460px] text-xs">
-              <thead className="sticky top-0 bg-zinc-900/95 backdrop-blur">
+              <thead className="sticky top-0 bg-white/95 dark:bg-zinc-900/95 backdrop-blur">
                 <tr className="text-left text-[10px] uppercase tracking-wide text-zinc-500">
                   <th className="py-1.5 pr-3 font-medium">Person</th>
                   <th className="py-1.5 pr-3 font-medium">Job</th>
@@ -174,7 +174,7 @@ export default function PipelineView({
               </thead>
               <tbody>
                 {data.recentPlacements.map((p, i) => (
-                  <tr key={i} className="border-t border-zinc-800/70 text-zinc-300 first:border-t-0">
+                  <tr key={i} className="border-t border-zinc-200 dark:border-zinc-800/70 text-zinc-700 dark:text-zinc-300 first:border-t-0">
                     <td className="whitespace-nowrap py-2 pr-3 font-medium">
                       {p.automationEra && <span title="automation-sourced">⚡ </span>}
                       {p.person ?? '—'}
@@ -183,7 +183,7 @@ export default function PipelineView({
                     <td className="whitespace-nowrap py-2 pr-3 text-right tabular-nums text-zinc-500">
                       {p.sfAddedOn ?? '—'}
                     </td>
-                    <td className="whitespace-nowrap py-2 text-right tabular-nums text-zinc-400">{p.placedOn ?? '—'}</td>
+                    <td className="whitespace-nowrap py-2 text-right tabular-nums text-zinc-600 dark:text-zinc-400">{p.placedOn ?? '—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -199,7 +199,7 @@ export default function PipelineView({
       >
         <div className="max-h-96 overflow-y-auto overflow-x-auto">
           <table className="w-full min-w-[600px] text-xs">
-            <thead className="sticky top-0 bg-zinc-900">
+            <thead className="sticky top-0 bg-white dark:bg-zinc-900">
               <tr className="text-left text-[10px] uppercase tracking-wide text-zinc-500">
                 <th className="py-1.5 pr-3 font-medium">Candidate</th>
                 <th className="py-1.5 pr-3 font-medium">Job</th>
@@ -214,7 +214,7 @@ export default function PipelineView({
             </thead>
             <tbody>
               {data.inFlight.map((f, i) => (
-                <tr key={i} className="border-t border-zinc-800/70 text-zinc-300">
+                <tr key={i} className="border-t border-zinc-200 dark:border-zinc-800/70 text-zinc-700 dark:text-zinc-300">
                   <td className="whitespace-nowrap py-2 pr-3 font-medium">
                     {f.automationEra && <span title="automation-sourced">⚡ </span>}
                     {f.person ?? '—'}
@@ -235,7 +235,7 @@ export default function PipelineView({
                     <Probability stage={f.stage} specialty={f.specialty} />
                   </td>
                   <td className="whitespace-nowrap py-2 pr-3 text-right tabular-nums text-zinc-500">{f.sfAddedOn ?? '—'}</td>
-                  <td className="whitespace-nowrap py-2 text-right tabular-nums text-zinc-400">{f.since ?? '—'}</td>
+                  <td className="whitespace-nowrap py-2 text-right tabular-nums text-zinc-600 dark:text-zinc-400">{f.since ?? '—'}</td>
                 </tr>
               ))}
             </tbody>
@@ -253,7 +253,7 @@ export default function PipelineView({
 function Probability({ stage, specialty }: { stage: string | null; specialty: string | null }) {
   const isGD = specialty === null ? null : specialty === 'General Dentistry'
   const est = placementProbability(stage, isGD)
-  if (!est) return <span className="text-zinc-600">—</span>
+  if (!est) return <span className="text-zinc-500 dark:text-zinc-600">—</span>
   const pct = Math.round(est.p * 100)
   const color = pct >= 60 ? '#6ee7b7' : pct >= 30 ? '#67e8f9' : '#a1a1aa'
   const parts = [
@@ -281,11 +281,11 @@ function Stat({
   accent?: string
 }) {
   return (
-    <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/30 p-5">
-      <div className={`text-3xl font-semibold leading-none tabular-nums ${accent ?? 'text-zinc-100'}`}>
+    <div className="rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700/50 dark:bg-zinc-800/30 dark:shadow-none p-5">
+      <div className={`text-3xl font-semibold leading-none tabular-nums ${accent ?? 'text-zinc-900 dark:text-zinc-100'}`}>
         {typeof value === 'number' ? value.toLocaleString() : value}
       </div>
-      <div className="mt-2 text-xs font-medium text-zinc-200">{label}</div>
+      <div className="mt-2 text-xs font-medium text-zinc-800 dark:text-zinc-200">{label}</div>
       {detail && <div className="mt-1 text-[11px] leading-snug text-zinc-500">{detail}</div>}
     </div>
   )
@@ -333,7 +333,7 @@ function SpecialtyOutcomes({ outcomes }: { outcomes: SpecialtyOutcomesByRange | 
             ? 'Out of every 100 candidates we hold in each specialty.'
             : `Recruiter activity in the last ${win === '7d' ? '7 days' : '30 days'} — actual people.`}
         </p>
-        <span className="inline-flex rounded-lg border border-zinc-700/60 bg-zinc-800/40 p-0.5">
+        <span className="inline-flex rounded-lg border border-zinc-200 bg-zinc-900/[0.04] dark:border-zinc-700/60 dark:bg-zinc-800/40 p-0.5">
           {PIPELINE_RANGES.map(r => (
             <button
               key={r.key}
@@ -341,8 +341,8 @@ function SpecialtyOutcomes({ outcomes }: { outcomes: SpecialtyOutcomesByRange | 
               className={
                 'rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors ' +
                 (win === r.key
-                  ? 'bg-white/10 text-zinc-100 ring-1 ring-white/15'
-                  : 'text-zinc-500 hover:text-zinc-300')
+                  ? 'bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-200 dark:bg-white/10 dark:text-zinc-100 dark:shadow-none dark:ring-white/15'
+                  : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300')
               }
             >
               {r.label}
@@ -352,7 +352,7 @@ function SpecialtyOutcomes({ outcomes }: { outcomes: SpecialtyOutcomesByRange | 
       </div>
 
       {source === null ? (
-        <p className="py-6 text-center text-[12px] text-amber-300/80">
+        <p className="py-6 text-center text-[12px] text-amber-700 dark:text-amber-300/80">
           Couldn&rsquo;t load this window. Try all time.
         </p>
       ) : totals.w === 0 ? (
@@ -371,9 +371,9 @@ function SpecialtyOutcomes({ outcomes }: { outcomes: SpecialtyOutcomesByRange | 
                 key={s.specialty}
                 onMouseEnter={() => setHover(s.specialty)}
                 onMouseLeave={() => setHover(null)}
-                className={`flex items-center gap-3 rounded-md px-2 py-2 transition-colors ${on ? 'bg-zinc-800/40' : ''}`}
+                className={`flex items-center gap-3 rounded-md px-2 py-2 transition-colors ${on ? 'bg-zinc-100 dark:bg-zinc-800/40' : ''}`}
               >
-                <span className="w-44 shrink-0 truncate text-xs text-zinc-300">
+                <span className="w-44 shrink-0 truncate text-xs text-zinc-700 dark:text-zinc-300">
                   {s.specialty}
                   {small && (
                     <span className="ml-1.5 text-[10px] text-amber-500/70"
@@ -381,7 +381,7 @@ function SpecialtyOutcomes({ outcomes }: { outcomes: SpecialtyOutcomesByRange | 
                   )}
                 </span>
 
-                <div className="relative h-7 grow rounded bg-zinc-800/30">
+                <div className="relative h-7 grow rounded bg-zinc-200/70 dark:bg-zinc-800/30">
                   <div className="absolute inset-y-0 left-0 rounded bg-cyan-500/25 transition-all duration-300"
                        style={{ width: w(asRate ? s.workedPct : s.worked) }} />
                   <div className="absolute inset-y-0 left-0 rounded bg-emerald-400/85 transition-all duration-300"
@@ -390,13 +390,13 @@ function SpecialtyOutcomes({ outcomes }: { outcomes: SpecialtyOutcomesByRange | 
                     {placedVal > 0 && (
                       <>
                         <span className={(asRate ? s.placedPct > 3 : s.placed / max > 0.12)
-                          ? 'text-emerald-950' : 'text-emerald-300'}>
+                          ? 'text-emerald-950' : 'text-emerald-700 dark:text-emerald-300'}>
                           {placedVal} placed
                         </span>
-                        <span className="text-zinc-600">·</span>
+                        <span className="text-zinc-500 dark:text-zinc-600">·</span>
                       </>
                     )}
-                    <span className="text-cyan-200/90">
+                    <span className="text-cyan-800 dark:text-cyan-200/90">
                       {workedVal} worked{placedVal === 0 && workedVal > 0 ? ' · none placed' : ''}
                     </span>
                   </div>
@@ -413,23 +413,23 @@ function SpecialtyOutcomes({ outcomes }: { outcomes: SpecialtyOutcomesByRange | 
         </div>
       )}
 
-      <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 border-t border-zinc-800/70 pt-3 text-[11px] text-zinc-500">
+      <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 border-t border-zinc-200 dark:border-zinc-800/70 pt-3 text-[11px] text-zinc-500">
         <span className="inline-flex items-center gap-1.5">
           <span className="h-2.5 w-4 rounded-sm bg-cyan-500/25" /> a recruiter worked them
         </span>
         <span className="inline-flex items-center gap-1.5">
           <span className="h-2.5 w-4 rounded-sm bg-emerald-400/85" /> they got placed
         </span>
-        <span className="text-zinc-600">
+        <span className="text-zinc-500 dark:text-zinc-600">
           {asRate ? 'per 100 sourced · hover a row for real numbers' : `${totals.w} worked, ${totals.p} placed in this window`}
         </span>
       </div>
 
       {asRate && (
-        <p className="mt-3 text-[12px] leading-relaxed text-zinc-400">
+        <p className="mt-3 text-[12px] leading-relaxed text-zinc-600 dark:text-zinc-400">
           General Dentistry is the engine: 23 of every 100 get worked and 5 get placed. Dental
           Hygienists are the opposite — 103 sourced,{' '}
-          <span className="text-amber-300">1 worked, none placed</span>. We are collecting people
+          <span className="text-amber-700 dark:text-amber-300">1 worked, none placed</span>. We are collecting people
           nobody is working.
         </p>
       )}
