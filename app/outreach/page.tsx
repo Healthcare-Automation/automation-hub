@@ -38,10 +38,10 @@ export default async function OutreachPage() {
     <main className="min-h-screen" style={{ background: 'var(--background)' }}>
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-8">
         <header className="mb-6">
-          <a href="/" className="text-xs text-zinc-500 transition-colors hover:text-zinc-300">
+          <a href="/" className="text-xs text-zinc-500 transition-colors hover:text-zinc-800 dark:hover:text-zinc-300">
             ← Automation Hub
           </a>
-          <h1 className="mt-1.5 text-xl font-semibold tracking-tight text-white">
+          <h1 className="mt-1.5 text-xl font-semibold tracking-tight text-zinc-900 dark:text-white">
             UZU Outbound Engine — Pipeline
           </h1>
           <p className="mt-1 text-xs text-zinc-500">
@@ -53,7 +53,7 @@ export default async function OutreachPage() {
         </header>
 
         {degraded ? (
-          <p className="text-sm text-amber-300/80">
+          <p className="text-sm text-amber-700 dark:text-amber-300/80">
             Could not load outreach data — the database may be busy. Refresh in a few seconds.
           </p>
         ) : (
