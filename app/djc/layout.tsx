@@ -10,10 +10,10 @@ export default function DjcLayout({ children }: { children: React.ReactNode }) {
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-8">
         <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <Link href="/" className="text-xs text-zinc-500 transition-colors hover:text-zinc-300">
+            <Link href="/" className="text-xs text-zinc-500 transition-colors hover:text-zinc-800 dark:hover:text-zinc-300">
               ← Automation Hub
             </Link>
-            <h1 className="mt-1.5 text-xl font-semibold tracking-tight text-white">
+            <h1 className="mt-1.5 text-xl font-semibold tracking-tight text-zinc-900 dark:text-white">
               Proxi Automation — Intelligence
             </h1>
           </div>

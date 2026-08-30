@@ -15,7 +15,7 @@ const TABS = [
 export function DjcTabs() {
   const pathname = usePathname()
   return (
-    <nav className="inline-flex max-w-full overflow-x-auto rounded-lg border border-zinc-700/50 bg-zinc-800/40 p-0.5">
+    <nav className="inline-flex max-w-full overflow-x-auto rounded-lg border border-zinc-200 bg-zinc-900/[0.04] dark:border-zinc-700/50 dark:bg-zinc-800/40 p-0.5">
       {TABS.map(t => (
         <Link
           key={t.href}
@@ -23,8 +23,8 @@ export function DjcTabs() {
           className={cn(
             'whitespace-nowrap rounded-md px-3.5 py-1.5 text-xs font-medium transition-colors',
             pathname?.startsWith(t.href)
-              ? 'bg-zinc-700/70 text-white shadow-sm'
-              : 'text-zinc-500 hover:text-zinc-300',
+              ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700/70 dark:text-white'
+              : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300',
           )}
         >
           {t.label}

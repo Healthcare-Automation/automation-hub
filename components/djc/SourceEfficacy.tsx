@@ -42,31 +42,31 @@ export default function SourceEfficacy({ rows }: { rows: SourceRow[] }) {
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <p className="max-w-2xl text-[14px] leading-relaxed text-zinc-300">
+        <p className="max-w-2xl text-[14px] leading-relaxed text-zinc-700 dark:text-zinc-300">
           {djc && best && djc.source !== best.source ? (
             <>
-              <span className="font-semibold text-zinc-100">{pretty(best.source)}</span> places{' '}
-              <span className="font-semibold text-emerald-300">{best.rate.toFixed(1)}</span> of every
-              100 candidates it brings in. <span className="text-zinc-100">Dentist Job Cafe</span>{' '}
-              places <span className="font-semibold text-amber-300">{djc.rate.toFixed(1)}</span> —
+              <span className="font-semibold text-zinc-900 dark:text-zinc-100">{pretty(best.source)}</span> places{' '}
+              <span className="font-semibold text-emerald-700 dark:text-emerald-300">{best.rate.toFixed(1)}</span> of every
+              100 candidates it brings in. <span className="text-zinc-900 dark:text-zinc-100">Dentist Job Cafe</span>{' '}
+              places <span className="font-semibold text-amber-700 dark:text-amber-300">{djc.rate.toFixed(1)}</span> —
               from {djc.n.toLocaleString()} candidates, the largest source we have.
             </>
           ) : (
             'Placements produced per 100 candidates, by where the candidate came from.'
           )}
         </p>
-        <span className="inline-flex shrink-0 rounded-lg border border-zinc-700/60 bg-zinc-800/40 p-0.5">
+        <span className="inline-flex shrink-0 rounded-lg border border-zinc-200 bg-zinc-900/[0.04] dark:border-zinc-700/60 dark:bg-zinc-800/40 p-0.5">
           {([['recent', 'Last 12 months'], ['all', 'All time']] as const).map(([k, label]) => (
             <button key={k} onClick={() => setWindow(k)}
                     className={cn('rounded-md px-3 py-1 text-[11px] font-medium transition-colors',
-                      window === k ? 'bg-white/10 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300')}>
+                      window === k ? 'bg-white text-zinc-900 shadow-sm dark:bg-white/10 dark:text-zinc-100 dark:shadow-none' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300')}>
               {label}
             </button>
           ))}
         </span>
       </div>
 
-      <div className="mb-1.5 flex items-center gap-3 text-[10px] uppercase tracking-wide text-zinc-600">
+      <div className="mb-1.5 flex items-center gap-3 text-[10px] uppercase tracking-wide text-zinc-500 dark:text-zinc-600">
         <span className="w-40 shrink-0">Source</span>
         <span className="grow">Placements per 100 candidates</span>
         <span className="w-20 shrink-0 text-right">Rate</span>
@@ -81,19 +81,19 @@ export default function SourceEfficacy({ rows }: { rows: SourceRow[] }) {
                  className={cn('flex items-center gap-3 rounded-md py-1',
                    isDjc && 'bg-cyan-500/[0.06] ring-1 ring-cyan-500/20')}>
               <span className={cn('w-40 shrink-0 truncate pl-1.5 text-[12px]',
-                isDjc ? 'font-medium text-cyan-200' : 'text-zinc-300')}>
+                isDjc ? 'font-medium text-cyan-800 dark:text-cyan-200' : 'text-zinc-700 dark:text-zinc-300')}>
                 {pretty(r.source)}
               </span>
-              <span className="relative h-5 grow rounded bg-zinc-800/50">
+              <span className="relative h-5 grow rounded bg-zinc-200/70 dark:bg-zinc-800/50">
                 <span className={cn('absolute inset-y-0 left-0 rounded',
-                  isDjc ? 'bg-cyan-400/70' : r.rate >= 5 ? 'bg-emerald-400/65' : 'bg-zinc-600')}
+                  isDjc ? 'bg-cyan-500/80 dark:bg-cyan-400/70' : r.rate >= 5 ? 'bg-emerald-500/75 dark:bg-emerald-400/65' : 'bg-zinc-400 dark:bg-zinc-600')}
                       style={{ width: `${Math.max((r.rate / maxRate) * 100, 1)}%` }} />
               </span>
               <span className={cn('w-20 shrink-0 text-right text-[12px] font-semibold tabular-nums',
-                r.rate >= 5 ? 'text-emerald-300' : r.rate >= 2 ? 'text-amber-300' : 'text-zinc-400')}>
+                r.rate >= 5 ? 'text-emerald-700 dark:text-emerald-300' : r.rate >= 2 ? 'text-amber-700 dark:text-amber-300' : 'text-zinc-600 dark:text-zinc-400')}>
                 {r.rate.toFixed(1)}
               </span>
-              <span className="w-32 shrink-0 pr-1.5 text-right text-[11px] tabular-nums text-zinc-600">
+              <span className="w-32 shrink-0 pr-1.5 text-right text-[11px] tabular-nums text-zinc-500 dark:text-zinc-600">
                 {r.p} of {r.n.toLocaleString()}
               </span>
             </div>
@@ -103,18 +103,18 @@ export default function SourceEfficacy({ rows }: { rows: SourceRow[] }) {
 
       {/* The conversion step that explains the gap. */}
       {djc && (
-        <p className="mt-4 text-[12px] leading-relaxed text-zinc-400">
+        <p className="mt-4 text-[12px] leading-relaxed text-zinc-600 dark:text-zinc-400">
           The gap opens before placement. Of every 100 candidates,{' '}
-          <span className="text-zinc-200">{real.find(r => r.source === 'Indeed')?.appliedPct ?? 0} from Indeed</span>{' '}
+          <span className="text-zinc-800 dark:text-zinc-200">{real.find(r => r.source === 'Indeed')?.appliedPct ?? 0} from Indeed</span>{' '}
           get put forward for a job, against{' '}
-          <span className="text-amber-300">
+          <span className="text-amber-700 dark:text-amber-300">
             {real.find(r => r.source === DJC)?.appliedPct ?? 0} from DJC
           </span>
           . Sourcing is not the constraint — what happens next is.
         </p>
       )}
 
-      <p className="mt-4 border-t border-zinc-800 pt-3 text-[11px] leading-relaxed text-zinc-500">
+      <p className="mt-4 border-t border-zinc-200 dark:border-zinc-800 pt-3 text-[11px] leading-relaxed text-zinc-500">
         Sources with fewer than 20 candidates are hidden — a handful of people produces meaningless
         rates. {window === 'recent'
           ? 'The 12-month window compares like with like, but is harsh on DJC: much of its volume arrived in the last eight weeks and has not had time to convert.'
