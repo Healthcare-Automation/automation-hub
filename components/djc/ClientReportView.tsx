@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
 // Light-theme chart fills — the shared CHART tokens are tuned for the dark internal tabs.
 // Same pastel family, one step deeper so bars hold their own on white.
-const LTRACK = 'bg-zinc-200/60'
+const LTRACK = 'bg-zinc-200/60 dark:bg-zinc-700/60'
 const LREF = 'bg-slate-300'
 const LGOOD = 'bg-teal-400/90'
 const LWARN = 'bg-orange-300'
@@ -67,11 +67,11 @@ export default function ClientReportView({ report, showSend = false }: {
   const maxMonthly = Math.max(...r.ops.monthly.map(m => Math.max(m.placed, m.prior ?? 0)), 1)
   const reachBase = r.djc.reach[0]?.people || 1
   return (
-    <div className="space-y-14 rounded-2xl bg-[#f4f6f8] p-5 text-zinc-900 sm:p-8">
+    <div className="space-y-14 rounded-2xl bg-[#f4f6f8] p-5 text-zinc-900 dark:text-zinc-100 sm:p-8">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="max-w-3xl">
-          <h1 className="text-[20px] font-semibold text-zinc-900">Proxi Performance Report</h1>
-          <p className="mt-2 text-[13px] leading-relaxed text-zinc-600">
+          <h1 className="text-[20px] font-semibold text-zinc-900 dark:text-zinc-100">Proxi Performance Report</h1>
+          <p className="mt-2 text-[13px] leading-relaxed text-zinc-600 dark:text-zinc-400">
             How the business is doing across placements, candidate sourcing and job fulfillment —
             live from Salesforce and the automations. Click any number for the people or jobs behind
             it.
@@ -81,11 +81,11 @@ export default function ClientReportView({ report, showSend = false }: {
         {showSend && <SendPanel activeTab={tab} />}
       </header>
 
-      <nav className="-mt-6 inline-flex rounded-lg border border-zinc-200 bg-white p-0.5">
+      <nav className="-mt-6 inline-flex rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-0.5">
         {([['ops', '01 · Operations'], ['djc', '02 · Dentist Job Cafe'], ['kim', '03 · Kimedics']] as const).map(([k, label]) => (
           <button key={k} onClick={() => setTab(k)}
                   className={cn('whitespace-nowrap rounded-md px-4 py-1.5 text-[12px] font-medium transition-colors',
-                    tab === k ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:text-zinc-700')}>
+                    tab === k ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300')}>
             {label}
           </button>
         ))}
@@ -94,7 +94,7 @@ export default function ClientReportView({ report, showSend = false }: {
       {/* ════ 01 OPERATIONAL ════════════════════════════════════════════════ */}
       {tab === 'ops' && <section>
         <SectionHead n="01" title="Operational" q="Are we putting more people into jobs than last year?">
-          <span className={cn('font-semibold', opsDelta >= 0 ? 'text-teal-700' : 'text-orange-700')}>
+          <span className={cn('font-semibold', opsDelta >= 0 ? 'text-teal-700 dark:text-teal-300' : 'text-orange-700 dark:text-orange-300')}>
             {r.ops.ytdPlaced} placements this year — {opsDelta >= 0 ? 'up' : 'down'} {Math.abs(opsPct)}%
           </span>{' '}
           on the same span of last year ({r.ops.priorYtdPlaced}), at {r.ops.avgPerMonth.toFixed(1)} a month.
@@ -134,11 +134,11 @@ export default function ClientReportView({ report, showSend = false }: {
       {tab === 'djc' && <section>
         <SectionHead n="02" title="Dentist Job Cafe" q="Is the sourcing subscription paying off?">
           {over > 0 ? (
-            <span className="font-semibold text-orange-700">
+            <span className="font-semibold text-orange-700 dark:text-orange-300">
               {r.djc.cycleUsed} of {r.djc.cycleCap} views used this cycle — {over} over the cap.
             </span>
           ) : (
-            <span className="font-semibold text-cyan-700">
+            <span className="font-semibold text-cyan-700 dark:text-cyan-300">
               {r.djc.cycleUsed} of {r.djc.cycleCap} views used this cycle.
             </span>
           )}{' '}
@@ -165,7 +165,7 @@ export default function ClientReportView({ report, showSend = false }: {
                takeaway="Where people drop out between being added and being put forward — and, for each month's intake, how far that month got. All but one of those put forward had logged outreach first.">
           <div className="grid gap-x-8 gap-y-4 lg:grid-cols-2">
             <div>
-              <p className="text-[10px] uppercase tracking-wide text-zinc-400">
+              <p className="text-[10px] uppercase tracking-wide text-zinc-400 dark:text-zinc-600">
                 From added to put forward — where people stop
               </p>
               <div className="mt-3 space-y-0.5">
@@ -183,29 +183,29 @@ export default function ClientReportView({ report, showSend = false }: {
                       {i > 0 && (
                         <div className="flex items-center gap-2 py-1 pl-[168px]">
                           <span className={cn('text-[10px] tabular-nums',
-                            worst ? 'font-medium text-orange-700' : 'text-zinc-400')}>
+                            worst ? 'font-medium text-orange-700 dark:text-orange-300' : 'text-zinc-400 dark:text-zinc-600')}>
                             ↓ {carried}% carry on · {lost} stop here
                           </span>
                         </div>
                       )}
                       <Hover block tip={<>
-                        <b className="text-zinc-900">{s.people}</b> of {reachBase} added
+                        <b className="text-zinc-900 dark:text-zinc-100">{s.people}</b> of {reachBase} added
                         ({Math.round(share)}%) got this far<br />{s.note}<br />
-                        <span className="text-zinc-400">click for the people</span>
+                        <span className="text-zinc-400 dark:text-zinc-600">click for the people</span>
                       </>}>
                         <button
                           onClick={() => setDrill({ title: s.label, sub: s.note,
                             params: { kind: 'candidates', reach: REACH_KEYS[i] ?? 'added' } })}
-                          className="flex w-full cursor-pointer items-center gap-3 rounded px-1 py-0.5 -mx-1 text-left transition-colors hover:bg-zinc-100">
-                          <span className="w-40 shrink-0 text-right text-[12px] text-zinc-700">
+                          className="flex w-full cursor-pointer items-center gap-3 rounded px-1 py-0.5 -mx-1 text-left transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800">
+                          <span className="w-40 shrink-0 text-right text-[12px] text-zinc-700 dark:text-zinc-300">
                             {s.label}
                           </span>
-                          <span className="relative block h-7 grow rounded bg-zinc-100">
+                          <span className="relative block h-7 grow rounded bg-zinc-100 dark:bg-zinc-800">
                             <span className={cn('absolute inset-y-0 left-0 rounded',
                               i === r.djc.reach.length - 1 ? LGOOD : i === 0 ? LPRIMARY : 'bg-cyan-400/60')}
                                   style={{ width: `${Math.max(share, 0.6)}%` }} />
                           </span>
-                          <span className="w-12 shrink-0 text-right text-[13px] font-semibold tabular-nums text-zinc-900">
+                          <span className="w-12 shrink-0 text-right text-[13px] font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
                             {s.people}
                           </span>
                         </button>
@@ -221,15 +221,15 @@ export default function ClientReportView({ report, showSend = false }: {
 
             </div>
             <div>
-              <p className="text-[10px] uppercase tracking-wide text-zinc-400">Follow-through by month added</p>
+              <p className="text-[10px] uppercase tracking-wide text-zinc-400 dark:text-zinc-600">Follow-through by month added</p>
               <div className="mt-2 space-y-1.5">
                 {r.djc.outreachMonthly.map(m => (
-                  <p key={m.month} className="text-[12px] leading-relaxed text-zinc-600">
-                    <span className="text-zinc-800">{monthLabel(m.month)}:</span>{' '}
+                  <p key={m.month} className="text-[12px] leading-relaxed text-zinc-600 dark:text-zinc-400">
+                    <span className="text-zinc-800 dark:text-zinc-200">{monthLabel(m.month)}:</span>{' '}
                     {m.contacted} of {m.sourced} contacted →{' '}
-                    <span className="text-cyan-700">{m.putForward} put forward</span>
+                    <span className="text-cyan-700 dark:text-cyan-300">{m.putForward} put forward</span>
                     {m.putForward > 0 && (
-                      <> → {m.submitted} submitted → <span className="text-teal-700">{m.placed} placed</span></>
+                      <> → {m.submitted} submitted → <span className="text-teal-700 dark:text-teal-300">{m.placed} placed</span></>
                     )}
                   </p>
                 ))}
@@ -248,11 +248,11 @@ export default function ClientReportView({ report, showSend = false }: {
             const worst = ranked[ranked.length - 1]
             const TONES: Record<string, string> = { call: LGOOD, text: LPRIMARY, email: LACCENT }
             return (
-              <div className="mt-6 border-t border-zinc-200 pt-4">
-                <p className="text-[10px] uppercase tracking-wide text-zinc-400">
+              <div className="mt-6 border-t border-zinc-200 dark:border-zinc-800 pt-4">
+                <p className="text-[10px] uppercase tracking-wide text-zinc-400 dark:text-zinc-600">
                   Which channel actually works
                 </p>
-                <p className="mt-1 text-[12px] text-zinc-600">
+                <p className="mt-1 text-[12px] text-zinc-600 dark:text-zinc-400">
                   Every bar is the same 100 people reached — only the fill changes. The longer the
                   fill, the more of them ended up put forward for a job.
                 </p>
@@ -265,8 +265,8 @@ export default function ClientReportView({ report, showSend = false }: {
                               onClick={() => setDrill({ title: `Reached by ${c.label.toLowerCase()}`,
                                 sub: `${c.contacted} people · ${c.engaged} ${c.engagedWord} · ${c.forwarded} later put forward`,
                                 params: { kind: 'candidates', channel: c.key } })}
-                              className="flex w-full cursor-pointer items-center gap-3 rounded px-1 py-1 -mx-1 text-left transition-colors hover:bg-zinc-100">
-                        <span className="flex w-24 shrink-0 items-center gap-1.5 text-[12px] text-zinc-700">
+                              className="flex w-full cursor-pointer items-center gap-3 rounded px-1 py-1 -mx-1 text-left transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800">
+                        <span className="flex w-24 shrink-0 items-center gap-1.5 text-[12px] text-zinc-700 dark:text-zinc-300">
                           <span className={cn('h-2 w-2 shrink-0 rounded-sm', TONES[c.key])} />
                           {c.label}
                         </span>
@@ -274,20 +274,20 @@ export default function ClientReportView({ report, showSend = false }: {
                         {/* One track = 100 people reached. Same length for every channel, so the
                             only thing the eye compares is how much of it fills. */}
                         <Hover style={{ flex: '1 1 0%' }} tip={<span className="flex flex-col gap-1">
-                          <b className="text-zinc-900">{c.label} — {Math.round(rate)} of every 100
+                          <b className="text-zinc-900 dark:text-zinc-100">{c.label} — {Math.round(rate)} of every 100
                             reached were put forward</b>
                           <TipRow tone={TONES[c.key]} value={c.forwarded} label="put forward" />
-                          <TipRow tone="bg-zinc-100" value={c.contacted - c.forwarded} label="were not" />
+                          <TipRow tone="bg-zinc-100 dark:bg-zinc-800" value={c.contacted - c.forwarded} label="were not" />
                           <span className="text-zinc-500">{c.engaged} {c.engagedWord} along the way</span>
                         </span>}>
-                          <span className="relative block h-7 rounded bg-zinc-100">
+                          <span className="relative block h-7 rounded bg-zinc-100 dark:bg-zinc-800">
                             <span className={cn('absolute inset-y-0 left-0 rounded', TONES[c.key])}
                                   style={{ width: `${Math.min(rate, 100)}%` }} />
                           </span>
                         </Hover>
 
                         <span className={cn('w-32 shrink-0 whitespace-nowrap text-right text-[12px] tabular-nums',
-                          c.key === best?.key ? 'text-teal-700' : 'text-zinc-700')}>
+                          c.key === best?.key ? 'text-teal-700 dark:text-teal-300' : 'text-zinc-700 dark:text-zinc-300')}>
                           <b className="text-[16px]">{Math.round(rate)}</b> in every 100
                         </span>
                         <span className="w-36 shrink-0 whitespace-nowrap text-right text-[11px] tabular-nums text-zinc-500">
@@ -300,7 +300,7 @@ export default function ClientReportView({ report, showSend = false }: {
 
                 {best && worst && best.key !== worst.key && (
                   <p className="mt-3 max-w-3xl text-[11px] leading-relaxed text-zinc-500">
-                    <b className="text-zinc-700">{best.label} converts{' '}
+                    <b className="text-zinc-700 dark:text-zinc-300">{best.label} converts{' '}
                     {Math.round(per100(best) / Math.max(per100(worst), 0.1))}× better than{' '}
                     {worst.label.toLowerCase()}</b> per person reached ({best.forwarded} of{' '}
                     {best.contacted} against {worst.forwarded} of {worst.contacted}) — and{' '}
@@ -338,10 +338,10 @@ export default function ClientReportView({ report, showSend = false }: {
                    takeaway={<>Half the people we add — {sourced - matched} of {sourced} — have no
                      open job to be matched to, and only one of them has ever been put forward. The
                      ones who do have a match convert at{' '}
-                     <span className="text-teal-700">
+                     <span className="text-teal-700 dark:text-teal-300">
                        {matched ? Math.round((fwd / matched) * 1000) / 10 : 0}%
                      </span>. This is a targeting problem, not an effort problem.</>}>
-              <div className="flex items-center gap-3 text-[10px] uppercase tracking-wide text-zinc-300">
+              <div className="flex items-center gap-3 text-[10px] uppercase tracking-wide text-zinc-300 dark:text-zinc-700">
                 <span className="w-44 shrink-0" />
                 <span className="grow">candidates we sourced</span>
                 <span className="w-36 shrink-0 text-right">open jobs across all of Proxi</span>
@@ -354,26 +354,26 @@ export default function ClientReportView({ report, showSend = false }: {
                   return (
                     <div key={d.role} className="flex items-center gap-3">
                       <span className={cn('w-44 shrink-0 truncate text-[12px]',
-                        thin ? 'text-orange-700' : 'text-zinc-700')} title={d.role}>
+                        thin ? 'text-orange-700 dark:text-orange-300' : 'text-zinc-700 dark:text-zinc-300')} title={d.role}>
                         {d.role}
                       </span>
                       <Hover tip={<span className="flex flex-col gap-1">
-                        <b className="text-zinc-900">{d.role}</b>
+                        <b className="text-zinc-900 dark:text-zinc-100">{d.role}</b>
                         <TipRow tone={LGOOD} value={d.withMatch} label={`have a live job match (${matchPct}%)`} />
-                        <TipRow tone="bg-zinc-200" value={d.sourced - d.withMatch} label="have none" />
+                        <TipRow tone="bg-zinc-200 dark:bg-zinc-700" value={d.sourced - d.withMatch} label="have none" />
                         <span className="text-zinc-500">{d.openJobs} open jobs · {d.forwarded} put forward</span>
-                        <span className="text-zinc-400">click for the candidates</span>
+                        <span className="text-zinc-400 dark:text-zinc-600">click for the candidates</span>
                       </span>}>
                         <button
                           onClick={() => setDrill({ title: `${d.role} candidates we sourced`,
                             sub: `${d.withMatch} of ${d.sourced} have a live job match`,
                             params: { kind: 'candidates', outcome: 'added', targets: d.role } })}
-                          className="relative block h-5 w-full cursor-pointer rounded bg-zinc-100">
-                          <span className="absolute inset-y-0 left-0 rounded bg-zinc-200"
+                          className="relative block h-5 w-full cursor-pointer rounded bg-zinc-100 dark:bg-zinc-800">
+                          <span className="absolute inset-y-0 left-0 rounded bg-zinc-200 dark:bg-zinc-700"
                                 style={{ width: `${(d.sourced / maxSourced) * 100}%` }} />
                           <span className={cn('absolute inset-y-0 left-0 rounded', LGOOD)}
                                 style={{ width: `${(d.withMatch / maxSourced) * 100}%` }} />
-                          <span className="absolute inset-y-0 left-2 flex items-center text-[10px] font-medium tabular-nums text-zinc-900/70">
+                          <span className="absolute inset-y-0 left-2 flex items-center text-[10px] font-medium tabular-nums text-zinc-900/70 dark:text-zinc-100/70">
                             {d.sourced}
                           </span>
                         </button>
@@ -385,13 +385,13 @@ export default function ClientReportView({ report, showSend = false }: {
                           params: { kind: 'jobs', open: '1', specialty: d.role } })}
                         className={cn('flex w-36 shrink-0 items-center justify-end gap-2',
                           d.openJobs > 0 && 'cursor-pointer')}>
-                        <span className="relative block h-2 w-20 rounded-full bg-zinc-100">
+                        <span className="relative block h-2 w-20 rounded-full bg-zinc-100 dark:bg-zinc-800">
                           <span className={cn('absolute inset-y-0 right-0 rounded-full',
                             thin ? LWARN : LPRIMARY)}
                                 style={{ width: `${Math.max((d.openJobs / maxJobs) * 100, d.openJobs ? 4 : 0)}%` }} />
                         </span>
                         <span className={cn('w-6 text-right text-[12px] font-semibold tabular-nums',
-                          thin ? 'text-orange-700' : 'text-zinc-800')}>{d.openJobs}</span>
+                          thin ? 'text-orange-700 dark:text-orange-300' : 'text-zinc-800 dark:text-zinc-200')}>{d.openJobs}</span>
                       </button>
                       <button
                         onClick={() => d.forwarded > 0 && setDrill({
@@ -399,7 +399,7 @@ export default function ClientReportView({ report, showSend = false }: {
                           sub: `${d.forwarded} of the ${d.sourced} we sourced in this role`,
                           params: { kind: 'candidates', reach: 'forwarded', targets: d.role } })}
                         className={cn('w-24 shrink-0 text-right text-[12px] font-semibold tabular-nums',
-                          d.forwarded > 0 ? 'cursor-pointer text-teal-700' : 'text-zinc-300')}>
+                          d.forwarded > 0 ? 'cursor-pointer text-teal-700 dark:text-teal-300' : 'text-zinc-300 dark:text-zinc-700')}>
                         {d.forwarded}
                       </button>
                     </div>
@@ -408,19 +408,19 @@ export default function ClientReportView({ report, showSend = false }: {
               </div>
               <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-zinc-500">
                 <Key tone={LGOOD} label="Has a live job match" />
-                <Key tone="bg-zinc-200" label="No open job to match" />
+                <Key tone="bg-zinc-200 dark:bg-zinc-700" label="No open job to match" />
                 <Key tone={LWARN} label="Fewer than 5 jobs open in that role" />
               </div>
               {r.djc.competition && r.djc.competition.openJobs > 0 && (
-                <div className="mt-4 rounded-lg bg-zinc-50 px-4 py-3">
-                  <p className="text-[12px] leading-relaxed text-zinc-700">
-                    <b className="text-zinc-900">And the jobs that do exist are already crowded.</b>{' '}
+                <div className="mt-4 rounded-lg bg-zinc-50 dark:bg-zinc-900 px-4 py-3">
+                  <p className="text-[12px] leading-relaxed text-zinc-700 dark:text-zinc-300">
+                    <b className="text-zinc-900 dark:text-zinc-100">And the jobs that do exist are already crowded.</b>{' '}
                     {r.djc.competition.candidatesWaiting.toLocaleString()} candidates are currently
                     matched to {r.djc.competition.openJobs} open jobs. The typical open job already
-                    has <b className="text-zinc-900">{r.djc.competition.medianPerJob} candidates</b>{' '}
+                    has <b className="text-zinc-900 dark:text-zinc-100">{r.djc.competition.medianPerJob} candidates</b>{' '}
                     waiting on it; the most contested has {r.djc.competition.mostPerJob}. For the
                     people this automation added, the jobs they match carry{' '}
-                    <b className="text-zinc-900">{r.djc.competition.ourAvgRivals} other candidates</b>{' '}
+                    <b className="text-zinc-900 dark:text-zinc-100">{r.djc.competition.ourAvgRivals} other candidates</b>{' '}
                     on average.
                   </p>
                   <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-500">
@@ -433,8 +433,8 @@ export default function ClientReportView({ report, showSend = false }: {
                 </div>
               )}
               {starved.length > 0 && (
-                <p className="mt-3 max-w-3xl text-[12px] leading-relaxed text-zinc-600">
-                  <b className="text-zinc-800">{starvedPeople} of the {sourced} were sourced into roles
+                <p className="mt-3 max-w-3xl text-[12px] leading-relaxed text-zinc-600 dark:text-zinc-400">
+                  <b className="text-zinc-800 dark:text-zinc-200">{starvedPeople} of the {sourced} were sourced into roles
                   with almost nothing open</b> — {starved.map(d => `${d.role.toLowerCase()} (${d.openJobs} ${d.openJobs === 1 ? 'job' : 'jobs'})`).join(', ')}.
                   Those views buy a contact record and little else. Role is visible on the DJC list
                   card before any view is spent, so weighting the sweep toward what Proxi actually
@@ -450,18 +450,18 @@ export default function ClientReportView({ report, showSend = false }: {
                  minutes (shown at right) and multiplied by the automation's actual volumes. The
                  ~{r.djc.baselineHours}h/week baseline is Proxi's own pre-automation figure.</>}
                takeaway={<>The manual process took ~{r.djc.baselineHours} hours a week. The automation
-                 now returns <span className="text-teal-700">{r.djc.hoursPerWeek} hours a week</span> —
+                 now returns <span className="text-teal-700 dark:text-teal-300">{r.djc.hoursPerWeek} hours a week</span> —
                  not by being faster at the same list, but by reviewing far more candidates than anyone
                  did by hand.</>}>
           <div className="grid gap-x-8 gap-y-4 lg:grid-cols-2">
             <div>
-              <p className="text-[10px] uppercase tracking-wide text-zinc-400">Hours returned per month</p>
+              <p className="text-[10px] uppercase tracking-wide text-zinc-400 dark:text-zinc-600">Hours returned per month</p>
               <div className="mt-2 flex max-w-56 items-end gap-2">
                 {r.djc.hoursMonthly.map(m => {
                   const max = Math.max(...r.djc.hoursMonthly.map(x => x.hours), 1)
                   return (
                     <div key={m.month} className="flex flex-1 flex-col items-center">
-                      <span className="mb-1 text-[11px] font-semibold tabular-nums text-zinc-800">{m.hours}h</span>
+                      <span className="mb-1 text-[11px] font-semibold tabular-nums text-zinc-800 dark:text-zinc-200">{m.hours}h</span>
                       <div className={cn('w-full rounded-t-[3px]', LGOOD)}
                            style={{ height: Math.max((m.hours / max) * 56, 2) }} />
                       <span className="mt-1 text-[10px] text-zinc-500">{monthLabel(m.month)}</span>
@@ -471,16 +471,16 @@ export default function ClientReportView({ report, showSend = false }: {
               </div>
             </div>
             <div>
-              <p className="text-[10px] uppercase tracking-wide text-zinc-400">
+              <p className="text-[10px] uppercase tracking-wide text-zinc-400 dark:text-zinc-600">
                 Broken up by what a view actually costs a person
               </p>
               <div className="mt-2 space-y-1">
                 {r.djc.timeTasks.map(t => (
                   <div key={t.label} className="flex items-baseline gap-3 text-[12px]">
-                    <span className="min-w-0 truncate text-zinc-700">{t.label}</span>
-                    <span className="grow border-b border-dotted border-zinc-200" />
-                    <span className="shrink-0 tabular-nums text-zinc-600">{t.count.toLocaleString()} ×</span>
-                    <span className="w-14 shrink-0 text-right tabular-nums text-zinc-800">{t.minutes} min</span>
+                    <span className="min-w-0 truncate text-zinc-700 dark:text-zinc-300">{t.label}</span>
+                    <span className="grow border-b border-dotted border-zinc-200 dark:border-zinc-800" />
+                    <span className="shrink-0 tabular-nums text-zinc-600 dark:text-zinc-400">{t.count.toLocaleString()} ×</span>
+                    <span className="w-14 shrink-0 text-right tabular-nums text-zinc-800 dark:text-zinc-200">{t.minutes} min</span>
                   </div>
                 ))}
               </div>
@@ -493,9 +493,9 @@ export default function ClientReportView({ report, showSend = false }: {
       {/* ════ 03 KIMEDICS ═══════════════════════════════════════════════════ */}
       {tab === 'kim' && <section>
         <SectionHead n="03" title="Kimedics" q="Are we filling the roles that come through — and does the intake run itself?">
-          <span className="font-semibold text-zinc-900">{r.kim.jobsOpened} roles opened this year</span>
+          <span className="font-semibold text-zinc-900 dark:text-zinc-100">{r.kim.jobsOpened} roles opened this year</span>
           {' '}({r.kim.priorJobsOpened} by this point last year) — {r.kim.jobsForwardPct}% had a candidate
-          put forward and <span className="font-semibold text-teal-700">{r.kim.jobsFilledPct}% were filled</span>.
+          put forward and <span className="font-semibold text-teal-700 dark:text-teal-300">{r.kim.jobsFilledPct}% were filled</span>.
         </SectionHead>
 
 
@@ -507,12 +507,12 @@ export default function ClientReportView({ report, showSend = false }: {
                info={<>Everything with status <b>Open</b> in Salesforce as of the last sync. "Waiting"
                  is how long since the job was opened.</>}
                takeaway={<>{r.kim.jobsOpenNow} jobs are open today.{' '}
-                 {r.kim.openStale > 0 && <span className="text-orange-700">{r.kim.openStale} have
+                 {r.kim.openStale > 0 && <span className="text-orange-700 dark:text-orange-300">{r.kim.openStale} have
                  waited over 3 months — that is where clients lose patience.</span>}{' '}
                  Click any row for the raw jobs with Salesforce links.</>}>
           <div className="grid gap-x-8 gap-y-4 lg:grid-cols-3">
             <div>
-              <p className="mb-2 text-[10px] uppercase tracking-wide text-zinc-400">How long open</p>
+              <p className="mb-2 text-[10px] uppercase tracking-wide text-zinc-400 dark:text-zinc-600">How long open</p>
               <div className="space-y-1">
                 {r.kim.openAges.map(a => {
                   const max = Math.max(...r.kim.openAges.map(x => x.jobs), 1)
@@ -520,14 +520,14 @@ export default function ClientReportView({ report, showSend = false }: {
                     <button key={a.label}
                             onClick={() => setDrill({ title: `Open ${a.label.toLowerCase()}`,
                               params: { kind: 'jobs', open: '1', ageBand: a.label } })}
-                            className="group flex w-full cursor-pointer items-center gap-3 rounded px-1 py-0.5 -mx-1 transition-colors hover:bg-zinc-100">
-                      <span className="w-24 shrink-0 text-left text-[12px] text-zinc-700">{a.label}</span>
+                            className="group flex w-full cursor-pointer items-center gap-3 rounded px-1 py-0.5 -mx-1 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800">
+                      <span className="w-24 shrink-0 text-left text-[12px] text-zinc-700 dark:text-zinc-300">{a.label}</span>
                       <span className={cn('relative h-4 grow rounded', LTRACK)}>
                         <span className={cn('absolute inset-y-0 left-0 rounded',
                           a.label === 'Over 3 months' ? LWARN : LPRIMARY)}
                               style={{ width: `${Math.max((a.jobs / max) * 100, 1)}%` }} />
                       </span>
-                      <span className="w-8 shrink-0 text-right text-[12px] font-semibold tabular-nums text-zinc-800">
+                      <span className="w-8 shrink-0 text-right text-[12px] font-semibold tabular-nums text-zinc-800 dark:text-zinc-200">
                         {a.jobs}
                       </span>
                     </button>
@@ -599,19 +599,19 @@ function ScoreboardBlock({ r, goals, onGoals, onDrill, opsDelta, opsPct }: {
            right={<GoalsEditor goals={goals} onSaved={onGoals} />}>
       <div className="grid gap-3 sm:grid-cols-2">
         <button onClick={() => onDrill({ title: 'Placed this year', params: { kind: 'placements', ytd: '1' } })}
-                className="cursor-pointer rounded-lg bg-zinc-100 px-4 py-3 text-left transition-colors hover:bg-zinc-200/70">
-          <p className="text-[22px] leading-none font-semibold tabular-nums text-cyan-700">{r.ops.ytdPlaced}</p>
-          <p className="mt-1.5 text-[12px] leading-snug font-medium text-zinc-700">Placements this year</p>
+                className="cursor-pointer rounded-lg bg-zinc-100 dark:bg-zinc-800 px-4 py-3 text-left transition-colors hover:bg-zinc-200/70 dark:hover:bg-zinc-700/70">
+          <p className="text-[22px] leading-none font-semibold tabular-nums text-cyan-700 dark:text-cyan-300">{r.ops.ytdPlaced}</p>
+          <p className="mt-1.5 text-[12px] leading-snug font-medium text-zinc-700 dark:text-zinc-300">Placements this year</p>
           <p className="mt-0.5 text-[11px] leading-snug text-zinc-500">{fmtSpan()}</p>
           <p className={cn('mt-1.5 text-[12px] font-medium tabular-nums',
-            opsDelta >= 0 ? 'text-teal-700' : 'text-orange-700')}>
+            opsDelta >= 0 ? 'text-teal-700 dark:text-teal-300' : 'text-orange-700 dark:text-orange-300')}>
             {opsDelta >= 0 ? '▲' : '▼'} {opsDelta >= 0 ? '+' : ''}{opsDelta} vs {r.ops.priorYtdPlaced} last year
             <span className="font-normal opacity-75"> · {opsDelta >= 0 ? '+' : '−'}{Math.abs(opsPct)}%</span>
           </p>
         </button>
-        <div className="rounded-lg bg-zinc-100 px-4 py-3">
-          <p className="text-[22px] leading-none font-semibold tabular-nums text-zinc-800">{r.ops.avgPerMonth.toFixed(1)}</p>
-          <p className="mt-1.5 text-[12px] leading-snug font-medium text-zinc-700">Placements a month</p>
+        <div className="rounded-lg bg-zinc-100 dark:bg-zinc-800 px-4 py-3">
+          <p className="text-[22px] leading-none font-semibold tabular-nums text-zinc-800 dark:text-zinc-200">{r.ops.avgPerMonth.toFixed(1)}</p>
+          <p className="mt-1.5 text-[12px] leading-snug font-medium text-zinc-700 dark:text-zinc-300">Placements a month</p>
           <p className="mt-0.5 text-[11px] leading-snug text-zinc-500">
             Average so far this year · {(r.ops.priorYtdPlaced / monthsElapsed).toFixed(1)} over the same span last year
           </p>
@@ -619,14 +619,14 @@ function ScoreboardBlock({ r, goals, onGoals, onDrill, opsDelta, opsPct }: {
       </div>
 
       {yearGoal ? (
-        <div className="mt-3 rounded-lg bg-zinc-100 px-4 py-3">
+        <div className="mt-3 rounded-lg bg-zinc-100 dark:bg-zinc-800 px-4 py-3">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <p className="text-[12px] text-zinc-600">
-              Year goal: <b className="tabular-nums text-zinc-800">{r.ops.ytdPlaced} of {yearGoal}</b>
+            <p className="text-[12px] text-zinc-600 dark:text-zinc-400">
+              Year goal: <b className="tabular-nums text-zinc-800 dark:text-zinc-200">{r.ops.ytdPlaced} of {yearGoal}</b>
               <span className="text-zinc-500"> · {yearPct}%</span>
             </p>
             {ytdGoal !== null && (
-              <p className={cn('text-[12px] font-medium tabular-nums', onPace ? 'text-teal-700' : 'text-orange-700')}>
+              <p className={cn('text-[12px] font-medium tabular-nums', onPace ? 'text-teal-700 dark:text-teal-300' : 'text-orange-700 dark:text-orange-300')}>
                 YTD goal through {now.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' })}: {ytdGoal} —{' '}
                 {onPace ? `on pace (+${r.ops.ytdPlaced - ytdGoal})` : `behind by ${ytdGoal - r.ops.ytdPlaced}`}
               </p>
@@ -637,14 +637,14 @@ function ScoreboardBlock({ r, goals, onGoals, onDrill, opsDelta, opsPct }: {
                   style={{ width: `${yearPct}%` }} />
             {ytdGoal !== null && yearGoal > 0 && (
               <Hover inline tip={<>where the year goal says we should be by now: {ytdGoal}</>}>
-                <span className="absolute inset-y-[-3px] w-[2px] rounded bg-zinc-500"
+                <span className="absolute inset-y-[-3px] w-[2px] rounded bg-zinc-50 dark:bg-zinc-9000"
                       style={{ left: `${Math.min((ytdGoal / yearGoal) * 100, 100)}%` }} />
               </Hover>
             )}
           </div>
         </div>
       ) : (
-        <p className="mt-3 text-[11px] text-zinc-400">
+        <p className="mt-3 text-[11px] text-zinc-400 dark:text-zinc-600">
           No goals set yet — use "Set goals" above to start tracking actuals against targets.
         </p>
       )}
@@ -692,38 +692,38 @@ function GoalsEditor({ goals, onSaved }: { goals: GoalSet; onSaved: (g: GoalSet)
       setStatus('error')
     }
   }
-  const inputCls = 'w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-[12px] tabular-nums text-zinc-800 outline-none focus:border-zinc-500'
+  const inputCls = 'w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 py-1 text-[12px] tabular-nums text-zinc-800 dark:text-zinc-200 outline-none focus:border-zinc-500 dark:focus:border-zinc-500'
   const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
   return (
     <div className="relative">
       <button onClick={() => setOpen(o => !o)}
               className={cn('rounded-lg border px-3 py-1.5 text-[12px] transition-colors',
-                open ? 'border-zinc-400 text-zinc-700'
-                  : 'border-zinc-300 text-zinc-500 hover:border-zinc-400 hover:text-zinc-700')}>
+                open ? 'border-zinc-400 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300'
+                  : 'border-zinc-300 dark:border-zinc-700 text-zinc-500 hover:border-zinc-400 dark:hover:border-zinc-600 hover:text-zinc-700 dark:hover:text-zinc-300')}>
         ⚑ Set goals
       </button>
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full z-20 mt-2 w-[340px] rounded-xl border border-zinc-200 bg-white p-4 shadow-xl shadow-zinc-400/20">
-            <p className="text-[13px] font-semibold text-zinc-800">Placement goals · {year}</p>
+          <div className="absolute right-0 top-full z-20 mt-2 w-[340px] rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-xl shadow-zinc-400/20">
+            <p className="text-[13px] font-semibold text-zinc-800 dark:text-zinc-200">Placement goals · {year}</p>
             <p className="mt-0.5 text-[11px] text-zinc-500">
               Fill in what you have — year only is fine. "Split evenly" spreads the year across
               quarters and months as a starting point.
             </p>
             <div className="mt-3 flex items-center gap-2">
-              <label className="w-24 shrink-0 text-[11px] text-zinc-600">Year goal</label>
+              <label className="w-24 shrink-0 text-[11px] text-zinc-600 dark:text-zinc-400">Year goal</label>
               <input type="number" min={0} value={draft.year ?? ''} placeholder="e.g. 360"
                      onChange={e => setDraft(d => ({ ...d, year: e.target.value === '' ? null : Number(e.target.value) }))}
                      className={inputCls} />
               <button onClick={splitYear} disabled={!draft.year}
                       className={cn('shrink-0 rounded-md px-2 py-1 text-[11px] transition-colors',
-                        draft.year ? 'text-cyan-700 hover:bg-cyan-600/10' : 'text-zinc-300')}>
+                        draft.year ? 'text-cyan-700 dark:text-cyan-300 hover:bg-cyan-600/10' : 'text-zinc-300 dark:text-zinc-700')}>
                 Split evenly
               </button>
             </div>
-            <p className="mt-3 text-[10px] uppercase tracking-wide text-zinc-400">Quarterly</p>
+            <p className="mt-3 text-[10px] uppercase tracking-wide text-zinc-400 dark:text-zinc-600">Quarterly</p>
             <div className="mt-1 grid grid-cols-4 gap-2">
               {draft.quarters.map((v, i) => (
                 <div key={i}>
@@ -733,7 +733,7 @@ function GoalsEditor({ goals, onSaved }: { goals: GoalSet; onSaved: (g: GoalSet)
                 </div>
               ))}
             </div>
-            <p className="mt-3 text-[10px] uppercase tracking-wide text-zinc-400">Monthly</p>
+            <p className="mt-3 text-[10px] uppercase tracking-wide text-zinc-400 dark:text-zinc-600">Monthly</p>
             <div className="mt-1 grid grid-cols-4 gap-2">
               {draft.months.map((v, i) => (
                 <div key={i}>
@@ -745,18 +745,18 @@ function GoalsEditor({ goals, onSaved }: { goals: GoalSet; onSaved: (g: GoalSet)
             </div>
             <div className="mt-3 flex items-center justify-between gap-2">
               <p className={cn('min-w-0 text-[11px]',
-                status === 'done' ? 'text-teal-700' : status === 'error' ? 'text-orange-700' : 'text-zinc-400')}>
+                status === 'done' ? 'text-teal-700 dark:text-teal-300' : status === 'error' ? 'text-orange-700 dark:text-orange-300' : 'text-zinc-400 dark:text-zinc-600')}>
                 {status === 'done' ? 'Saved ✓' : status === 'error' ? 'Could not save — try again.' : 'Saved for everyone who opens the report.'}
               </p>
               <div className="flex shrink-0 items-center gap-1.5">
                 <button onClick={() => setDraft(EMPTY_GOALS)}
                         title="Clear every goal — takes effect when you save"
-                        className="rounded-lg px-2.5 py-1.5 text-[12px] text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-700">
+                        className="rounded-lg px-2.5 py-1.5 text-[12px] text-zinc-500 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-700 dark:hover:text-zinc-300">
                   Reset
                 </button>
                 <button onClick={save} disabled={status === 'saving'}
                         className={cn('rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors',
-                          status === 'saving' ? 'bg-zinc-100 text-zinc-400' : 'bg-cyan-700 text-white hover:bg-cyan-600')}>
+                          status === 'saving' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600' : 'bg-cyan-700 text-white hover:bg-cyan-600')}>
                   {status === 'saving' ? 'Saving…' : 'Save goals'}
                 </button>
               </div>
@@ -783,15 +783,15 @@ function QuarterRibbon({ quarters, goals, onDrill }: {
       goal: goals.quarters[n - 1], future: n > currentQ }
   })
   return (
-    <div className="mt-3 flex flex-wrap divide-x divide-zinc-200 overflow-hidden rounded-lg bg-zinc-50">
+    <div className="mt-3 flex flex-wrap divide-x divide-zinc-200 dark:divide-zinc-800 overflow-hidden rounded-lg bg-zinc-50 dark:bg-zinc-900">
       {cells.map(c => {
         if (c.future || !c.q) {
           return (
             <div key={c.label} className="min-w-32 flex-1 px-4 py-2.5 opacity-60">
               <p className="text-[10px] text-zinc-500">{c.label}</p>
               <p className="mt-0.5 flex items-baseline gap-1.5">
-                <span className="text-[19px] leading-none font-semibold text-zinc-400">—</span>
-                <span className="text-[11px] text-zinc-400">
+                <span className="text-[19px] leading-none font-semibold text-zinc-400 dark:text-zinc-600">—</span>
+                <span className="text-[11px] text-zinc-400 dark:text-zinc-600">
                   {c.goal ? `goal ${c.goal} · ` : ''}starts {Q_START[c.n]}
                 </span>
               </p>
@@ -811,22 +811,22 @@ function QuarterRibbon({ quarters, goals, onDrill }: {
                     if (range) onDrill({ title: `Placed in ${q.label}`,
                       params: { kind: 'placements', ...range } })
                   }}
-                  className="min-w-32 flex-1 cursor-pointer px-4 py-2.5 text-left transition-colors hover:bg-zinc-100">
+                  className="min-w-32 flex-1 cursor-pointer px-4 py-2.5 text-left transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800">
             <p className="text-[10px] text-zinc-500">
-              {c.label}{partial && <span className="text-zinc-400"> · so far</span>}
+              {c.label}{partial && <span className="text-zinc-400 dark:text-zinc-600"> · so far</span>}
             </p>
             <p className="mt-0.5 flex items-baseline gap-1.5">
-              <span className="text-[19px] leading-none font-semibold tabular-nums text-zinc-900">{q.placed}</span>
+              <span className="text-[19px] leading-none font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{q.placed}</span>
               {d && (
                 <span className={cn('text-[11px] font-medium tabular-nums',
-                  partial ? 'text-zinc-500' : d.up ? 'text-teal-700' : 'text-orange-700')}>
+                  partial ? 'text-zinc-500' : d.up ? 'text-teal-700 dark:text-teal-300' : 'text-orange-700 dark:text-orange-300')}>
                   {d.up ? '▲' : '▼'} {d.up ? '+' : ''}{d.diff} vs {refWord}
                   {d.pct !== null && <span className="font-normal opacity-70"> · {d.pct}%</span>}
                 </span>
               )}
             </p>
             {c.goal !== null && c.goal !== undefined && q.prior !== null && (
-              <p className="mt-0.5 text-[10px] tabular-nums text-zinc-400">last year {q.prior}</p>
+              <p className="mt-0.5 text-[10px] tabular-nums text-zinc-400 dark:text-zinc-600">last year {q.prior}</p>
             )}
           </button>
         )
@@ -908,13 +908,13 @@ function OpsTrendBlock({ monthly, quarters, goals, onDrill }: {
         {cols.map(c => {
           const has = c.ref !== null && c.ref !== undefined
           const d = has ? deltaBits(c.value, c.ref as number) : null
-          const tone = c.partial || !d ? 'text-zinc-400' : d.up ? 'text-teal-700' : 'text-orange-700'
+          const tone = c.partial || !d ? 'text-zinc-400 dark:text-zinc-600' : d.up ? 'text-teal-700 dark:text-teal-300' : 'text-orange-700 dark:text-orange-300'
           const barTone = mode === 'none' ? LPRIMARY : d && d.up ? LGOOD : d ? LWARN : LNEUTRAL
           return (
             <button key={c.key}
                     onClick={() => onDrill(c.drill)}
-                    className="flex flex-1 cursor-pointer flex-col items-center rounded px-0.5 pt-1 transition-colors hover:bg-zinc-100">
-              <span className="mb-1.5 text-[12px] font-semibold tabular-nums text-zinc-900">{c.value}</span>
+                    className="flex flex-1 cursor-pointer flex-col items-center rounded px-0.5 pt-1 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800">
+              <span className="mb-1.5 text-[12px] font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{c.value}</span>
               <div className="flex w-full items-end justify-center gap-1" style={{ height: 88 }}>
                 <div className={cn('w-[58%] rounded-t-[3px]',
                   c.partial ? 'border border-dashed !bg-transparent border-slate-400/50' : barTone)}
@@ -924,9 +924,9 @@ function OpsTrendBlock({ monthly, quarters, goals, onDrill }: {
                        style={{ height: Math.max(((c.ref as number) / max) * 88, 2) }} />
                 )}
               </div>
-              <div className="mt-1 h-px w-full bg-zinc-300" />
+              <div className="mt-1 h-px w-full bg-zinc-300 dark:bg-zinc-600" />
               <span className="mt-1.5 text-[10px] text-zinc-500">
-                {c.label}{c.partial && <span className="text-zinc-400"> so far</span>}
+                {c.label}{c.partial && <span className="text-zinc-400 dark:text-zinc-600"> so far</span>}
               </span>
               {mode !== 'none' && (
                 <span className={cn('mt-0.5 whitespace-nowrap text-[11px] font-medium tabular-nums', tone)}>
@@ -941,7 +941,7 @@ function OpsTrendBlock({ monthly, quarters, goals, onDrill }: {
         })}
       </div>
       {mode === 'goal' && (
-        <p className="mt-2 text-[11px] text-zinc-400">Reference bar = the goal Proxi set for that period.</p>
+        <p className="mt-2 text-[11px] text-zinc-400 dark:text-zinc-600">Reference bar = the goal Proxi set for that period.</p>
       )}
     </Block>
   )
@@ -989,8 +989,8 @@ function PipelineBlock({ pipe, onDrill }: {
                 onClick={() => onDrill({ title: `${s.label}${s.ytd ? ' — this year' : ''}`,
                   params: { kind: 'applications', stage: s.stage,
                     ...(s.ytd ? { fromMonth: `${new Date().getUTCFullYear()}-01` } : {}) } })}
-                className="flex w-full cursor-pointer items-center gap-3 rounded px-1 py-0.5 -mx-1 transition-colors hover:bg-zinc-100">
-          <span className="w-40 shrink-0 text-left text-[12px] text-zinc-700">{s.label}</span>
+                className="flex w-full cursor-pointer items-center gap-3 rounded px-1 py-0.5 -mx-1 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800">
+          <span className="w-40 shrink-0 text-left text-[12px] text-zinc-700 dark:text-zinc-300">{s.label}</span>
           <span className={cn('relative h-4 grow rounded', LTRACK)}>
             <span className={cn('absolute inset-y-0 left-0 rounded', s.tone)}
                   style={{ width: `${Math.max((s.n / (base || 1)) * 100, 1)}%` }} />
@@ -1003,9 +1003,9 @@ function PipelineBlock({ pipe, onDrill }: {
                     }} />
             )}
           </span>
-          <span className="w-24 shrink-0 text-right text-[12px] font-semibold tabular-nums text-zinc-900">
+          <span className="w-24 shrink-0 text-right text-[12px] font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
             {s.n.toLocaleString()}
-            <span className="ml-1 text-[10px] font-normal text-zinc-400">
+            <span className="ml-1 text-[10px] font-normal text-zinc-400 dark:text-zinc-600">
               {Math.round((s.n / (base || 1)) * 100)}%
             </span>
           </span>
@@ -1026,10 +1026,10 @@ function PipelineBlock({ pipe, onDrill }: {
                       params: { kind: 'applications', stage: 'all',
                         ...(range ?? { month: s.label }) } })
                   }}
-                  className="flex w-full cursor-pointer items-center gap-3 rounded px-1 py-0.5 -mx-1 transition-colors hover:bg-zinc-100">
-            <span className="w-16 shrink-0 text-left text-[12px] text-zinc-600">{labelFn(s.label)}</span>
+                  className="flex w-full cursor-pointer items-center gap-3 rounded px-1 py-0.5 -mx-1 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800">
+            <span className="w-16 shrink-0 text-left text-[12px] text-zinc-600 dark:text-zinc-400">{labelFn(s.label)}</span>
             <Hover tip={<span className="flex flex-col gap-1">
-              <b className="text-zinc-900">{labelFn(s.label)} — {eff(s)}% effectiveness</b>
+              <b className="text-zinc-900 dark:text-zinc-100">{labelFn(s.label)} — {eff(s)}% effectiveness</b>
               <TipRow tone="bg-sky-300/50" value={s.pairs} label="put forward" />
               <TipRow tone="bg-cyan-700" value={s.submitted} label="reached submittal" />
               <TipRow tone={LGOOD} value={s.placed} label="placed" />
@@ -1056,9 +1056,9 @@ function PipelineBlock({ pipe, onDrill }: {
             </Hover>
             <span className="w-60 shrink-0 whitespace-nowrap text-right text-[11px] tabular-nums text-zinc-500">
               {s.pairs} fwd · {s.submitted} sub ·{' '}
-              <span className="text-teal-700">{s.placed} placed</span>
-              {s.renewals > 0 && <span className="text-violet-700"> ({s.renewals}R)</span>}{' '}
-              <span className={cn('font-medium', eff(s) >= 20 ? 'text-teal-700' : 'text-zinc-500')}>
+              <span className="text-teal-700 dark:text-teal-300">{s.placed} placed</span>
+              {s.renewals > 0 && <span className="text-violet-700 dark:text-violet-300"> ({s.renewals}R)</span>}{' '}
+              <span className={cn('font-medium', eff(s) >= 20 ? 'text-teal-700 dark:text-teal-300' : 'text-zinc-500')}>
                 · {eff(s)}%
               </span>
             </span>
@@ -1078,7 +1078,7 @@ function PipelineBlock({ pipe, onDrill }: {
            takeaway={<>Counted from job applications: {pipe.pairs.toLocaleString()} times a candidate
              was put forward, covering {pipe.people.toLocaleString()} people across{' '}
              {pipe.jobs.toLocaleString()} jobs.{' '}
-             <span className="text-orange-700">{neverSubmitted}% never reach submittal</span> —
+             <span className="text-orange-700 dark:text-orange-300">{neverSubmitted}% never reach submittal</span> —
              matched to a job but never presented to the client — and of those submitted,{' '}
              {pipe.submitted ? Math.round(((pipe.submitted - pipe.placed) / pipe.submitted) * 100) : 0}%
              never convert to a placement.</>}
@@ -1091,10 +1091,10 @@ function PipelineBlock({ pipe, onDrill }: {
            ]} />}>
       {pipe.seasonality && pipe.seasonality.yearsAgreeing === pipe.seasonality.years
         && pipe.seasonality.years >= 3 && (
-        <p className="mb-3 rounded-lg bg-zinc-50 px-3 py-2 text-[12px] leading-relaxed text-zinc-600">
-          <span className="font-medium text-zinc-800">When a candidate goes forward matters.</span>{' '}
+        <p className="mb-3 rounded-lg bg-zinc-50 dark:bg-zinc-900 px-3 py-2 text-[12px] leading-relaxed text-zinc-600 dark:text-zinc-400">
+          <span className="font-medium text-zinc-800 dark:text-zinc-200">When a candidate goes forward matters.</span>{' '}
           Of everyone put forward in {pipe.seasonality.best.month},{' '}
-          <span className="font-medium text-teal-700">{pipe.seasonality.best.pct}% ended up placed</span>;
+          <span className="font-medium text-teal-700 dark:text-teal-300">{pipe.seasonality.best.pct}% ended up placed</span>;
           in {pipe.seasonality.worst.month} it was {pipe.seasonality.worst.pct}%, against a{' '}
           {pipe.seasonality.avgPct}% average — and {pipe.seasonality.best.month} beat{' '}
           {pipe.seasonality.worst.month} in all {pipe.seasonality.years} years we can measure.
@@ -1130,7 +1130,7 @@ function PipelineBlock({ pipe, onDrill }: {
             { label: 'Reached submittal', n: pipe.ytd.submitted, tone: LPRIMARY, stage: 'submitted', ytd: true },
             { label: 'Placed', n: pipe.ytd.placed, tone: LGOOD, stage: 'placed', ytd: true, renewals: pipe.ytd.renewals },
           ], pipe.ytd.pairs)}
-          <p className="mt-2.5 text-[12px] leading-relaxed text-zinc-600">
+          <p className="mt-2.5 text-[12px] leading-relaxed text-zinc-600 dark:text-zinc-400">
             Same span last year: {pipe.priorYtd.pairs.toLocaleString()} put forward,{' '}
             {pipe.priorYtd.submitted.toLocaleString()} submitted, {pipe.priorYtd.placed} placed —{' '}
             {(['pairs', 'placed'] as const).map((k, i) => {
@@ -1139,7 +1139,7 @@ function PipelineBlock({ pipe, onDrill }: {
               return (
                 <span key={k}>
                   {i > 0 && ' · '}
-                  <span className={up ? 'text-teal-700' : 'text-orange-700'}>
+                  <span className={up ? 'text-teal-700 dark:text-teal-300' : 'text-orange-700 dark:text-orange-300'}>
                     {k === 'pairs' ? 'volume' : 'placements'} {up ? 'up' : 'down'}{' '}
                     {then ? Math.abs(Math.round(((now - then) / then) * 100)) : 0}%
                   </span>
@@ -1154,7 +1154,7 @@ function PipelineBlock({ pipe, onDrill }: {
         <>
           {periodRows(pipe.monthly, monthLabelSafe)}
           <PipeLegend />
-          <p className="mt-1.5 text-[11px] text-zinc-400">
+          <p className="mt-1.5 text-[11px] text-zinc-400 dark:text-zinc-600">
             Recent months understate placements — those pairs are still in flight.
           </p>
         </>
@@ -1164,7 +1164,7 @@ function PipelineBlock({ pipe, onDrill }: {
         <>
           {periodRows(pipe.quarterly, l => l)}
           <PipeLegend />
-          <p className="mt-1.5 text-[11px] text-zinc-400">
+          <p className="mt-1.5 text-[11px] text-zinc-400 dark:text-zinc-600">
             The % is effectiveness — placed out of everyone put forward that quarter.
           </p>
         </>
@@ -1174,10 +1174,10 @@ function PipelineBlock({ pipe, onDrill }: {
         <>
         {periodChips}
         <div className="grid gap-4 xl:grid-cols-2">
-        <div className="max-h-64 overflow-y-auto rounded-lg border border-zinc-200">
+        <div className="max-h-64 overflow-y-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
           <table className="w-full text-[12px]">
-            <thead className="sticky top-0 bg-white">
-              <tr className="text-left text-[10px] uppercase tracking-wide text-zinc-400">
+            <thead className="sticky top-0 bg-white dark:bg-zinc-900">
+              <tr className="text-left text-[10px] uppercase tracking-wide text-zinc-400 dark:text-zinc-600">
                 <Th k="label" label="Client" sort={gSort} onSort={onGSort} left />
                 <Th k="pairs" label="Put forward" sort={gSort} onSort={onGSort} />
                 <Th k="submitted" label="Submitted" sort={gSort} onSort={onGSort} />
@@ -1186,8 +1186,8 @@ function PipelineBlock({ pipe, onDrill }: {
                   <Hover tip={<>Effectiveness: of everyone put forward for this client's jobs, the
                     share that ended up placed. Click to sort.</>}>
                     <button onClick={() => onGSort('eff')}
-                            className={cn('cursor-pointer border-b border-dotted border-zinc-400 uppercase tracking-wide',
-                              gSort.key === 'eff' ? 'text-zinc-700' : 'text-zinc-400')}>
+                            className={cn('cursor-pointer border-b border-dotted border-zinc-400 dark:border-zinc-600 uppercase tracking-wide',
+                              gSort.key === 'eff' ? 'text-zinc-700 dark:text-zinc-300' : 'text-zinc-400 dark:text-zinc-600')}>
                       eff.{gSort.key === 'eff' && (gSort.desc ? ' ▼' : ' ▲')}
                     </button>
                   </Hover>
@@ -1197,26 +1197,26 @@ function PipelineBlock({ pipe, onDrill }: {
             <tbody>
               {clientRows.map(c => (
                 <tr key={c.label}
-                    className="cursor-pointer border-t border-zinc-200 transition-colors hover:bg-zinc-100"
+                    className="cursor-pointer border-t border-zinc-200 dark:border-zinc-800 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
                     onClick={() => onDrill({ title: `Pipeline — ${c.label}${periodLabel}`,
                       params: { kind: 'applications', stage: 'all', client: c.label, ...periodParams } })}>
-                  <td className="max-w-52 truncate px-3 py-1.5 text-zinc-800" title={c.label}>{c.label}</td>
-                  <td className="py-1.5 pr-3 text-right tabular-nums text-zinc-700">{c.pairs}</td>
-                  <td className="py-1.5 pr-3 text-right tabular-nums text-zinc-600">{c.submitted}</td>
-                  <td className="py-1.5 pr-3 text-right font-semibold tabular-nums text-teal-700">
-                    {c.placed}{c.renewals > 0 && <span className="ml-1 font-normal text-violet-700" title="contract renewals">({c.renewals}R)</span>}
+                  <td className="max-w-52 truncate px-3 py-1.5 text-zinc-800 dark:text-zinc-200" title={c.label}>{c.label}</td>
+                  <td className="py-1.5 pr-3 text-right tabular-nums text-zinc-700 dark:text-zinc-300">{c.pairs}</td>
+                  <td className="py-1.5 pr-3 text-right tabular-nums text-zinc-600 dark:text-zinc-400">{c.submitted}</td>
+                  <td className="py-1.5 pr-3 text-right font-semibold tabular-nums text-teal-700 dark:text-teal-300">
+                    {c.placed}{c.renewals > 0 && <span className="ml-1 font-normal text-violet-700 dark:text-violet-300" title="contract renewals">({c.renewals}R)</span>}
                   </td>
                   <td className={cn('py-1.5 pr-3 text-right tabular-nums',
-                    eff(c) >= 20 ? 'text-teal-700' : 'text-zinc-500')}>{eff(c)}%</td>
+                    eff(c) >= 20 ? 'text-teal-700 dark:text-teal-300' : 'text-zinc-500')}>{eff(c)}%</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <div className="max-h-64 overflow-y-auto rounded-lg border border-zinc-200">
+        <div className="max-h-64 overflow-y-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
           <table className="w-full text-[12px]">
-            <thead className="sticky top-0 bg-white">
-              <tr className="text-left text-[10px] uppercase tracking-wide text-zinc-400">
+            <thead className="sticky top-0 bg-white dark:bg-zinc-900">
+              <tr className="text-left text-[10px] uppercase tracking-wide text-zinc-400 dark:text-zinc-600">
                 <Th k="label" label="Job state" sort={gSort} onSort={onGSort} left />
                 <Th k="pairs" label="Put forward" sort={gSort} onSort={onGSort} />
                 <Th k="submitted" label="Submitted" sort={gSort} onSort={onGSort} />
@@ -1226,8 +1226,8 @@ function PipelineBlock({ pipe, onDrill }: {
                     share that ended up placed. High volume + low eff. = effort leaking; low volume +
                     high eff. = room to push more candidates there. Click to sort.</>}>
                     <button onClick={() => onGSort('eff')}
-                            className={cn('cursor-pointer border-b border-dotted border-zinc-400 uppercase tracking-wide',
-                              gSort.key === 'eff' ? 'text-zinc-700' : 'text-zinc-400')}>
+                            className={cn('cursor-pointer border-b border-dotted border-zinc-400 dark:border-zinc-600 uppercase tracking-wide',
+                              gSort.key === 'eff' ? 'text-zinc-700 dark:text-zinc-300' : 'text-zinc-400 dark:text-zinc-600')}>
                       eff.{gSort.key === 'eff' && (gSort.desc ? ' ▼' : ' ▲')}
                     </button>
                   </Hover>
@@ -1237,17 +1237,17 @@ function PipelineBlock({ pipe, onDrill }: {
             <tbody>
               {stateRows.map(s => (
                 <tr key={s.label}
-                    className="cursor-pointer border-t border-zinc-200 transition-colors hover:bg-zinc-100"
+                    className="cursor-pointer border-t border-zinc-200 dark:border-zinc-800 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
                     onClick={() => onDrill({ title: `Pipeline in ${s.label}${periodLabel}`,
                       params: { kind: 'applications', stage: 'all', state: s.label, ...periodParams } })}>
-                  <td className="px-3 py-1.5 text-zinc-800">{s.label}</td>
-                  <td className="py-1.5 pr-3 text-right tabular-nums text-zinc-700">{s.pairs}</td>
-                  <td className="py-1.5 pr-3 text-right tabular-nums text-zinc-600">{s.submitted}</td>
-                  <td className="py-1.5 pr-3 text-right font-semibold tabular-nums text-teal-700">
-                    {s.placed}{s.renewals > 0 && <span className="ml-1 font-normal text-violet-700" title="contract renewals">({s.renewals}R)</span>}
+                  <td className="px-3 py-1.5 text-zinc-800 dark:text-zinc-200">{s.label}</td>
+                  <td className="py-1.5 pr-3 text-right tabular-nums text-zinc-700 dark:text-zinc-300">{s.pairs}</td>
+                  <td className="py-1.5 pr-3 text-right tabular-nums text-zinc-600 dark:text-zinc-400">{s.submitted}</td>
+                  <td className="py-1.5 pr-3 text-right font-semibold tabular-nums text-teal-700 dark:text-teal-300">
+                    {s.placed}{s.renewals > 0 && <span className="ml-1 font-normal text-violet-700 dark:text-violet-300" title="contract renewals">({s.renewals}R)</span>}
                   </td>
                   <td className={cn('py-1.5 pr-3 text-right tabular-nums',
-                    eff(s) >= 20 ? 'text-teal-700' : 'text-zinc-500')}>{eff(s)}%</td>
+                    eff(s) >= 20 ? 'text-teal-700 dark:text-teal-300' : 'text-zinc-500')}>{eff(s)}%</td>
                 </tr>
               ))}
             </tbody>
@@ -1300,7 +1300,7 @@ function SupplyBlock({ supply, onDrill }: {
   const maxOpen = Math.max(...supply.byState.map(x => x.openJobs), 1)
   const unmapped = supply.byState.filter(x => !STATE_TILES[x.state] && x.openJobs > 0)
   const fill = (n: number) =>
-    n === 0 ? 'bg-zinc-100'
+    n === 0 ? 'bg-zinc-100 dark:bg-zinc-800'
       : n <= maxOpen * 0.2 ? 'bg-cyan-600/25'
       : n <= maxOpen * 0.45 ? 'bg-cyan-500/65'
       : n <= maxOpen * 0.75 ? 'bg-cyan-400/65'
@@ -1323,13 +1323,13 @@ function SupplyBlock({ supply, onDrill }: {
       <div className="grid grid-cols-2 gap-3">
         <Stat value={String(supply.openNow)}
               label="Jobs open right now"
-              sub={`${supply.openUnfilled} still need somebody`} tone="text-cyan-700"
+              sub={`${supply.openUnfilled} still need somebody`} tone="text-cyan-700 dark:text-cyan-300"
               onClick={() => onDrill({ title: 'Open right now', params: { kind: 'jobs', open: '1' } })} />
       </div>
 
       <div className="mt-4">
         <div className="mb-2 flex items-center justify-between gap-3">
-          <p className="text-[10px] uppercase tracking-wide text-zinc-400">
+          <p className="text-[10px] uppercase tracking-wide text-zinc-400 dark:text-zinc-600">
             Open jobs vs DJC-sourced candidates available in that state
           </p>
           <Chips value={stateView} onChange={v => setStateView(v as typeof stateView)} options={[
@@ -1353,15 +1353,15 @@ function SupplyBlock({ supply, onDrill }: {
                   <Hover key={abbr} block
                          style={{ gridColumnStart: col + 1, gridRowStart: row + 1 }}
                          tip={<>
-                           <b className="text-zinc-900">{name}</b><br />
+                           <b className="text-zinc-900 dark:text-zinc-100">{name}</b><br />
                            {open === 0 ? 'no open jobs' : <>{open} open job{open === 1 ? '' : 's'} ·{' '}
-                             <span className={gap ? 'text-orange-700' : 'text-teal-700'}>{cands} candidate{cands === 1 ? '' : 's'} available</span></>}<br />
+                             <span className={gap ? 'text-orange-700 dark:text-orange-300' : 'text-teal-700 dark:text-teal-300'}>{cands} candidate{cands === 1 ? '' : 's'} available</span></>}<br />
                            {placedBefore > 0
-                             ? <span className="text-zinc-600">Proxi has made {placedBefore} placement{placedBefore === 1 ? '' : 's'} here over the years</span>
-                             : open > 0 && <span className="text-orange-700">Proxi has never placed anyone here</span>}
-                           {gap && <><br /><span className="text-orange-700">sourcing gap — jobs but nobody to send</span></>}
-                           {thin && <><br /><span className="text-amber-700/90">supply is thin — fewer candidates than jobs</span></>}
-                           {open > 0 && !gap && !thin && <><br /><span className="text-teal-700">covered — more candidates than jobs</span></>}
+                             ? <span className="text-zinc-600 dark:text-zinc-400">Proxi has made {placedBefore} placement{placedBefore === 1 ? '' : 's'} here over the years</span>
+                             : open > 0 && <span className="text-orange-700 dark:text-orange-300">Proxi has never placed anyone here</span>}
+                           {gap && <><br /><span className="text-orange-700 dark:text-orange-300">sourcing gap — jobs but nobody to send</span></>}
+                           {thin && <><br /><span className="text-amber-700 dark:text-amber-300/90">supply is thin — fewer candidates than jobs</span></>}
+                           {open > 0 && !gap && !thin && <><br /><span className="text-teal-700 dark:text-teal-300">covered — more candidates than jobs</span></>}
                            {open > 0 && <><br /><span className="text-zinc-500">click for the open jobs</span></>}
                          </>}>
                     <button
@@ -1375,9 +1375,9 @@ function SupplyBlock({ supply, onDrill }: {
                           : open > 0 ? 'border-teal-300/80' : 'border-transparent',
                       )}>
                       <span className={cn('text-[10px] font-semibold leading-none',
-                        open > maxOpen * 0.45 ? 'text-zinc-950' : 'text-zinc-600')}>{abbr}</span>
+                        open > maxOpen * 0.45 ? 'text-zinc-950' : 'text-zinc-600 dark:text-zinc-400')}>{abbr}</span>
                       <span className={cn('mt-0.5 text-[11px] font-bold leading-none tabular-nums',
-                        open === 0 ? 'text-zinc-400' : open > maxOpen * 0.45 ? 'text-zinc-950' : 'text-zinc-900')}>
+                        open === 0 ? 'text-zinc-400 dark:text-zinc-600' : open > maxOpen * 0.45 ? 'text-zinc-950' : 'text-zinc-900 dark:text-zinc-100')}>
                         {open || '·'}
                       </span>
                     </button>
@@ -1387,7 +1387,7 @@ function SupplyBlock({ supply, onDrill }: {
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-zinc-500">
               <span className="flex items-center gap-1.5">
-                {['bg-zinc-100', 'bg-cyan-600/25', 'bg-cyan-500/65', 'bg-cyan-400/65', 'bg-cyan-300/85'].map(c => (
+                {['bg-zinc-100 dark:bg-zinc-800', 'bg-cyan-600/25', 'bg-cyan-500/65', 'bg-cyan-400/65', 'bg-cyan-300/85'].map(c => (
                   <span key={c} className={cn('h-3 w-3 rounded-sm', c)} />
                 ))}
                 fewer → more open jobs
@@ -1409,10 +1409,10 @@ function SupplyBlock({ supply, onDrill }: {
         )}
 
         {stateView === 'table' && (
-        <div className="max-h-64 overflow-y-auto rounded-lg border border-zinc-200">
+        <div className="max-h-64 overflow-y-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
           <table className="w-full text-[12px]">
-            <thead className="sticky top-0 bg-white">
-              <tr className="text-left text-[10px] uppercase tracking-wide text-zinc-400">
+            <thead className="sticky top-0 bg-white dark:bg-zinc-900">
+              <tr className="text-left text-[10px] uppercase tracking-wide text-zinc-400 dark:text-zinc-600">
                 <Th k="state" label="State" sort={supSort} onSort={onSupSort} left />
                 <Th k="openJobs" label="Open jobs" sort={supSort} onSort={onSupSort} />
                 <Th k="candidates" label="Candidates" sort={supSort} onSort={onSupSort} />
@@ -1423,12 +1423,12 @@ function SupplyBlock({ supply, onDrill }: {
             <tbody>
               {sortRows(supply.byState, supSort,
                 (r, k) => r[k as keyof typeof r]).map(s => (
-                <tr key={s.state} className="cursor-pointer border-t border-zinc-200 transition-colors hover:bg-zinc-100"
+                <tr key={s.state} className="cursor-pointer border-t border-zinc-200 dark:border-zinc-800 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
                     onClick={() => onDrill({ title: `Open in ${s.state}`, params: { kind: 'jobs', open: '1', state: s.state } })}>
-                  <td className="px-3 py-1.5 text-zinc-800">{s.state}</td>
-                  <td className="py-1.5 pr-3 text-right font-semibold tabular-nums text-zinc-900">{s.openJobs}</td>
+                  <td className="px-3 py-1.5 text-zinc-800 dark:text-zinc-200">{s.state}</td>
+                  <td className="py-1.5 pr-3 text-right font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{s.openJobs}</td>
                   <td className={cn('py-1.5 pr-3 text-right tabular-nums',
-                    s.candidates === 0 ? 'text-orange-700' : 'text-teal-700 underline decoration-dotted underline-offset-2')}
+                    s.candidates === 0 ? 'text-orange-700 dark:text-orange-300' : 'text-teal-700 dark:text-teal-300 underline decoration-dotted underline-offset-2')}
                       onClick={e => {
                         if (s.candidates === 0) return
                         e.stopPropagation()
@@ -1436,7 +1436,7 @@ function SupplyBlock({ supply, onDrill }: {
                           params: { kind: 'candidates', activeState: s.state } })
                       }}>{s.candidates}</td>
                   <td className={cn('py-1.5 pr-3 text-right tabular-nums',
-                    s.everPlaced === 0 ? 'text-orange-700' : 'text-zinc-600')}>
+                    s.everPlaced === 0 ? 'text-orange-700 dark:text-orange-300' : 'text-zinc-600 dark:text-zinc-400')}>
                     {s.everPlaced === 0 ? 'never' : s.everPlaced}
                   </td>
                 </tr>
@@ -1445,7 +1445,7 @@ function SupplyBlock({ supply, onDrill }: {
           </table>
         </div>
         )}
-        <p className="mt-1.5 text-[11px] text-zinc-400">
+        <p className="mt-1.5 text-[11px] text-zinc-400 dark:text-zinc-600">
           Candidates = active on DJC in the last 90 days, never placed by Proxi, with a live
           Salesforce match to an open job in that state. "Proxi placements ever" is the state's
           all-time track record — any candidate, any year — not a count within today's pool.
@@ -1495,7 +1495,7 @@ function BudgetBlock({ djc, onDrill }: {
     { key: 'already' as const, label: 'views spent before we knew it was a duplicate', tone: LPRIMARY },
     { key: 'noContact' as const, label: 'views that found no contact', tone: LWARN },
     { key: 'bulkUnlogged' as const, label: 'one-off facts pass (22 Jul)', tone: LACCENT },
-    { key: 'beforeTracking' as const, label: 'spent before tracking began', tone: 'bg-zinc-300' },
+    { key: 'beforeTracking' as const, label: 'spent before tracking began', tone: 'bg-zinc-300 dark:bg-zinc-600' },
     { key: 'other' as const, label: 'unaccounted', tone: LNEUTRAL },
   ]
   const maxCycle = Math.max(...djc.cycles.map(c => Math.max(c.used, c.cap)), 1)
@@ -1525,32 +1525,32 @@ function BudgetBlock({ djc, onDrill }: {
         <Stat value={String(tiles.used)}
               label="Profile views used"
               sub={`Out of ${tiles.cap} for the cycle${tiles.over > 0 ? ` — ${tiles.over} over` : ''}`}
-              tone={tiles.over > 0 ? 'text-orange-700' : 'text-cyan-700'} />
+              tone={tiles.over > 0 ? 'text-orange-700 dark:text-orange-300' : 'text-cyan-700 dark:text-cyan-300'} />
         <Stat value={tiles.unique.toLocaleString()} label={tiles.uniqueLabel} sub={tiles.uniqueNote}
-              tone="text-zinc-800" />
-        <Stat value={String(tiles.added)} label="Added to Salesforce" tone="text-teal-700"
+              tone="text-zinc-800 dark:text-zinc-200" />
+        <Stat value={String(tiles.added)} label="Added to Salesforce" tone="text-teal-700 dark:text-teal-300"
               onClick={() => onDrill({ title: `Added to Salesforce — ${scopeLabel}`,
                 params: { kind: 'candidates', outcome: 'added', ...cycleParams } })} />
         <Stat value={String(tiles.already)} label="Already in Salesforce"
-              sub="Skipped — no view spent" tone="text-cyan-700"
+              sub="Skipped — no view spent" tone="text-cyan-700 dark:text-cyan-300"
               onClick={() => onDrill({ title: `Already in Salesforce — ${scopeLabel}`,
                 params: { kind: 'candidates', outcome: 'already', ...cycleParams } })} />
         <Stat value={String(tiles.noContact)} label="No contact found"
-              sub="Skipped — nothing to reach them on" tone="text-orange-700"
+              sub="Skipped — nothing to reach them on" tone="text-orange-700 dark:text-orange-300"
               onClick={() => onDrill({ title: `No contact found — ${scopeLabel}`,
                 params: { kind: 'candidates', outcome: 'noContact', ...cycleParams } })} />
         <Stat value={String(tiles.other)} label="Views not logged by a run"
-              sub="See the note below" tone="text-zinc-700" />
+              sub="See the note below" tone="text-zinc-700 dark:text-zinc-300" />
       </div>
 
       <div className="mt-4">
-        <p className="text-[10px] uppercase tracking-wide text-zinc-400">Pace this cycle</p>
-        <p className="mt-1.5 text-[13px] leading-relaxed text-zinc-700">
-          {djc.perDay !== null && <>Averaging <b className="text-zinc-900">{djc.perDay}</b> views a day
+        <p className="text-[10px] uppercase tracking-wide text-zinc-400 dark:text-zinc-600">Pace this cycle</p>
+        <p className="mt-1.5 text-[13px] leading-relaxed text-zinc-700 dark:text-zinc-300">
+          {djc.perDay !== null && <>Averaging <b className="text-zinc-900 dark:text-zinc-100">{djc.perDay}</b> views a day
           ({djc.perWeek} a week). </>}
           {djc.projectedTotal !== null && (
             <>On that pace the cycle ends around{' '}
-            <b className={djc.projectedTotal > djc.cycleCap ? 'text-orange-700' : 'text-teal-700'}>
+            <b className={djc.projectedTotal > djc.cycleCap ? 'text-orange-700 dark:text-orange-300' : 'text-teal-700 dark:text-teal-300'}>
               {djc.projectedTotal}
             </b> of {djc.cycleCap}.</>
           )}
@@ -1562,9 +1562,9 @@ function BudgetBlock({ djc, onDrill }: {
         </p>
       </div>
 
-      <div className="mt-4 border-t border-zinc-200 pt-4">
+      <div className="mt-4 border-t border-zinc-200 dark:border-zinc-800 pt-4">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-[10px] uppercase tracking-wide text-zinc-400">
+          <p className="text-[10px] uppercase tracking-wide text-zinc-400 dark:text-zinc-600">
             Views spent per cycle · broken out by what they became
           </p>
           <Chips value={cycleView} onChange={v => setCycleView(v as 'chart' | 'table')} options={[
@@ -1585,19 +1585,19 @@ function BudgetBlock({ djc, onDrill }: {
                          params: { kind: 'candidates', outcome: 'added', basis: 'event',
                            from: c.start, ...(next ? { to: next } : {}) } })}>
                     <span className={cn('mb-1 text-[11px] font-semibold tabular-nums',
-                      c.partial ? 'text-zinc-500' : overC > 0 ? 'text-orange-700' : 'text-teal-700')}>
+                      c.partial ? 'text-zinc-500' : overC > 0 ? 'text-orange-700 dark:text-orange-300' : 'text-teal-700 dark:text-teal-300')}>
                       {c.partial ? 'partial view' : overC > 0 ? `+${overC} over`
                         : overC === 0 ? 'at cap' : `${-overC} under`}
                     </span>
                     <Hover block tip={<span className="block space-y-0.5">
                       <span className="block">
-                        <b className="text-zinc-900">{c.used}</b> views · cap {c.cap}
+                        <b className="text-zinc-900 dark:text-zinc-100">{c.used}</b> views · cap {c.cap}
                         {c.partial && ' · tracked mid-cycle'}
                       </span>
                       {SEGMENTS.map(s => c[s.key] > 0 && (
                         <span key={s.key} className="flex items-center gap-1.5">
                           <span className={cn('h-2 w-2 shrink-0 rounded-sm', s.tone)} />
-                          <span className="tabular-nums text-zinc-800">{c[s.key]}</span> {s.label}
+                          <span className="tabular-nums text-zinc-800 dark:text-zinc-200">{c[s.key]}</span> {s.label}
                         </span>
                       ))}
                     </span>}>
@@ -1613,10 +1613,10 @@ function BudgetBlock({ djc, onDrill }: {
                              style={{ bottom: (c.cap / maxCycle) * COL_H }} />
                       </div>
                     </Hover>
-                    <span className="mt-1 border-t border-zinc-300 pt-1 text-[11px] text-zinc-500 w-full text-center">
+                    <span className="mt-1 border-t border-zinc-300 dark:border-zinc-700 pt-1 text-[11px] text-zinc-500 w-full text-center">
                       {cycleDate(c.refill)}{c.partial && '*'}
                     </span>
-                    <span className="text-[11px] font-semibold tabular-nums text-zinc-800">{c.used}</span>
+                    <span className="text-[11px] font-semibold tabular-nums text-zinc-800 dark:text-zinc-200">{c.used}</span>
                   </div>
                 )
               })}
@@ -1627,7 +1627,7 @@ function BudgetBlock({ djc, onDrill }: {
                 <span className="w-3 border-t border-dashed border-zinc-500/70" /> cap
               </span>
             </div>
-            <p className="mt-2 max-w-3xl text-[11px] leading-relaxed text-zinc-400">
+            <p className="mt-2 max-w-3xl text-[11px] leading-relaxed text-zinc-400 dark:text-zinc-600">
               Cycles are named for the day the allowance refilled — the 15th. * marks the cycle we
               joined mid-way: counter tracking only began on 9 July, so that bar covers 9–14 July of
               a cycle that started on 15 June. Every band is a named cause and they add up to DJC's
@@ -1641,10 +1641,10 @@ function BudgetBlock({ djc, onDrill }: {
             </p>
           </>
         ) : (
-          <div className="mt-2 overflow-x-auto rounded-lg border border-zinc-200">
+          <div className="mt-2 overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
             <table className="w-full text-[12px]">
               <thead>
-                <tr className="text-left text-[10px] uppercase tracking-wide text-zinc-400">
+                <tr className="text-left text-[10px] uppercase tracking-wide text-zinc-400 dark:text-zinc-600">
                   <Th k="start" label="Cycle" sort={cSort} onSort={onCSort} left />
                   <Th k="used" label="Views" sort={cSort} onSort={onCSort} />
                   <Th k="cap" label="Cap" sort={cSort} onSort={onCSort} />
@@ -1663,21 +1663,21 @@ function BudgetBlock({ djc, onDrill }: {
                   const next = djc.cycles[c.ci0 + 1]?.start
                   return (
                     <tr key={c.start}
-                        className="cursor-pointer border-t border-zinc-200 transition-colors hover:bg-zinc-100"
+                        className="cursor-pointer border-t border-zinc-200 dark:border-zinc-800 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
                         onClick={() => onDrill({ title: `Added to Salesforce — cycle of ${cycleDate(c.refill)}`,
                           params: { kind: 'candidates', outcome: 'added', basis: 'event',
                             from: c.start, ...(next ? { to: next } : {}) } })}>
-                      <td className="px-3 py-1.5 text-zinc-800">{cycleDate(c.refill)}</td>
-                      <td className="py-1.5 pr-3 text-right font-semibold tabular-nums text-zinc-900">{c.used}</td>
+                      <td className="px-3 py-1.5 text-zinc-800 dark:text-zinc-200">{cycleDate(c.refill)}</td>
+                      <td className="py-1.5 pr-3 text-right font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{c.used}</td>
                       <td className="py-1.5 pr-3 text-right tabular-nums text-zinc-500">{c.cap}</td>
                       <td className={cn('py-1.5 pr-3 text-right font-medium tabular-nums',
-                        overC > 0 ? 'text-orange-700' : 'text-teal-700')}>
+                        overC > 0 ? 'text-orange-700 dark:text-orange-300' : 'text-teal-700 dark:text-teal-300')}>
                         {overC > 0 ? `+${overC}` : overC}
                       </td>
-                      <td className="py-1.5 pr-3 text-right tabular-nums text-teal-700">{c.added}</td>
-                      <td className="py-1.5 pr-3 text-right tabular-nums text-zinc-700">{c.already}</td>
-                      <td className="py-1.5 pr-3 text-right tabular-nums text-orange-700">{c.noContact}</td>
-                      <td className="py-1.5 pr-3 text-right tabular-nums text-zinc-600">{c.other}</td>
+                      <td className="py-1.5 pr-3 text-right tabular-nums text-teal-700 dark:text-teal-300">{c.added}</td>
+                      <td className="py-1.5 pr-3 text-right tabular-nums text-zinc-700 dark:text-zinc-300">{c.already}</td>
+                      <td className="py-1.5 pr-3 text-right tabular-nums text-orange-700 dark:text-orange-300">{c.noContact}</td>
+                      <td className="py-1.5 pr-3 text-right tabular-nums text-zinc-600 dark:text-zinc-400">{c.other}</td>
                     </tr>
                   )
                 })}
@@ -1716,7 +1716,7 @@ function TipRow({ tone, value, label }: { tone: string; value: number | string; 
   return (
     <span className="flex items-center gap-1.5">
       <span className={cn('h-2 w-2 shrink-0 rounded-sm', tone)} />
-      <span className="tabular-nums text-zinc-800">{value}</span> {label}
+      <span className="tabular-nums text-zinc-800 dark:text-zinc-200">{value}</span> {label}
     </span>
   )
 }
@@ -1867,7 +1867,7 @@ function NewAccountsBlock({ djc, onDrill }: {
                   return (
                     <span key={m.month}
                           className={cn('absolute whitespace-nowrap text-[11px] font-semibold tabular-nums',
-                            i === series.length - 1 ? 'text-zinc-900' : 'text-zinc-500')}
+                            i === series.length - 1 ? 'text-zinc-900 dark:text-zinc-100' : 'text-zinc-500')}
                           style={{ left: `${leftPct}%`, top: `${topPct}%`, transform: edge }}>
                       {m.n}
                     </span>
@@ -1888,10 +1888,10 @@ function NewAccountsBlock({ djc, onDrill }: {
                     <div key={m.month} className="group/pt absolute inset-y-0"
                          style={{ left: `${left}%`, width: `${width}%` }}>
                       <Hover block style={{ height: '100%' }} tip={<span className="flex flex-col gap-1">
-                        <b className="text-zinc-900">{monthLabel(m.month)} — {m.n} new{' '}
+                        <b className="text-zinc-900 dark:text-zinc-100">{monthLabel(m.month)} — {m.n} new{' '}
                           {m.n === 1 ? 'account' : 'accounts'}</b>
                         {split.map(b => <TipRow key={b.key} tone={b.tone} value={b.value} label={b.label} />)}
-                        <span className="text-zinc-400">click for the people</span>
+                        <span className="text-zinc-400 dark:text-zinc-600">click for the people</span>
                       </span>}>
                         <button
                           onClick={() => onDrill({
@@ -1902,9 +1902,9 @@ function NewAccountsBlock({ djc, onDrill }: {
                           })}
                           className="block h-full w-full cursor-pointer" />
                       </Hover>
-                      <span className="pointer-events-none absolute inset-y-0 w-px bg-zinc-400/60 opacity-0 transition-opacity group-hover/pt:opacity-100"
+                      <span className="pointer-events-none absolute inset-y-0 w-px bg-zinc-400/60 dark:bg-zinc-500/60 opacity-0 transition-opacity group-hover/pt:opacity-100"
                             style={{ left: `${lineAt}%` }} />
-                      <span className="pointer-events-none absolute h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-zinc-700 opacity-0 transition-opacity group-hover/pt:opacity-100"
+                      <span className="pointer-events-none absolute h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-zinc-700 dark:border-zinc-900 dark:bg-zinc-300 opacity-0 transition-opacity group-hover/pt:opacity-100"
                             style={{ left: `${lineAt}%`, top: `${dotTop}%` }} />
                     </div>
                   )
@@ -1915,7 +1915,7 @@ function NewAccountsBlock({ djc, onDrill }: {
               {series.map((m, i) => (
                 <span key={m.month}
                       className={cn('flex-1 text-center text-[11px]',
-                        i === series.length - 1 ? 'text-zinc-700' : 'text-zinc-500')}>
+                        i === series.length - 1 ? 'text-zinc-700 dark:text-zinc-300' : 'text-zinc-500')}>
                   {monthLabel(m.month)}
                 </span>
               ))}
@@ -1930,10 +1930,10 @@ function NewAccountsBlock({ djc, onDrill }: {
       })()}
 
       {asTable && (
-        <div className="overflow-x-auto rounded-lg border border-zinc-200">
+        <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
           <table className="w-full text-[12px]">
             <thead>
-              <tr className="text-left text-[10px] uppercase tracking-wide text-zinc-400">
+              <tr className="text-left text-[10px] uppercase tracking-wide text-zinc-400 dark:text-zinc-600">
                 <th className="px-3 py-1.5">Month</th>
                 <th className="py-1.5 pr-3 text-right">general</th>
                 <th className="py-1.5 pr-3 text-right">specialty</th>
@@ -1951,13 +1951,13 @@ function NewAccountsBlock({ djc, onDrill }: {
                 const h = at(t => t === 'Dental Hygienist')
                 const a = at(t => t === 'Dental Assistant')
                 return (
-                  <tr key={m} className="border-t border-zinc-200">
-                    <td className="px-3 py-1.5 text-zinc-800">{monthLabel(m)}</td>
-                    <td className="py-1.5 pr-3 text-right tabular-nums text-zinc-700">{g}</td>
-                    <td className="py-1.5 pr-3 text-right tabular-nums text-zinc-700">{sp}</td>
-                    <td className="py-1.5 pr-3 text-right tabular-nums text-zinc-700">{h}</td>
-                    <td className="py-1.5 pr-3 text-right tabular-nums text-zinc-700">{a}</td>
-                    <td className="py-1.5 pr-3 text-right font-semibold tabular-nums text-zinc-900">
+                  <tr key={m} className="border-t border-zinc-200 dark:border-zinc-800">
+                    <td className="px-3 py-1.5 text-zinc-800 dark:text-zinc-200">{monthLabel(m)}</td>
+                    <td className="py-1.5 pr-3 text-right tabular-nums text-zinc-700 dark:text-zinc-300">{g}</td>
+                    <td className="py-1.5 pr-3 text-right tabular-nums text-zinc-700 dark:text-zinc-300">{sp}</td>
+                    <td className="py-1.5 pr-3 text-right tabular-nums text-zinc-700 dark:text-zinc-300">{h}</td>
+                    <td className="py-1.5 pr-3 text-right tabular-nums text-zinc-700 dark:text-zinc-300">{a}</td>
+                    <td className="py-1.5 pr-3 text-right font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
                       {g + sp + h + a}
                     </td>
                   </tr>
@@ -1972,11 +1972,11 @@ function NewAccountsBlock({ djc, onDrill }: {
         <p className="mt-3 text-[11px] leading-relaxed text-zinc-500">
           Specialties this year:{' '}
           {specialties.map((t, i) => (
-            <span key={t.name}>{i > 0 && ' · '}<span className="text-zinc-700">{t.name}</span> {t.n}</span>
+            <span key={t.name}>{i > 0 && ' · '}<span className="text-zinc-700 dark:text-zinc-300">{t.name}</span> {t.n}</span>
           ))}
         </p>
       )}
-      <p className="mt-2 text-[10px] text-zinc-400">
+      <p className="mt-2 text-[10px] text-zinc-400 dark:text-zinc-600">
         Hygienist and assistant sourcing began in June 2026 — earlier months in those two roles
         reflect what the automation was scraping, not who joined DJC.
       </p>
@@ -2019,7 +2019,7 @@ function NewCandidatesBlock({ djc, onDrill }: {
     { label: 'Active in the last 30 days', cls: 'bg-teal-500/85',
       count: roleActivity.slice(0, 2).reduce((s, b) => s + b.count, 0) },
     { label: '1–3 months ago', cls: 'bg-amber-300', count: roleActivity[2]?.count ?? 0 },
-    { label: 'Older or unknown', cls: 'bg-zinc-300',
+    { label: 'Older or unknown', cls: 'bg-zinc-300 dark:bg-zinc-600',
       count: roleActivity.slice(3).reduce((s, b) => s + b.count, 0) },
   ]
 
@@ -2040,12 +2040,12 @@ function NewCandidatesBlock({ djc, onDrill }: {
       <div className="space-y-1.5">
         {djc.newByMonth.map(m => (
           <div key={m.month} className="flex items-center gap-3">
-            <span className="w-16 shrink-0 text-[12px] text-zinc-600">{monthLabel(m.month)}</span>
+            <span className="w-16 shrink-0 text-[12px] text-zinc-600 dark:text-zinc-400">{monthLabel(m.month)}</span>
             <span className={cn('relative block h-5 grow rounded', LTRACK)}>
               <span className={cn('absolute inset-y-0 left-0 rounded', LGOOD)}
                     style={{ width: `${Math.max((m[field] / max) * 100, m[field] ? 2 : 0)}%` }} />
             </span>
-            <span className="w-14 shrink-0 text-right text-[13px] font-semibold tabular-nums text-zinc-900">
+            <span className="w-14 shrink-0 text-right text-[13px] font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
               {m[field]}
             </span>
           </div>
@@ -2074,12 +2074,12 @@ function NewCandidatesBlock({ djc, onDrill }: {
             {djc.newByMonth.map(m => {
               const max = Math.max(...djc.newByMonth.map(x => x.total), 1)
               return (
-                <div key={m.month} className="flex cursor-pointer items-center gap-3 rounded px-1 -mx-1 transition-colors hover:bg-zinc-100"
+                <div key={m.month} className="flex cursor-pointer items-center gap-3 rounded px-1 -mx-1 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
                      onClick={() => onDrill({ title: `New candidates added in ${monthLabel(m.month)}`,
                        params: { kind: 'candidates', outcome: 'added', month: m.month } })}>
-                  <span className="w-16 shrink-0 text-[12px] text-zinc-600">{monthLabel(m.month)}</span>
+                  <span className="w-16 shrink-0 text-[12px] text-zinc-600 dark:text-zinc-400">{monthLabel(m.month)}</span>
                   <Hover tip={<span className="flex flex-col gap-1">
-                    <b className="text-zinc-900">{m.total} added in {monthLabel(m.month)}</b>
+                    <b className="text-zinc-900 dark:text-zinc-100">{m.total} added in {monthLabel(m.month)}</b>
                     <TipRow tone={LPRIMARY} value={m.general} label="general dentists" />
                     <TipRow tone={LACCENT} value={m.specialist} label="specialists" />
                     <TipRow tone={LGOOD} value={m.hygienist} label="hygienists" />
@@ -2096,7 +2096,7 @@ function NewCandidatesBlock({ djc, onDrill }: {
                       ))}
                     </span>
                   </Hover>
-                  <span className="w-14 shrink-0 text-right text-[13px] font-semibold tabular-nums text-zinc-900">
+                  <span className="w-14 shrink-0 text-right text-[13px] font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
                     {m.total}
                   </span>
                 </div>
@@ -2124,9 +2124,9 @@ function NewCandidatesBlock({ djc, onDrill }: {
                 specialties.reduce((s, sp) => s + cell(mm, sp), 0)), 1)
               return (
                 <div key={month} className="flex items-center gap-3">
-                  <span className="w-16 shrink-0 text-[12px] text-zinc-600">{monthLabel(month)}</span>
+                  <span className="w-16 shrink-0 text-[12px] text-zinc-600 dark:text-zinc-400">{monthLabel(month)}</span>
                   <Hover tip={<span className="flex flex-col gap-1">
-                    <b className="text-zinc-900">{total} dentists in {monthLabel(month)}</b>
+                    <b className="text-zinc-900 dark:text-zinc-100">{total} dentists in {monthLabel(month)}</b>
                     {parts.map(p => <TipRow key={p.sp} tone={p.tone} value={p.n} label={p.sp} />)}
                   </span>}>
                     <span className={cn('relative flex h-5 overflow-hidden rounded', LTRACK)}>
@@ -2135,7 +2135,7 @@ function NewCandidatesBlock({ djc, onDrill }: {
                       ))}
                     </span>
                   </Hover>
-                  <span className="w-14 shrink-0 text-right text-[13px] font-semibold tabular-nums text-zinc-900">
+                  <span className="w-14 shrink-0 text-right text-[13px] font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
                     {total}
                   </span>
                 </div>
@@ -2154,10 +2154,10 @@ function NewCandidatesBlock({ djc, onDrill }: {
       {view === 'assistants' && singleRole('assistant')}
 
       {view === 'table' && (
-        <div className="overflow-x-auto rounded-lg border border-zinc-200">
+        <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
           <table className="w-full text-[12px]">
             <thead>
-              <tr className="text-left text-[10px] uppercase tracking-wide text-zinc-400">
+              <tr className="text-left text-[10px] uppercase tracking-wide text-zinc-400 dark:text-zinc-600">
                 <Th k="month" label="Month" sort={nSort} onSort={onNSort} left />
                 <Th k="general" label="General" sort={nSort} onSort={onNSort} />
                 <Th k="specialist" label="Specialists" sort={nSort} onSort={onNSort} />
@@ -2169,13 +2169,13 @@ function NewCandidatesBlock({ djc, onDrill }: {
             <tbody>
               {sortRows(djc.newByMonth, nSort,
                 (r, k) => r[k as keyof typeof r]).map(m => (
-                <tr key={m.month} className="border-t border-zinc-200">
-                  <td className="px-3 py-1.5 text-zinc-800">{monthLabel(m.month)}</td>
-                  <td className="py-1.5 pr-3 text-right tabular-nums text-zinc-700">{m.general}</td>
-                  <td className="py-1.5 pr-3 text-right tabular-nums text-zinc-700">{m.specialist}</td>
-                  <td className="py-1.5 pr-3 text-right tabular-nums text-zinc-700">{m.hygienist}</td>
-                  <td className="py-1.5 pr-3 text-right tabular-nums text-zinc-700">{m.assistant}</td>
-                  <td className="py-1.5 pr-3 text-right font-semibold tabular-nums text-zinc-900">{m.total}</td>
+                <tr key={m.month} className="border-t border-zinc-200 dark:border-zinc-800">
+                  <td className="px-3 py-1.5 text-zinc-800 dark:text-zinc-200">{monthLabel(m.month)}</td>
+                  <td className="py-1.5 pr-3 text-right tabular-nums text-zinc-700 dark:text-zinc-300">{m.general}</td>
+                  <td className="py-1.5 pr-3 text-right tabular-nums text-zinc-700 dark:text-zinc-300">{m.specialist}</td>
+                  <td className="py-1.5 pr-3 text-right tabular-nums text-zinc-700 dark:text-zinc-300">{m.hygienist}</td>
+                  <td className="py-1.5 pr-3 text-right tabular-nums text-zinc-700 dark:text-zinc-300">{m.assistant}</td>
+                  <td className="py-1.5 pr-3 text-right font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{m.total}</td>
                 </tr>
               ))}
             </tbody>
@@ -2183,8 +2183,8 @@ function NewCandidatesBlock({ djc, onDrill }: {
         </div>
       )}
 
-      <div className="mt-5 border-t border-zinc-200 pt-4">
-        <p className="text-[10px] uppercase tracking-wide text-zinc-400">
+      <div className="mt-5 border-t border-zinc-200 dark:border-zinc-800 pt-4">
+        <p className="text-[10px] uppercase tracking-wide text-zinc-400 dark:text-zinc-600">
           When the {roleActivityTotal.toLocaleString()} {roleWord} we know of were last active on DJC
         </p>
         <div className="mt-2 flex h-6 w-full overflow-hidden rounded-lg">
@@ -2192,7 +2192,7 @@ function NewCandidatesBlock({ djc, onDrill }: {
             const pct = Math.round((g.count / (roleActivityTotal || 1)) * 1000) / 10
             return g.count > 0 && (
               <Hover key={g.label} style={{ width: `${pct}%` }}
-                     tip={<><b className="text-zinc-900">{g.count.toLocaleString()}</b> {roleWord} —{' '}
+                     tip={<><b className="text-zinc-900 dark:text-zinc-100">{g.count.toLocaleString()}</b> {roleWord} —{' '}
                        {g.label.toLowerCase()} ({pct}% of the {roleWord} we know of)</>}>
                 <div className={cn('flex h-6 items-center justify-center', g.cls)}>
                   {pct >= 8 && (
@@ -2207,7 +2207,7 @@ function NewCandidatesBlock({ djc, onDrill }: {
           {roleActivityGroups.map(g => (
             <span key={g.label} className="flex items-center gap-1.5">
               <span className={cn('h-2 w-3 rounded-sm', g.cls)} />
-              {g.label} <span className="tabular-nums text-zinc-600">{g.count.toLocaleString()}</span>
+              {g.label} <span className="tabular-nums text-zinc-600 dark:text-zinc-400">{g.count.toLocaleString()}</span>
             </span>
           ))}
         </div>
@@ -2296,13 +2296,13 @@ function KimJobsBlock({ kim, onDrill }: {
           const rate = r.opened ? Math.round((r.filled / r.opened) * 100) : 0
           return (
             <button key={r.key} onClick={() => onDrill(r.drill)}
-                    className={cn('group flex w-full cursor-pointer items-center gap-3 rounded px-1 py-0.5 -mx-1 transition-colors hover:bg-zinc-100',
+                    className={cn('group flex w-full cursor-pointer items-center gap-3 rounded px-1 py-0.5 -mx-1 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800',
                       r.partial && 'opacity-75')}>
-              <span className={cn(labelWidth, 'shrink-0 text-left text-[12px] text-zinc-600')}>
-                {r.label}{r.partial && <span className="text-zinc-400">*</span>}
+              <span className={cn(labelWidth, 'shrink-0 text-left text-[12px] text-zinc-600 dark:text-zinc-400')}>
+                {r.label}{r.partial && <span className="text-zinc-400 dark:text-zinc-600">*</span>}
               </span>
               <Hover tip={<span className="flex flex-col gap-1">
-                <b className="text-zinc-900">{r.label} — {r.opened} arrived</b>
+                <b className="text-zinc-900 dark:text-zinc-100">{r.label} — {r.opened} arrived</b>
                 <TipRow tone="bg-sky-300/50" value={r.opened} label="jobs that arrived" />
                 <TipRow tone={LGOOD} value={r.filled} label={`filled (${rate}%)`} />
                 <TipRow tone="bg-cyan-700" value={r.submitted} label="someone put forward" />
@@ -2322,8 +2322,8 @@ function KimJobsBlock({ kim, onDrill }: {
                 </span>
               </Hover>
               <span className="w-40 shrink-0 text-right text-[11px] tabular-nums text-zinc-500">
-                <span className="text-teal-700">{r.filled}</span> of {r.opened} · {rate}%
-                {r.prior !== null && <span className="text-zinc-400"> · LY {r.prior}</span>}
+                <span className="text-teal-700 dark:text-teal-300">{r.filled}</span> of {r.opened} · {rate}%
+                {r.prior !== null && <span className="text-zinc-400 dark:text-zinc-600"> · LY {r.prior}</span>}
               </span>
             </button>
           )
@@ -2333,7 +2333,7 @@ function KimJobsBlock({ kim, onDrill }: {
   }
 
   const partialNote = (word: string, ly?: string) => (
-    <p className="mt-1.5 text-[10px] text-zinc-400">
+    <p className="mt-1.5 text-[10px] text-zinc-400 dark:text-zinc-600">
       * current {word}, still filling in.{ly ? ` LY = jobs that arrived the same ${ly} last year.` : ''}
       {' '}Earlier periods undercount — Salesforce keeps only the latest job per location, so history
       erodes; recent ones are the most accurate.
@@ -2361,17 +2361,17 @@ function KimJobsBlock({ kim, onDrill }: {
         <Stat value={tile.opened.toLocaleString()}
               label={`Jobs opened ${periodWord}`}
               sub={tile.prior !== null ? `${tile.prior} ${tile.priorWord}` : undefined}
-              tone="text-cyan-700"
+              tone="text-cyan-700 dark:text-cyan-300"
               onClick={() => tile.drill && onDrill(tile.drill)} />
         <Stat value={`${filledPct}%`}
               label={`Filled ${periodWord}`}
               sub={`${fwdPct}% had someone put forward${view === 'yearly' ? '' : ' — still resolving'}`}
-              tone="text-teal-700"
+              tone="text-teal-700 dark:text-teal-300"
               onClick={() => tile.drill && onDrill({ title: `Filled ${periodWord}`,
                 params: { ...tile.drill.params, filled: '1' } })} />
         <Stat value={String(kim.jobsOpenNow)} label="Open right now"
               sub={`${kim.openStale} waiting over 3 months`}
-              tone={kim.openStale > 0 ? 'text-orange-700' : 'text-zinc-800'}
+              tone={kim.openStale > 0 ? 'text-orange-700 dark:text-orange-300' : 'text-zinc-800 dark:text-zinc-200'}
               onClick={() => onDrill({ title: 'Open right now', params: { kind: 'jobs', open: '1' } })} />
       </div>
 
@@ -2381,10 +2381,10 @@ function KimJobsBlock({ kim, onDrill }: {
       {view === 'yearly' && <>{bars(yearBars)}<KimLegend />{partialNote('year')}</>}
 
       {view === 'table' && (
-        <div className="overflow-x-auto rounded-lg border border-zinc-200">
+        <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
           <table className="w-full text-[12px]">
             <thead>
-              <tr className="text-left text-[10px] uppercase tracking-wide text-zinc-400">
+              <tr className="text-left text-[10px] uppercase tracking-wide text-zinc-400 dark:text-zinc-600">
                 <Th k="month" label="Month" sort={mSort} onSort={onMSort} left />
                 <Th k="opened" label="Arrived" sort={mSort} onSort={onMSort} />
                 <Th k="submitted" label="Put forward" sort={mSort} onSort={onMSort} />
@@ -2400,17 +2400,17 @@ function KimJobsBlock({ kim, onDrill }: {
                   : k === 'fillPct' ? (r.opened ? r.filled / r.opened : 0)
                   : k === 'prior' ? (r.prior ?? -1)
                   : r[k as 'month' | 'opened' | 'submitted' | 'filled']).map(m => (
-                <tr key={m.month} className="cursor-pointer border-t border-zinc-200 transition-colors hover:bg-zinc-100"
+                <tr key={m.month} className="cursor-pointer border-t border-zinc-200 dark:border-zinc-800 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
                     onClick={() => onDrill({ title: `Jobs that arrived in ${monthLabel(m.month)}`,
                       params: { kind: 'jobs', month: m.month } })}>
-                  <td className="px-3 py-1.5 text-zinc-800">{monthLabel(m.month)}</td>
-                  <td className="py-1.5 pr-3 text-right font-semibold tabular-nums text-zinc-900">{m.opened}</td>
-                  <td className="py-1.5 pr-3 text-right tabular-nums text-zinc-700">{m.submitted}</td>
-                  <td className="py-1.5 pr-3 text-right tabular-nums text-zinc-600">
+                  <td className="px-3 py-1.5 text-zinc-800 dark:text-zinc-200">{monthLabel(m.month)}</td>
+                  <td className="py-1.5 pr-3 text-right font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{m.opened}</td>
+                  <td className="py-1.5 pr-3 text-right tabular-nums text-zinc-700 dark:text-zinc-300">{m.submitted}</td>
+                  <td className="py-1.5 pr-3 text-right tabular-nums text-zinc-600 dark:text-zinc-400">
                     {m.opened ? Math.round((m.submitted / m.opened) * 100) : 0}%
                   </td>
-                  <td className="py-1.5 pr-3 text-right font-semibold tabular-nums text-teal-700">{m.filled}</td>
-                  <td className="py-1.5 pr-3 text-right tabular-nums text-teal-700">
+                  <td className="py-1.5 pr-3 text-right font-semibold tabular-nums text-teal-700 dark:text-teal-300">{m.filled}</td>
+                  <td className="py-1.5 pr-3 text-right tabular-nums text-teal-700 dark:text-teal-300">
                     {m.opened ? Math.round((m.filled / m.opened) * 100) : 0}%
                   </td>
                   <td className="py-1.5 pr-3 text-right tabular-nums text-zinc-500">{m.prior ?? '—'}</td>
@@ -2471,11 +2471,11 @@ function DurationsBlock({ kim, onDrill }: {
           return (
             <div key={r.name} className="flex items-center gap-3">
               <span className={cn('w-16 shrink-0 text-left text-[12px]',
-                r.intake < MIN ? 'text-zinc-400' : 'text-zinc-600')}>
-                {label}{r.intake < MIN && <span className="text-zinc-300">*</span>}
+                r.intake < MIN ? 'text-zinc-400 dark:text-zinc-600' : 'text-zinc-600 dark:text-zinc-400')}>
+                {label}{r.intake < MIN && <span className="text-zinc-300 dark:text-zinc-700">*</span>}
               </span>
               <Hover tip={<span className="flex flex-col gap-1">
-                <b className="text-zinc-900">{label} — {r.intake} arrived</b>
+                <b className="text-zinc-900 dark:text-zinc-100">{label} — {r.intake} arrived</b>
                 {seg.filter(x => x.n > 0).map(x => (
                   <TipRow key={x.word} tone={x.tone} value={x.n} label={x.word} />
                 ))}
@@ -2483,7 +2483,7 @@ function DurationsBlock({ kim, onDrill }: {
                   <span className="text-zinc-500">those still waiting: {r.medianAgeOpen} days so far</span>
                 )}
               </span>}>
-                <span className="relative flex h-5 overflow-hidden rounded bg-zinc-200/70">
+                <span className="relative flex h-5 overflow-hidden rounded bg-zinc-200/70 dark:bg-zinc-700/70">
                   {seg.map(x => x.n > 0 && (
                     <button key={x.word} className={cn('cursor-pointer transition-opacity hover:opacity-80', x.tone)}
                             style={{ width: `${(x.n / r.intake) * 100}%` }}
@@ -2493,7 +2493,7 @@ function DurationsBlock({ kim, onDrill }: {
                 </span>
               </Hover>
               <span className="w-40 shrink-0 text-right text-[11px] tabular-nums text-zinc-500">
-                <span className="text-teal-700">{r.filled} filled</span> · {pct}% of {r.intake}
+                <span className="text-teal-700 dark:text-teal-300">{r.filled} filled</span> · {pct}% of {r.intake}
               </span>
             </div>
           )
@@ -2504,7 +2504,7 @@ function DurationsBlock({ kim, onDrill }: {
         <Key tone={LNEUTRAL} label="Closed without a fill" />
         <Key tone={LWARN} label="Still waiting" />
       </div>
-      <p className="mt-2 text-[11px] leading-relaxed text-zinc-400">
+      <p className="mt-2 text-[11px] leading-relaxed text-zinc-400 dark:text-zinc-600">
         {thin > 0 && <>* Fewer than {MIN} of that period's jobs survive in Salesforce, so its rate
           swings on one or two records — the mirror's history erodes as sites reopen. </>}
         Read this with maturity in mind: a month that only just opened has had no time to clear, so
@@ -2524,15 +2524,15 @@ function DurationsBlock({ kim, onDrill }: {
       <div className="space-y-1.5">
         {rows.map(row => (
           <div key={row.name} className="flex items-center gap-3">
-            <span className="w-32 shrink-0 truncate text-[12px] text-zinc-700" title={row.name}>{row.name}</span>
+            <span className="w-32 shrink-0 truncate text-[12px] text-zinc-700 dark:text-zinc-300" title={row.name}>{row.name}</span>
             <Hover tip={<span className="flex flex-col gap-1">
-              <b className="text-zinc-900">{row.name} — {row.total} open
+              <b className="text-zinc-900 dark:text-zinc-100">{row.name} — {row.total} open
                 {row.median !== null && <> · half have waited {row.median}+ days</>}</b>
               {row.bands.map((n, i) => n > 0 && (
                 <TipRow key={i} tone={BAND_TONES[i]} value={n} label={BAND_LABELS[i].toLowerCase()} />
               ))}
             </span>}>
-              <span className="relative flex h-5 overflow-hidden rounded bg-zinc-200/70">
+              <span className="relative flex h-5 overflow-hidden rounded bg-zinc-200/70 dark:bg-zinc-700/70">
                 {row.bands.map((n, i) => n > 0 && (
                   <button key={i} className={cn('cursor-pointer transition-opacity hover:opacity-80', BAND_TONES[i])}
                           style={{ width: `${(n / row.total) * 100}%` }}
@@ -2543,9 +2543,9 @@ function DurationsBlock({ kim, onDrill }: {
                 ))}
               </span>
             </Hover>
-            <span className="w-24 shrink-0 text-right text-[12px] tabular-nums text-zinc-800">
+            <span className="w-24 shrink-0 text-right text-[12px] tabular-nums text-zinc-800 dark:text-zinc-200">
               <span className="font-semibold">{row.total}</span>
-              {row.median !== null && <span className="text-zinc-400"> · {row.median}d</span>}
+              {row.median !== null && <span className="text-zinc-400 dark:text-zinc-600"> · {row.median}d</span>}
             </span>
           </div>
         ))}
@@ -2579,20 +2579,20 @@ function DurationsBlock({ kim, onDrill }: {
               <button key={d.label}
                       onClick={() => onDrill({ title: `Open ${d.label.toLowerCase()}`,
                         params: { kind: 'jobs', open: '1', ageBand: d.label } })}
-                      className="flex w-full cursor-pointer items-baseline gap-3 rounded px-1 py-0.5 -mx-1 text-[12px] transition-colors hover:bg-zinc-100">
-                <span className="w-28 shrink-0 text-left text-zinc-700">{d.label}</span>
-                <span className="relative h-2 grow overflow-hidden rounded-full bg-zinc-200/70">
+                      className="flex w-full cursor-pointer items-baseline gap-3 rounded px-1 py-0.5 -mx-1 text-[12px] transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800">
+                <span className="w-28 shrink-0 text-left text-zinc-700 dark:text-zinc-300">{d.label}</span>
+                <span className="relative h-2 grow overflow-hidden rounded-full bg-zinc-200/70 dark:bg-zinc-700/70">
                   <span className={cn('absolute inset-y-0 left-0 rounded-full', BAND_TONES[i])}
                         style={{ width: `${d.pct}%` }} />
                 </span>
-                <span className="w-10 shrink-0 text-right font-semibold tabular-nums text-zinc-800">{d.jobs}</span>
-                <span className="w-24 shrink-0 whitespace-nowrap text-right text-[11px] tabular-nums text-zinc-400">
+                <span className="w-10 shrink-0 text-right font-semibold tabular-nums text-zinc-800 dark:text-zinc-200">{d.jobs}</span>
+                <span className="w-24 shrink-0 whitespace-nowrap text-right text-[11px] tabular-nums text-zinc-400 dark:text-zinc-600">
                   {d.pct}% of open
                 </span>
               </button>
             ))}
           </div>
-          <p className="mt-2 text-[11px] leading-relaxed text-zinc-400">
+          <p className="mt-2 text-[11px] leading-relaxed text-zinc-400 dark:text-zinc-600">
             {kim.openAgeMedian !== null && <>Half of what is open has been waiting {kim.openAgeMedian}+ days. </>}
             Counts jobs open today only — Salesforce does not record when a job was filled or closed,
             so how long past jobs took cannot be measured yet.
@@ -2622,7 +2622,7 @@ function DemandBlock({ kim, onDrill }: {
     <SideTable title={`Jobs opened by ${unit} · ${label.toLowerCase()}`} unit={unit}
                rows={rows.map(g => ({ name: g.name, ...((p => ({ a: p.opened, b: p.filled }))(pick(g))) }))
                  .filter(r => r.a > 0).sort((a, b) => b.a - a.a).slice(0, 8)}
-               aLabel="jobs opened" bLabel="filled" bTone="text-teal-700"
+               aLabel="jobs opened" bLabel="filled" bTone="text-teal-700 dark:text-teal-300"
                onRow={name => onDrill({ title: `${name} — where the demand sits`,
                  sub: `Towns with jobs opened in the ${label.toLowerCase()}, busiest first`,
                  params: { kind: 'locations', ...(unit === 'state' ? { state: name } : { specialty: name }),
@@ -2636,7 +2636,7 @@ function DemandBlock({ kim, onDrill }: {
              row to see which towns inside that state or role the jobs came from, busiest first.</>}
            takeaway={<>Counting job openings, not practices. Separately: {kim.practicesTotal} practices
              have given us work, but the single largest client is{' '}
-             <span className="text-zinc-800">{kim.topPracticeShare}%</span> of everything opened this
+             <span className="text-zinc-800 dark:text-zinc-200">{kim.topPracticeShare}%</span> of everything opened this
              year.</>}
            right={<Chips value={scope} onChange={v => setScope(v as typeof scope)} options={[
              { key: '3m', label: '3 mo' },
@@ -2646,17 +2646,17 @@ function DemandBlock({ kim, onDrill }: {
         {table(kim.scoped.byState, 'state')}
         {table(kim.scoped.byType, 'role')}
       </div>
-      <p className="mt-3 text-[12px] leading-relaxed text-zinc-600">
+      <p className="mt-3 text-[12px] leading-relaxed text-zinc-600 dark:text-zinc-400">
         Busiest locations:{' '}
         {kim.cities.map((c, i) => (
           <span key={c.name}>
             {i > 0 && ' · '}
             <button onClick={() => onDrill({ title: `Jobs in ${c.name}`,
                       params: { kind: 'jobs', cityState: c.name } })}
-                    className="cursor-pointer text-zinc-700 underline decoration-dotted underline-offset-2 hover:text-zinc-900">
+                    className="cursor-pointer text-zinc-700 dark:text-zinc-300 underline decoration-dotted underline-offset-2 hover:text-zinc-900 dark:hover:text-zinc-100">
               {c.name}
             </button>{' '}
-            ({c.opened}{c.everPlaced === 0 && <span className="text-orange-700"> — never placed here</span>})
+            ({c.opened}{c.everPlaced === 0 && <span className="text-orange-700 dark:text-orange-300"> — never placed here</span>})
           </span>
         ))}. A city with steady demand and no placement yet is the next place to focus — state
         alone is too big a unit.
@@ -2702,15 +2702,15 @@ function WorkBlock({ kim }: { kim: ClientReport['kim'] }) {
     : selected ? `in ${monthLabelFull(selected.month)}` : ''
 
   const tiles = [
-    { label: 'Emails processed', value: w.emails.toLocaleString(), sub: 'every Kimedics job email', tone: 'text-cyan-700' },
-    { label: 'Jobs tracked', value: w.jobsTracked.toLocaleString(), sub: 'end to end, intake to close', tone: 'text-cyan-700' },
-    { label: 'Fields written', value: w.patches.toLocaleString(), sub: 'corrections nobody had to type', tone: 'text-teal-700' },
-    { label: 'Jobs updated', value: w.updated.toLocaleString(), sub: 'change syncs pushed', tone: 'text-zinc-800' },
-    { label: 'Jobs closed', value: w.closed.toLocaleString(), sub: 'lifecycles completed', tone: 'text-zinc-800' },
-    { label: 'Capture rate', value: `${capture}%`, sub: 'of tracked jobs reached Salesforce', tone: 'text-teal-700' },
-    { label: 'Median sync', value: `${kim.syncMinutes} min`, sub: 'email → Salesforce, all time', tone: 'text-cyan-700' },
-    { label: 'Worksites created', value: w.worksites.toLocaleString(), sub: 'set up automatically', tone: 'text-zinc-800' },
-    { label: 'Self-healed', value: w.retries.toLocaleString(), sub: 'failures fixed without a human', tone: 'text-teal-700' },
+    { label: 'Emails processed', value: w.emails.toLocaleString(), sub: 'every Kimedics job email', tone: 'text-cyan-700 dark:text-cyan-300' },
+    { label: 'Jobs tracked', value: w.jobsTracked.toLocaleString(), sub: 'end to end, intake to close', tone: 'text-cyan-700 dark:text-cyan-300' },
+    { label: 'Fields written', value: w.patches.toLocaleString(), sub: 'corrections nobody had to type', tone: 'text-teal-700 dark:text-teal-300' },
+    { label: 'Jobs updated', value: w.updated.toLocaleString(), sub: 'change syncs pushed', tone: 'text-zinc-800 dark:text-zinc-200' },
+    { label: 'Jobs closed', value: w.closed.toLocaleString(), sub: 'lifecycles completed', tone: 'text-zinc-800 dark:text-zinc-200' },
+    { label: 'Capture rate', value: `${capture}%`, sub: 'of tracked jobs reached Salesforce', tone: 'text-teal-700 dark:text-teal-300' },
+    { label: 'Median sync', value: `${kim.syncMinutes} min`, sub: 'email → Salesforce, all time', tone: 'text-cyan-700 dark:text-cyan-300' },
+    { label: 'Worksites created', value: w.worksites.toLocaleString(), sub: 'set up automatically', tone: 'text-zinc-800 dark:text-zinc-200' },
+    { label: 'Self-healed', value: w.retries.toLocaleString(), sub: 'failures fixed without a human', tone: 'text-teal-700 dark:text-teal-300' },
   ]
 
   return (
@@ -2733,8 +2733,8 @@ function WorkBlock({ kim }: { kim: ClientReport['kim'] }) {
             <button key={m.month} onClick={() => setPick(m.month)}
                     className={cn('rounded-md px-2 py-1 text-[11px] font-medium transition-colors',
                       m.month === (selected?.month ?? '')
-                        ? 'bg-zinc-900 text-white'
-                        : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200')}>
+                        ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900'
+                        : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700')}>
               {monthLabelFull(m.month)}
             </button>
           ))}
@@ -2742,12 +2742,12 @@ function WorkBlock({ kim }: { kim: ClientReport['kim'] }) {
       )}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-[40px] leading-none font-semibold tabular-nums text-teal-700">
-            {w.hours}<span className="ml-1 text-[20px] text-teal-700/70">hours</span>
+          <p className="text-[40px] leading-none font-semibold tabular-nums text-teal-700 dark:text-teal-300">
+            {w.hours}<span className="ml-1 text-[20px] text-teal-700 dark:text-teal-300/70">hours</span>
           </p>
-          <p className="mt-1.5 text-[12px] text-zinc-600">
+          <p className="mt-1.5 text-[12px] text-zinc-600 dark:text-zinc-400">
             of manual work returned {windowWord} — roughly{' '}
-            <b className="text-zinc-800">{weeks} working {weeks === 1 ? 'week' : 'weeks'}</b> of a
+            <b className="text-zinc-800 dark:text-zinc-200">{weeks} working {weeks === 1 ? 'week' : 'weeks'}</b> of a
             person's time, across {kim.statesActive} states.
           </p>
         </div>
@@ -2759,7 +2759,7 @@ function WorkBlock({ kim }: { kim: ClientReport['kim'] }) {
               <button key={m.month} onClick={() => { setScope('month'); setPick(m.month) }}
                       className="flex w-10 cursor-pointer flex-col items-center">
                 <span className={cn('mb-1 text-[10px] font-semibold tabular-nums',
-                  on ? 'text-zinc-700' : 'text-zinc-400')}>{m.hours}</span>
+                  on ? 'text-zinc-700 dark:text-zinc-300' : 'text-zinc-400 dark:text-zinc-600')}>{m.hours}</span>
                 <div className={cn('w-full rounded-t-[3px]', on ? LGOOD : 'bg-teal-200/60')}
                      style={{ height: Math.max((m.hours / max) * 44, 2) }} />
                 <span className="mt-1 text-[9px] text-zinc-500">{monthLabel(m.month)}</span>
@@ -2771,7 +2771,7 @@ function WorkBlock({ kim }: { kim: ClientReport['kim'] }) {
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
         {tiles.map(t => (
           <div key={t.label}
-               className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 transition-colors hover:border-zinc-300">
+               className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 px-4 py-3 transition-colors hover:border-zinc-300 dark:hover:border-zinc-700">
             <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-zinc-500">{t.label}</p>
             <p className={cn('mt-1.5 text-[24px] leading-none font-semibold tabular-nums', t.tone)}>{t.value}</p>
             <p className="mt-1 text-[10px] text-zinc-500">{t.sub}</p>
@@ -2802,16 +2802,16 @@ function OpenList({ title, rows, onPick }: {
 }) {
   return (
     <div>
-      <p className="mb-2 text-[10px] uppercase tracking-wide text-zinc-400">{title}</p>
+      <p className="mb-2 text-[10px] uppercase tracking-wide text-zinc-400 dark:text-zinc-600">{title}</p>
       <div className="max-h-40 space-y-1 overflow-y-auto pr-1">
         {rows.map(g => (
           <button key={g.name} onClick={() => onPick(g.name)}
-                  className="flex w-full cursor-pointer items-baseline gap-2 rounded px-1 py-0.5 -mx-1 text-[12px] transition-colors hover:bg-zinc-100">
-            <span className="min-w-0 truncate text-left text-zinc-700" title={g.name}>{g.name}</span>
-            <span className="grow border-b border-dotted border-zinc-200" />
-            <span className="shrink-0 font-semibold tabular-nums text-zinc-900">{g.jobs}</span>
+                  className="flex w-full cursor-pointer items-baseline gap-2 rounded px-1 py-0.5 -mx-1 text-[12px] transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800">
+            <span className="min-w-0 truncate text-left text-zinc-700 dark:text-zinc-300" title={g.name}>{g.name}</span>
+            <span className="grow border-b border-dotted border-zinc-200 dark:border-zinc-800" />
+            <span className="shrink-0 font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{g.jobs}</span>
             {g.stale > 0 && (
-              <span className="shrink-0 text-[10px] tabular-nums text-orange-700">{g.stale} &gt;3mo</span>
+              <span className="shrink-0 text-[10px] tabular-nums text-orange-700 dark:text-orange-300">{g.stale} &gt;3mo</span>
             )}
           </button>
         ))}
@@ -2836,18 +2836,18 @@ type PanelRow = {
 type PanelStat = { label: string; value: string; tone: 'good' | 'warn' | 'info' | 'muted' }
 
 const STAT_TONE: Record<PanelStat['tone'], string> = {
-  good: 'text-teal-700', warn: 'text-orange-700', info: 'text-cyan-700', muted: 'text-zinc-800',
+  good: 'text-teal-700 dark:text-teal-300', warn: 'text-orange-700 dark:text-orange-300', info: 'text-cyan-700 dark:text-cyan-300', muted: 'text-zinc-800 dark:text-zinc-200',
 }
 const LEAD_TONE: Record<PanelRow['leadTone'], string> = {
-  good: 'text-teal-700', warn: 'text-orange-700', info: 'text-cyan-700/90', muted: 'text-zinc-600',
+  good: 'text-teal-700 dark:text-teal-300', warn: 'text-orange-700 dark:text-orange-300', info: 'text-cyan-700 dark:text-cyan-300/90', muted: 'text-zinc-600 dark:text-zinc-400',
 }
 
 const BADGE_CLS: Record<PanelRow['badgeTone'], string> = {
-  open: 'bg-cyan-600/10 text-cyan-700',
-  good: 'bg-teal-600/10 text-teal-700',
-  warn: 'bg-orange-600/10 text-orange-700',
-  muted: 'bg-zinc-100 text-zinc-600',
-  accent: 'bg-violet-600/10 text-violet-700',
+  open: 'bg-cyan-600/10 text-cyan-700 dark:text-cyan-300',
+  good: 'bg-teal-600/10 text-teal-700 dark:text-teal-300',
+  warn: 'bg-orange-600/10 text-orange-700 dark:text-orange-300',
+  muted: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400',
+  accent: 'bg-violet-600/10 text-violet-700 dark:text-violet-300',
 }
 
 function DrillPanel({ drill, onClose }: { drill: Drill; onClose: () => void }) {
@@ -2891,11 +2891,11 @@ function DrillPanel({ drill, onClose }: { drill: Drill; onClose: () => void }) {
   // stacking context and fail to cover the whole viewport.
   return createPortal(
     <>
-      <div className="fixed inset-0 z-40 bg-black/25" onClick={onClose} />
-      <aside className="fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col border-l border-zinc-200 bg-white shadow-2xl">
-        <div className="flex items-start justify-between gap-3 border-b border-zinc-200 px-5 py-4">
+      <div className="fixed inset-0 z-40 bg-zinc-900/25 dark:bg-black/50" onClick={onClose} />
+      <aside className="fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col border-l border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-2xl">
+        <div className="flex items-start justify-between gap-3 border-b border-zinc-200 dark:border-zinc-800 px-5 py-4">
           <div>
-            <h3 className="text-[15px] font-semibold text-zinc-900">{drill.title}</h3>
+            <h3 className="text-[15px] font-semibold text-zinc-900 dark:text-zinc-100">{drill.title}</h3>
             {drill.sub && <p className="mt-0.5 text-[11px] text-zinc-500">{drill.sub}</p>}
             <p className="mt-0.5 text-[11px] text-zinc-500">
               {rows === null && !error ? 'Loading…'
@@ -2903,12 +2903,12 @@ function DrillPanel({ drill, onClose }: { drill: Drill; onClose: () => void }) {
             </p>
           </div>
           <button onClick={onClose} aria-label="close"
-                  className="rounded-md px-2 py-1 text-[14px] text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-800">×</button>
+                  className="rounded-md px-2 py-1 text-[14px] text-zinc-500 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-800 dark:hover:text-zinc-200">×</button>
         </div>
         {stats.length > 0 && (
-          <div className="grid grid-cols-2 gap-2 border-b border-zinc-200 px-5 py-3 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 border-b border-zinc-200 dark:border-zinc-800 px-5 py-3 sm:grid-cols-4">
             {stats.map(st => (
-              <div key={st.label} className="flex h-full flex-col rounded-lg bg-zinc-50 px-3 py-2">
+              <div key={st.label} className="flex h-full flex-col rounded-lg bg-zinc-50 dark:bg-zinc-900 px-3 py-2">
                 <p className={cn('text-[19px] leading-none font-semibold tabular-nums whitespace-nowrap',
                   STAT_TONE[st.tone])}>{st.value}</p>
                 <p className="mt-1 text-[10px] leading-tight text-zinc-500">{st.label}</p>
@@ -2917,7 +2917,7 @@ function DrillPanel({ drill, onClose }: { drill: Drill; onClose: () => void }) {
           </div>
         )}
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-3">
-          {error && <p className="text-[12px] text-orange-700">{error}</p>}
+          {error && <p className="text-[12px] text-orange-700 dark:text-orange-300">{error}</p>}
           {rows !== null && rows.length === 0 && (
             <p className="text-[12px] text-zinc-500">Nothing matches this slice.</p>
           )}
@@ -2926,8 +2926,8 @@ function DrillPanel({ drill, onClose }: { drill: Drill; onClose: () => void }) {
               const inner = (
                 <>
                   <div className="flex items-baseline justify-between gap-2">
-                    <p className="min-w-0 truncate text-[13px] font-medium text-zinc-900">
-                      {j.title} {j.sfId && <span className="text-zinc-400">↗</span>}
+                    <p className="min-w-0 truncate text-[13px] font-medium text-zinc-900 dark:text-zinc-100">
+                      {j.title} {j.sfId && <span className="text-zinc-400 dark:text-zinc-600">↗</span>}
                     </p>
                     {j.badge && (
                       <span className={cn('shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium', BADGE_CLS[j.badgeTone])}>
@@ -2936,17 +2936,17 @@ function DrillPanel({ drill, onClose }: { drill: Drill; onClose: () => void }) {
                     )}
                   </div>
                   <p className="mt-1 truncate text-[11px] text-zinc-500">{j.sub}</p>
-                  <p className="mt-0.5 text-[11px] tabular-nums text-zinc-400">
+                  <p className="mt-0.5 text-[11px] tabular-nums text-zinc-400 dark:text-zinc-600">
                     {j.metaLead && <span className={cn('font-medium', LEAD_TONE[j.leadTone])}>{j.metaLead}</span>}
                     {j.metaLead && j.meta && ' · '}
                     {j.meta}
                   </p>
                 </>
               )
-              const cls = 'block rounded-lg border border-zinc-200 px-3.5 py-2.5'
+              const cls = 'block rounded-lg border border-zinc-200 dark:border-zinc-800 px-3.5 py-2.5'
               return j.sfId ? (
                 <a key={`${j.sfId}-${i}`} href={`${SF_BASE}${j.sfId}`} target="_blank" rel="noopener noreferrer"
-                   className={cn(cls, 'transition-colors hover:border-zinc-400 hover:bg-zinc-50')}>
+                   className={cn(cls, 'transition-colors hover:border-zinc-400 dark:hover:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800/50')}>
                   {inner}
                 </a>
               ) : (
@@ -3032,17 +3032,17 @@ function SendPanel({ activeTab }: { activeTab: 'ops' | 'djc' | 'kim' }) {
     <div className="relative">
       <button onClick={() => setOpen(o => !o)} aria-expanded={open}
               className={cn('rounded-lg border px-3 py-1.5 text-[12px] transition-colors',
-                open ? 'border-zinc-400 text-zinc-700'
-                  : 'border-zinc-200 text-zinc-500 hover:border-zinc-300 hover:text-zinc-700')}>
+                open ? 'border-zinc-400 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300'
+                  : 'border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:border-zinc-300 dark:hover:border-zinc-700 hover:text-zinc-700 dark:hover:text-zinc-300')}>
         ✉ Email this report
       </button>
       {open && (
         <>
           {/* click-away layer */}
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full z-20 mt-2 w-[22rem] rounded-xl border border-zinc-200 bg-white p-3 shadow-xl shadow-zinc-400/20">
+          <div className="absolute right-0 top-full z-20 mt-2 w-[22rem] rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3 shadow-xl shadow-zinc-400/20">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-              <span className="text-[10px] uppercase tracking-wide text-zinc-400">Send report</span>
+              <span className="text-[10px] uppercase tracking-wide text-zinc-400 dark:text-zinc-600">Send report</span>
               <Chips value={section} onChange={v => setSection(v as typeof section)} options={[
                 { key: 'all', label: 'Everything' },
                 { key: 'ops', label: 'Operations' },
@@ -3050,12 +3050,12 @@ function SendPanel({ activeTab }: { activeTab: 'ops' | 'djc' | 'kim' }) {
                 { key: 'kim', label: 'Kimedics' },
               ]} />
             </div>
-            <div className="flex flex-wrap items-center gap-1 rounded-lg border border-zinc-200 bg-zinc-50 px-2 py-1.5 focus-within:border-zinc-500">
+            <div className="flex flex-wrap items-center gap-1 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 px-2 py-1.5 focus-within:border-zinc-500">
               {emails.map(e => (
-                <span key={e} className="inline-flex items-center gap-1 rounded bg-zinc-200 px-1.5 py-0.5 text-[11px] text-zinc-700">
+                <span key={e} className="inline-flex items-center gap-1 rounded bg-zinc-200 dark:bg-zinc-700 px-1.5 py-0.5 text-[11px] text-zinc-700 dark:text-zinc-300">
                   {e}
                   <button onClick={() => setEmails(x => x.filter(y => y !== e))}
-                          className="text-zinc-500 hover:text-zinc-800" aria-label={`remove ${e}`}>×</button>
+                          className="text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200" aria-label={`remove ${e}`}>×</button>
                 </span>
               ))}
               <input
@@ -3068,19 +3068,19 @@ function SendPanel({ activeTab }: { activeTab: 'ops' | 'djc' | 'kim' }) {
                 }}
                 onBlur={() => draft.trim() && add(draft)}
                 placeholder={emails.length ? '' : 'name@company.com'}
-                className="min-w-24 flex-1 bg-transparent py-0.5 text-[12px] text-zinc-700 placeholder-zinc-400 outline-none"
+                className="min-w-24 flex-1 bg-transparent py-0.5 text-[12px] text-zinc-700 dark:text-zinc-300 placeholder-zinc-400 outline-none"
               />
             </div>
             <div className="mt-2 flex items-center justify-between gap-2">
               <p className={cn('min-h-4 text-[11px]',
-                status === 'done' ? 'text-teal-700' : status === 'error' ? 'text-orange-700' : 'text-zinc-400')}>
+                status === 'done' ? 'text-teal-700 dark:text-teal-300' : status === 'error' ? 'text-orange-700 dark:text-orange-300' : 'text-zinc-400 dark:text-zinc-600')}>
                 {status === 'done' ? 'Sent ✓' : status === 'error' ? error
                   : 'Enter to add more than one.'}
               </p>
               <button onClick={send} disabled={status === 'sending'}
                       className={cn('shrink-0 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors',
-                        status === 'sending' ? 'bg-zinc-200/70 text-zinc-400'
-                          : 'bg-cyan-600/10 text-cyan-700 hover:bg-cyan-600/20')}>
+                        status === 'sending' ? 'bg-zinc-200/70 dark:bg-zinc-700/70 text-zinc-400 dark:text-zinc-600'
+                          : 'bg-cyan-600/10 text-cyan-700 dark:text-cyan-300 hover:bg-cyan-600/20')}>
                 {status === 'sending' ? 'Sending…' : 'Send'}
               </button>
             </div>
@@ -3147,7 +3147,7 @@ function Hover({ tip, children, block, inline, style }: {
       {children}
       {open && createPortal(
         <span ref={bubble}
-              className="pointer-events-none fixed z-[60] w-60 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-left text-[11px] leading-relaxed text-zinc-600 shadow-xl shadow-zinc-400/25"
+              className="pointer-events-none fixed z-[60] w-60 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-left text-[11px] leading-relaxed text-zinc-600 dark:text-zinc-400 shadow-xl shadow-zinc-400/25"
               style={{ top: pos?.top ?? 0, left: pos?.left ?? 0, visibility: pos ? 'visible' : 'hidden' }}>
           {tip}
         </span>,
@@ -3162,11 +3162,11 @@ function SectionHead({ n, title, q, children }: {
 }) {
   return (
     <div className="mb-5">
-      <p className="text-[11px] font-semibold tracking-widest text-zinc-400">{n}</p>
-      <h2 className="mt-0.5 text-[17px] font-semibold text-zinc-900">{title}</h2>
+      <p className="text-[11px] font-semibold tracking-widest text-zinc-400 dark:text-zinc-600">{n}</p>
+      <h2 className="mt-0.5 text-[17px] font-semibold text-zinc-900 dark:text-zinc-100">{title}</h2>
       <p className="mt-0.5 text-[13px] text-zinc-500">{q}</p>
       {children && (
-        <p className="mt-3 max-w-3xl text-[14px] leading-relaxed text-zinc-700">{children}</p>
+        <p className="mt-3 max-w-3xl text-[14px] leading-relaxed text-zinc-700 dark:text-zinc-300">{children}</p>
       )}
     </div>
   )
@@ -3208,17 +3208,17 @@ function Freshness({ generatedAt, syncedAt }: { generatedAt: string; syncedAt: s
   return (
     <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-zinc-500">
       <span>
-        Salesforce data synced <b className="font-medium text-zinc-600">{syncedAt ? ago(syncedAt) : '—'}</b>
-        <span className="text-zinc-400"> (auto-syncs each morning)</span>
-        {' · '}report built <b className="font-medium text-zinc-600">{ago(generatedAt)}</b>
+        Salesforce data synced <b className="font-medium text-zinc-600 dark:text-zinc-400">{syncedAt ? ago(syncedAt) : '—'}</b>
+        <span className="text-zinc-400 dark:text-zinc-600"> (auto-syncs each morning)</span>
+        {' · '}report built <b className="font-medium text-zinc-600 dark:text-zinc-400">{ago(generatedAt)}</b>
       </span>
       <Hover inline tip={<>Re-reads Salesforce for jobs, applications and placements, then rebuilds
         this report. It reads Salesforce only — it never opens DentistJobCafe, so it cannot spend a
         Profile View. If Salesforce was synced in the last few minutes it just rebuilds the page.</>}>
         <button onClick={refresh} disabled={busy}
                 className={cn('rounded-md border px-2 py-0.5 text-[11px] transition-colors',
-                  busy ? 'border-zinc-200 text-zinc-400'
-                    : 'border-zinc-300 text-zinc-600 hover:border-zinc-400 hover:text-zinc-800')}>
+                  busy ? 'border-zinc-200 dark:border-zinc-800 text-zinc-400 dark:text-zinc-600'
+                    : 'border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-zinc-400 dark:hover:border-zinc-600 hover:text-zinc-800 dark:hover:text-zinc-200')}>
           {busy ? 'Refreshing…' : '↻ Refresh data'}
         </button>
       </Hover>
@@ -3231,7 +3231,7 @@ function Freshness({ generatedAt, syncedAt }: { generatedAt: string; syncedAt: s
 function InfoDot({ children }: { children: React.ReactNode }) {
   return (
     <Hover inline tip={children}>
-      <span className="inline-flex h-[15px] w-[15px] cursor-help items-center justify-center rounded-full border border-zinc-300 text-[9px] font-semibold text-zinc-400 transition-colors hover:border-zinc-400 hover:text-zinc-600"
+      <span className="inline-flex h-[15px] w-[15px] cursor-help items-center justify-center rounded-full border border-zinc-300 dark:border-zinc-700 text-[9px] font-semibold text-zinc-400 dark:text-zinc-600 transition-colors hover:border-zinc-400 dark:hover:border-zinc-600 hover:text-zinc-600 dark:hover:text-zinc-400"
             aria-label="How this is calculated">i</span>
     </Hover>
   )
@@ -3246,13 +3246,13 @@ function Block({ title, takeaway, right, info, source, children }: {
   children: React.ReactNode
 }) {
   return (
-    <div className="mt-5 rounded-xl border border-zinc-200 bg-white p-5 first:mt-0">
+    <div className="mt-5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 first:mt-0">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="flex flex-wrap items-center gap-1.5 text-[13px] font-semibold text-zinc-800">
+          <h3 className="flex flex-wrap items-center gap-1.5 text-[13px] font-semibold text-zinc-800 dark:text-zinc-200">
             <span>{title}</span>{info && <InfoDot>{info}</InfoDot>}
             {source && (
-              <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wide text-zinc-500">
+              <span className="rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wide text-zinc-500">
                 {source}
               </span>
             )}
@@ -3274,11 +3274,11 @@ function Chips({ value, onChange, options }: {
   options: { key: string; label: string }[]
 }) {
   return (
-    <div className="inline-flex rounded-lg border border-zinc-200 bg-white p-0.5">
+    <div className="inline-flex rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-0.5">
       {options.map(o => (
         <button key={o.key} onClick={() => onChange(o.key)}
                 className={cn('whitespace-nowrap rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors',
-                  value === o.key ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:text-zinc-700')}>
+                  value === o.key ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300')}>
           {o.label}
         </button>
       ))}
@@ -3294,14 +3294,14 @@ function Stat({ value, label, sub, tone, onClick }: {
       <p className={cn('text-[22px] leading-none font-semibold tabular-nums whitespace-nowrap', tone)}>
         {value}
       </p>
-      <p className="mt-1.5 text-[12px] leading-snug font-medium text-zinc-700">{label}</p>
+      <p className="mt-1.5 text-[12px] leading-snug font-medium text-zinc-700 dark:text-zinc-300">{label}</p>
       {sub ? <p className="mt-0.5 text-[11px] leading-snug text-zinc-500">{sub}</p> : null}
     </>
   )
-  const box = 'flex h-full flex-col rounded-lg bg-zinc-100 px-4 py-3 text-left'
+  const box = 'flex h-full flex-col rounded-lg bg-zinc-100 dark:bg-zinc-800 px-4 py-3 text-left'
   if (onClick) {
     return (
-      <button onClick={onClick} className={cn(box, 'cursor-pointer transition-colors hover:bg-zinc-200/70')}>
+      <button onClick={onClick} className={cn(box, 'cursor-pointer transition-colors hover:bg-zinc-200/70 dark:hover:bg-zinc-700/70')}>
         {inner}
       </button>
     )
@@ -3310,7 +3310,7 @@ function Stat({ value, label, sub, tone, onClick }: {
 }
 
 function SideTable({
-  title, unit, rows, aLabel, bLabel, bTone = 'text-zinc-600', scroll = false, delta = false, onRow,
+  title, unit, rows, aLabel, bLabel, bTone = 'text-zinc-600 dark:text-zinc-400', scroll = false, delta = false, onRow,
 }: {
   title: string
   unit: string
@@ -3328,14 +3328,14 @@ function SideTable({
   const sorted = sortRows(rows, sort, (r, k) =>
     k === 'name' ? r.name : k === 'a' ? r.a : k === 'b' ? r.b : deltaOf(r))
   return (
-    <div className="overflow-hidden rounded-lg border border-zinc-200">
-      <div className="border-b border-zinc-200 bg-white px-3 py-2">
+    <div className="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800">
+      <div className="border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2">
         <p className="text-[10px] uppercase tracking-wide text-zinc-500">{title}</p>
       </div>
       <div className={cn(scroll && 'max-h-64 overflow-y-auto')}>
         <table className="w-full text-[12px]">
-          <thead className={cn(scroll && 'sticky top-0 bg-white')}>
-            <tr className="text-left text-[10px] uppercase tracking-wide text-zinc-400">
+          <thead className={cn(scroll && 'sticky top-0 bg-white dark:bg-zinc-900')}>
+            <tr className="text-left text-[10px] uppercase tracking-wide text-zinc-400 dark:text-zinc-600">
               <Th k="name" label={<span className="capitalize normal-case">{unit}</span>} sort={sort} onSort={onSort} left />
               <Th k="a" label={aLabel} sort={sort} onSort={onSort} />
               <Th k="b" label={bLabel} sort={sort} onSort={onSort} />
@@ -3348,15 +3348,15 @@ function SideTable({
               const up = r.a >= r.b
               return (
                 <tr key={r.name}
-                    className={cn('border-t border-zinc-200',
-                      onRow && 'cursor-pointer transition-colors hover:bg-zinc-100')}
+                    className={cn('border-t border-zinc-200 dark:border-zinc-800',
+                      onRow && 'cursor-pointer transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800')}
                     onClick={onRow ? () => onRow(r.name) : undefined}>
-                  <td className="max-w-44 truncate px-3 py-1.5 text-zinc-800" title={r.name}>{r.name}</td>
-                  <td className="py-1.5 pr-3 text-right font-semibold tabular-nums text-zinc-900">{r.a}</td>
+                  <td className="max-w-44 truncate px-3 py-1.5 text-zinc-800 dark:text-zinc-200" title={r.name}>{r.name}</td>
+                  <td className="py-1.5 pr-3 text-right font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{r.a}</td>
                   <td className={cn('py-1.5 pr-3 text-right tabular-nums', bTone)}>{r.b}</td>
                   {delta && (
                     <td className={cn('py-1.5 pr-3 text-right text-[11px] font-medium tabular-nums',
-                      r.a === r.b ? 'text-zinc-400' : up ? 'text-teal-700' : 'text-orange-700')}>
+                      r.a === r.b ? 'text-zinc-400 dark:text-zinc-600' : up ? 'text-teal-700 dark:text-teal-300' : 'text-orange-700 dark:text-orange-300')}>
                       {pct === null ? (r.a > 0 ? 'new' : '—')
                         : `${pct >= 0 ? '+' : ''}${pct}%`}
                     </td>
@@ -3396,7 +3396,7 @@ function Th({ k, label, sort, onSort, left, title }: {
     <th className={cn('py-1.5 font-medium', left ? 'px-3 text-left' : 'pr-3 text-right')}>
       <button onClick={() => onSort(k)} title={title ?? 'Click to sort'}
               className={cn('inline-flex cursor-pointer items-center gap-0.5 uppercase tracking-wide transition-colors',
-                active ? 'text-zinc-700' : 'text-zinc-400 hover:text-zinc-600')}>
+                active ? 'text-zinc-700 dark:text-zinc-300' : 'text-zinc-400 dark:text-zinc-600 hover:text-zinc-600 dark:hover:text-zinc-400')}>
         {label}{active && <span className="text-[8px]">{sort.desc ? '▼' : '▲'}</span>}
       </button>
     </th>
@@ -3413,7 +3413,7 @@ function Key({ tone, label }: { tone: string; label: string }) {
 
 function Take({ children }: { children: React.ReactNode }) {
   return (
-    <p className="mt-5 max-w-3xl border-t border-zinc-200 pt-3 text-[12px] leading-relaxed text-zinc-600">
+    <p className="mt-5 max-w-3xl border-t border-zinc-200 dark:border-zinc-800 pt-3 text-[12px] leading-relaxed text-zinc-600 dark:text-zinc-400">
       {children}
     </p>
   )

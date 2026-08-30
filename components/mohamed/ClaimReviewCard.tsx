@@ -329,7 +329,7 @@ export function ClaimReviewCard({
           )}
 
           {canApprove && claim.reachedReview && (
-            <div className={`mt-4 rounded-lg border px-3 py-2.5 ${decision === 'rejected' ? 'border-red-200 bg-red-50' : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50'}`}>
+            <div className={`mt-4 rounded-lg border px-3 py-2.5 ${decision === 'rejected' ? 'border-red-200 bg-red-50 dark:border-red-500/30 dark:bg-red-500/10' : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50'}`}>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className={`text-xs ${decision === 'rejected' ? 'text-red-800' : 'text-zinc-600 dark:text-zinc-400'}`}>
                   {decision === 'approved' &&

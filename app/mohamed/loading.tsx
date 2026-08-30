@@ -43,7 +43,7 @@ export default function Loading() {
         <SkeletonBlock className="h-32 w-full rounded-none" />
       </div>
 
-      <div className="mt-7 rounded-2xl border border-sky-200 bg-sky-50 p-5">
+      <div className="mt-7 rounded-2xl border border-sky-200 bg-sky-50 dark:border-sky-500/30 dark:bg-sky-500/10 p-5">
         <SkeletonBlock className="h-5 w-44 bg-sky-200" />
         <SkeletonBlock className="mt-3 h-16 w-full bg-sky-200" />
       </div>

@@ -21,14 +21,14 @@ export default async function PortalPage() {
       <div className="mb-6 flex items-center justify-between">
         <p className="text-[11px] font-semibold tracking-widest text-zinc-500">PROXI</p>
         <a href="/api/portal/logout"
-           className="text-[11px] text-zinc-500 transition-colors hover:text-zinc-700">
+           className="text-[11px] text-zinc-500 transition-colors hover:text-zinc-700 dark:hover:text-zinc-300">
           Sign out
         </a>
       </div>
       {report ? (
         <ClientReportView report={report} showSend />
       ) : (
-        <p className="text-sm text-zinc-600">
+        <p className="text-sm text-zinc-600 dark:text-zinc-400">
           The report is busy refreshing right now. Give it a few seconds and reload — nothing is
           wrong with the data.
         </p>
