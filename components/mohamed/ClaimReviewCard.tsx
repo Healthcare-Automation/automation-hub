@@ -181,16 +181,16 @@ export function ClaimReviewCard({
   const amountLabel = claim.chargeCents != null ? money(claim.chargeCents) : null
 
   return (
-    <div className={`overflow-hidden rounded-xl border bg-white ${decision === 'rejected' ? 'border-red-300' : 'border-zinc-200'}`}>
+    <div className={`overflow-hidden rounded-xl border bg-white dark:bg-zinc-900 ${decision === 'rejected' ? 'border-red-300' : 'border-zinc-200 dark:border-zinc-800'}`}>
       <button
         type="button"
         onClick={toggle}
-        className="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-3 text-left hover:bg-zinc-50"
+        className="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-3 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
       >
         <div className="flex min-w-0 items-start gap-3">
           <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${claim.reachedReview ? 'bg-emerald-500' : 'bg-red-500'}`} />
           <div className="min-w-0">
-            <p className="text-sm font-medium text-zinc-900">
+            <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
               {/* Member ID is the headline — that's how Mohamed identifies
                   claims. Falls back to procedure code while (or if) the
                   fields.json fetch hasn't produced one. */}
@@ -203,22 +203,22 @@ export function ClaimReviewCard({
                 on them"). Everything else stays plain text alongside. */}
             <div className="mt-1 flex flex-wrap items-center gap-1.5">
               {dateRange && (
-                <span className="inline-flex items-center rounded-md bg-blue-50 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-blue-700 ring-1 ring-inset ring-blue-200">
+                <span className="inline-flex items-center rounded-md bg-blue-50 text-blue-700 ring-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-500/30 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums ring-1 ring-inset">
                   {formatReviewDate(dateRange.from)} – {formatReviewDate(dateRange.to)}
                 </span>
               )}
               {claim.procedureCode && (
-                <span className="inline-flex items-center gap-1 rounded-md bg-violet-50 px-1.5 py-0.5 text-[11px] font-semibold text-violet-700 ring-1 ring-inset ring-violet-200">
+                <span className="inline-flex items-center gap-1 rounded-md bg-violet-50 text-violet-700 ring-violet-200 dark:bg-violet-500/10 dark:text-violet-300 dark:ring-violet-500/30 px-1.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset">
                   {claim.procedureCode.toUpperCase()}
                   {claim.modifiers && claim.modifiers !== 'none' && (
-                    <span className="font-normal text-violet-500">{claim.modifiers.replaceAll('_', ', ').toUpperCase()}</span>
+                    <span className="font-normal text-violet-500 dark:text-violet-400">{claim.modifiers.replaceAll('_', ', ').toUpperCase()}</span>
                   )}
                 </span>
               )}
               {(unitsLabel || amountLabel) && (
                 <span className="text-[11px] text-zinc-500">{[unitsLabel, amountLabel].filter(Boolean).join(' · ')}</span>
               )}
-              {!claim.reachedReview && <span className="text-[11px] font-medium text-red-600">did not reach review</span>}
+              {!claim.reachedReview && <span className="text-[11px] font-medium text-red-600 dark:text-red-400">did not reach review</span>}
             </div>
           </div>
         </div>
@@ -230,14 +230,14 @@ export function ClaimReviewCard({
             <span className="rounded-full bg-red-600 px-2.5 py-1 text-[11px] font-semibold text-white">Rejected</span>
           )}
           {decision === null && (
-            <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-[11px] font-medium text-zinc-500">Needs review</span>
+            <span className="rounded-full bg-zinc-100 dark:bg-zinc-800 px-2.5 py-1 text-[11px] font-medium text-zinc-500">Needs review</span>
           )}
-          <span className="text-xs text-zinc-400">{expanded ? 'Hide' : 'Review'}</span>
+          <span className="text-xs text-zinc-400 dark:text-zinc-500">{expanded ? 'Hide' : 'Review'}</span>
         </div>
       </button>
 
       {approvalDegraded && (
-        <p className="border-t border-amber-100 bg-amber-50 px-4 py-2 text-xs text-amber-800">
+        <p className="border-t border-amber-100 bg-amber-50 text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300 px-4 py-2 text-xs">
           Reconnecting to the approvals database — any existing decision on this claim isn&apos;t shown yet, refreshes automatically.
         </p>
       )}
@@ -245,13 +245,13 @@ export function ClaimReviewCard({
       {/* A rejection reason stays visible even collapsed — it's the whole
           point of the feedback loop. */}
       {decision === 'rejected' && reason && !expanded && (
-        <p className="border-t border-red-100 bg-red-50 px-4 py-2 text-xs text-red-800">
+        <p className="border-t border-red-100 bg-red-50 text-red-800 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300 px-4 py-2 text-xs">
           Rejected{decidedBy ? ` by ${decidedBy}` : ''}: {reason}
         </p>
       )}
 
       {expanded && (
-        <div className="border-t border-zinc-200 px-4 py-4">
+        <div className="border-t border-zinc-200 dark:border-zinc-800 px-4 py-4">
           {steps && steps.length > 1 && (
             <>
               <div className="mb-2 flex gap-1.5 overflow-x-auto pb-1">
@@ -263,7 +263,7 @@ export function ClaimReviewCard({
                     className={`shrink-0 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-medium ${
                       index === selectedStep
                         ? 'border-emerald-600 bg-emerald-600 text-white'
-                        : 'border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50'
+                        : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'
                     }`}
                   >
                     {index + 1}. {stepDisplayLabel(step.label)}
@@ -275,7 +275,7 @@ export function ClaimReviewCard({
                   type="button"
                   disabled={selectedStep === 0}
                   onClick={() => selectStep(selectedStep - 1)}
-                  className="font-medium text-emerald-700 hover:underline disabled:pointer-events-none disabled:text-zinc-300"
+                  className="font-medium text-emerald-700 dark:text-emerald-400 hover:underline disabled:pointer-events-none disabled:text-zinc-300 dark:disabled:text-zinc-600"
                 >
                   ← Prev
                 </button>
@@ -284,7 +284,7 @@ export function ClaimReviewCard({
                   type="button"
                   disabled={selectedStep === steps.length - 1}
                   onClick={() => selectStep(selectedStep + 1)}
-                  className="font-medium text-emerald-700 hover:underline disabled:pointer-events-none disabled:text-zinc-300"
+                  className="font-medium text-emerald-700 dark:text-emerald-400 hover:underline disabled:pointer-events-none disabled:text-zinc-300 dark:disabled:text-zinc-600"
                 >
                   Next →
                 </button>
@@ -293,14 +293,14 @@ export function ClaimReviewCard({
           )}
           {state === 'loading' && <p className="text-sm text-zinc-500">Loading…</p>}
           {state === 'missing' && <p className="text-sm text-zinc-500">No capture exists for this claim yet.</p>}
-          {state === 'error' && <p className="text-sm text-red-700">Could not load the capture. Try again.</p>}
+          {state === 'error' && <p className="text-sm text-red-700 dark:text-red-400">Could not load the capture. Try again.</p>}
           {state === 'ready' && (
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <p className="mb-2 text-xs font-medium text-zinc-500">Fields as entered on HCPF</p>
                 <dl className="max-h-96 space-y-1 overflow-y-auto text-xs">
                   {fields.map((field, index) => (
-                    <div key={index} className="flex justify-between gap-2 border-b border-zinc-100 py-1">
+                    <div key={index} className="flex justify-between gap-2 border-b border-zinc-100 dark:border-zinc-800 py-1">
                       <dt className="text-zinc-500">{field.label}</dt>
                       <dd className="text-right font-medium">{field.value}</dd>
                     </div>
@@ -311,7 +311,7 @@ export function ClaimReviewCard({
               <div>
                 <p className="mb-2 text-xs font-medium text-zinc-500">Screenshot</p>
                 {!claim.reachedReview && (
-                  <p className="mb-2 rounded-lg border border-zinc-200 bg-zinc-50 px-2.5 py-2 text-[11px] text-zinc-500">
+                  <p className="mb-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 px-2.5 py-2 text-[11px] text-zinc-500">
                     This is what the portal showed when the session ended mid-claim — not a form completion.
                   </p>
                 )}
@@ -319,7 +319,7 @@ export function ClaimReviewCard({
                   <img
                     src={screenshotUrl}
                     alt={claim.reachedReview ? 'HCPF claim form screenshot' : 'HCPF portal screen when the session ended'}
-                    className="rounded-lg border border-zinc-200"
+                    className="rounded-lg border border-zinc-200 dark:border-zinc-800"
                   />
                 ) : (
                   <p className="text-xs text-zinc-400">No screenshot captured.</p>
@@ -329,9 +329,9 @@ export function ClaimReviewCard({
           )}
 
           {canApprove && claim.reachedReview && (
-            <div className={`mt-4 rounded-lg border px-3 py-2.5 ${decision === 'rejected' ? 'border-red-200 bg-red-50' : 'border-zinc-200 bg-zinc-50'}`}>
+            <div className={`mt-4 rounded-lg border px-3 py-2.5 ${decision === 'rejected' ? 'border-red-200 bg-red-50' : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50'}`}>
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className={`text-xs ${decision === 'rejected' ? 'text-red-800' : 'text-zinc-600'}`}>
+                <p className={`text-xs ${decision === 'rejected' ? 'text-red-800' : 'text-zinc-600 dark:text-zinc-400'}`}>
                   {decision === 'approved' &&
                     `Approved${decidedBy ? ` by ${decidedBy}` : ''}. Nothing is submitted automatically — submission is not built yet.`}
                   {decision === 'rejected' && `Rejected${decidedBy ? ` by ${decidedBy}` : ''}: ${reason ?? ''}`}
@@ -353,7 +353,7 @@ export function ClaimReviewCard({
                       type="button"
                       disabled={busy}
                       onClick={() => setRejecting(v => !v)}
-                      className="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
+                      className="rounded-lg border border-red-300 bg-white dark:bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
                     >
                       Reject
                     </button>
@@ -363,7 +363,7 @@ export function ClaimReviewCard({
                       type="button"
                       disabled={busy}
                       onClick={() => sendDecision('clear')}
-                      className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 disabled:opacity-50"
+                      className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-50"
                     >
                       Undo
                     </button>
@@ -379,7 +379,7 @@ export function ClaimReviewCard({
                     maxLength={2000}
                     rows={2}
                     placeholder="What's wrong with this claim? (no client names please)"
-                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-xs focus:border-red-400 focus:outline-none"
+                    className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 px-3 py-2 text-xs focus:border-red-400 focus:outline-none"
                   />
                   <div className="mt-2 flex items-center justify-end gap-2">
                     <button
@@ -389,7 +389,7 @@ export function ClaimReviewCard({
                         setRejecting(false)
                         setReasonDraft('')
                       }}
-                      className="rounded-lg px-3 py-1.5 text-xs font-medium text-zinc-500 hover:text-zinc-900"
+                      className="rounded-lg px-3 py-1.5 text-xs font-medium text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
                     >
                       Cancel
                     </button>
@@ -405,7 +405,7 @@ export function ClaimReviewCard({
                 </div>
               )}
 
-              {decisionError && <p className="mt-2 text-xs text-red-700">{decisionError}</p>}
+              {decisionError && <p className="mt-2 text-xs text-red-700 dark:text-red-400">{decisionError}</p>}
             </div>
           )}
         </div>

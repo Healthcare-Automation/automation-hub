@@ -109,13 +109,13 @@ export function MohamedDashboard({
           {(isAdmin || isMohamed) && <UpdatedAgoIndicator />}
           {isAdmin && (
             <nav className="flex rounded-full border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-0.5">
-              <Link href="/" prefetch className="rounded-full px-3 py-1.5 font-medium text-zinc-500 transition-colors hover:text-zinc-900 dark:text-zinc-100">Proxi</Link>
+              <Link href="/" prefetch className="rounded-full px-3 py-1.5 font-medium text-zinc-500 transition-colors hover:text-zinc-900 dark:hover:text-zinc-100">Proxi</Link>
               <Link href="/mohamed" className="rounded-full bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 px-3 py-1.5 font-medium">Mohamed</Link>
             </nav>
           )}
           {!isAdmin && (
             <form method="post" action="/api/mohamed/logout">
-              <button type="submit" className="font-medium text-zinc-500 transition-colors hover:text-zinc-900 dark:text-zinc-100">Sign out</button>
+              <button type="submit" className="font-medium text-zinc-500 transition-colors hover:text-zinc-900 dark:hover:text-zinc-100">Sign out</button>
             </form>
           )}
         </div>
@@ -229,7 +229,7 @@ export function MohamedDashboard({
       <ClientQuestionsCard questions={questions} canAnswer={canApprove} degraded={questionsDegraded} />
 
       <details data-section="technical" className="mt-5 overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm">
-        <summary className="cursor-pointer px-5 py-3 text-sm font-medium text-zinc-500 transition-colors hover:text-zinc-700 dark:text-zinc-300">Technical detail (for debugging)</summary>
+        <summary className="cursor-pointer px-5 py-3 text-sm font-medium text-zinc-500 transition-colors hover:text-zinc-700 dark:hover:text-zinc-300">Technical detail (for debugging)</summary>
         <div className="border-t border-zinc-100 dark:border-zinc-800 px-1 pb-1">
           {ledger ? <RunTrace ledger={ledger} /> : <p className="px-4 py-4 text-xs text-amber-700 dark:text-amber-300">Reconnecting… refreshes automatically.</p>}
         </div>
