@@ -32,13 +32,13 @@ const PRODUCTION_GO_LIVE_DATE = '2026-04-09'
 function ProxiLogo() {
   return (
     <div className="flex items-center gap-2.5">
-      <div className="h-7 w-7 rounded-lg bg-white flex items-center justify-center">
+      <div className="h-7 w-7 rounded-lg bg-zinc-900 dark:bg-white flex items-center justify-center">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-          <circle cx="12" cy="12" r="10" fill="#000" />
-          <path d="M7 12h10M12 7v10" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+          <circle cx="12" cy="12" r="10" className="fill-white dark:fill-black" />
+          <path d="M7 12h10M12 7v10" strokeWidth="2" strokeLinecap="round" className="stroke-zinc-900 dark:stroke-white" />
         </svg>
       </div>
-      <span className="font-semibold text-white tracking-tight">Automation Hub</span>
+      <span className="font-semibold text-zinc-900 dark:text-white tracking-tight">Automation Hub</span>
     </div>
   )
 }
@@ -99,8 +99,8 @@ export default async function Page() {
     return (
       <main className="min-h-screen flex items-center justify-center" style={{ background: 'var(--background)' }}>
         <div className="text-center space-y-3">
-          <p className="text-zinc-400 font-medium">Unable to connect to database</p>
-          <p className="text-zinc-600 text-sm">Check that DATABASE_URL is configured correctly.</p>
+          <p className="text-zinc-600 dark:text-zinc-400 font-medium">Unable to connect to database</p>
+          <p className="text-zinc-500 dark:text-zinc-600 text-sm">Check that DATABASE_URL is configured correctly.</p>
         </div>
       </main>
     )
@@ -205,10 +205,10 @@ export default async function Page() {
         {/* Top nav */}
         <header className="flex items-center justify-between gap-4">
           <ProxiLogo />
-          <nav className="flex rounded-lg border border-zinc-700/60 bg-zinc-900/60 p-1 text-xs">
-            <a href="/" className="rounded-md bg-white px-3 py-1.5 font-medium text-zinc-900">Proxi</a>
-            <Link href="/mohamed" prefetch className="rounded-md px-3 py-1.5 text-zinc-400 transition-colors hover:text-white">Mohamed</Link>
-            <Link href="/outreach" prefetch className="rounded-md px-3 py-1.5 text-zinc-400 transition-colors hover:text-white">Outreach</Link>
+          <nav className="flex rounded-lg border border-zinc-200 bg-white p-1 text-xs shadow-sm dark:border-zinc-700/60 dark:bg-zinc-900/60 dark:shadow-none">
+            <a href="/" className="rounded-md bg-zinc-900 px-3 py-1.5 font-medium text-white dark:bg-white dark:text-zinc-900">Proxi</a>
+            <Link href="/mohamed" prefetch className="rounded-md px-3 py-1.5 text-zinc-600 transition-colors hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white">Mohamed</Link>
+            <Link href="/outreach" prefetch className="rounded-md px-3 py-1.5 text-zinc-600 transition-colors hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white">Outreach</Link>
           </nav>
         </header>
 
@@ -242,7 +242,7 @@ export default async function Page() {
                   kimUsage ? (
                     <AiCostPanel automation="kimedics" usage={kimUsage} actual={kimActual} accent="emerald" />
                   ) : (
-                    <p className="text-xs text-zinc-600">AI cost unavailable — could not read usage data.</p>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-600">AI cost unavailable — could not read usage data.</p>
                   )
                 }
               />
@@ -265,16 +265,16 @@ export default async function Page() {
                     djcUsage ? (
                       <AiCostPanel automation="djc" usage={djcUsage} actual={djcActual} accent="cyan" />
                     ) : (
-                      <p className="text-xs text-zinc-600">AI cost unavailable — could not read usage data.</p>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-600">AI cost unavailable — could not read usage data.</p>
                     )
                   }
                 />
               ) : (
-                <div className="flex items-center gap-2.5 rounded-xl border border-zinc-700/40 px-5 py-4">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-600">
+                <div className="flex items-center gap-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700/40 px-5 py-4">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-400 dark:text-zinc-600">
                     <circle cx="12" cy="12" r="10" /><path d="M12 8v4m0 4h.01" />
                   </svg>
-                  <span className="text-xs text-zinc-600">
+                  <span className="text-xs text-zinc-500 dark:text-zinc-600">
                     {isDjcConfigured
                       ? 'DJC → Salesforce data is temporarily unavailable (the database was busy). Refresh in a few seconds — the automation itself is unaffected.'
                       : <>DJC → Salesforce automation — set <code className="text-zinc-500">DJC_DATABASE_URL</code> to show it here</>}
@@ -286,11 +286,11 @@ export default async function Page() {
               candidateBank ? (
                 <CandidateBankCard bundle={candidateBank} />
               ) : isCandidateBankConfigured ? (
-                <div className="flex items-center gap-2.5 rounded-xl border border-zinc-700/40 px-5 py-4">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-600">
+                <div className="flex items-center gap-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700/40 px-5 py-4">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-400 dark:text-zinc-600">
                     <circle cx="12" cy="12" r="10" /><path d="M12 8v4m0 4h.01" />
                   </svg>
-                  <span className="text-xs text-zinc-600">Candidate Bank — could not load data.</span>
+                  <span className="text-xs text-zinc-500 dark:text-zinc-600">Candidate Bank — could not load data.</span>
                 </div>
               ) : undefined
             }
@@ -298,7 +298,7 @@ export default async function Page() {
         </section>
 
         {/* Footer */}
-        <footer className="pt-6 border-t border-zinc-800/60">
+        <footer className="pt-6 border-t border-zinc-200 dark:border-zinc-800/60">
           <div className="flex items-center justify-between text-[11px] text-zinc-500">
             <span>Automation Hub</span>
             <span>Auto-refresh ~15s while open · Powered by Supabase + Next.js</span>

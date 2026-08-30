@@ -92,20 +92,20 @@ export default function WeeklySummaryCards({ summary }: Props) {
         <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-[0.1em]">
           Top metrics
         </p>
-        <p className="text-xs text-zinc-600 mt-1">
+        <p className="text-xs text-zinc-500 dark:text-zinc-600 mt-1">
           Past 7 days (rolling) • {rangeLabel}
         </p>
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-zinc-700/50">
+      <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-zinc-200 dark:divide-zinc-700/50">
       {stats.map((stat) => (
         <div key={stat.label} className="flex items-center gap-3 px-5 py-4">
           <div className="text-zinc-500 shrink-0">{stat.icon}</div>
           <div className="min-w-0">
-            <p className="text-xl font-semibold text-white tabular-nums tracking-tight leading-none">
+            <p className="text-xl font-semibold text-zinc-900 dark:text-white tabular-nums tracking-tight leading-none">
               {stat.value}
             </p>
             <p className="text-xs text-zinc-500 mt-1">{stat.label}</p>
-            <p className="text-[10px] text-zinc-600/90 tabular-nums mt-1 leading-snug">
+            <p className="text-[10px] text-zinc-500 dark:text-zinc-600/90 tabular-nums mt-1 leading-snug">
               {stat.allTimeLine}
             </p>
           </div>

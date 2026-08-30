@@ -69,11 +69,11 @@ function PhaseTimeline({ dailyStatus, phases }: { dailyStatus: DayStatus[]; phas
 
   return (
     <div className="mt-3 space-y-2">
-      <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest">
+      <p className="text-[10px] font-semibold text-zinc-500 dark:text-zinc-600 uppercase tracking-widest">
         Phase
       </p>
 
-      <div className="relative h-2 w-full bg-zinc-700/50 rounded-full overflow-hidden">
+      <div className="relative h-2 w-full bg-zinc-200 dark:bg-zinc-700/50 rounded-full overflow-hidden">
         {testingSeg.width > 0 && (
           <div
             className="absolute top-0 bottom-0 bg-amber-500"
@@ -94,7 +94,7 @@ function PhaseTimeline({ dailyStatus, phases }: { dailyStatus: DayStatus[]; phas
         {testing && (
           <div className="flex items-center gap-2 text-[10px]">
             <span className="h-1.5 w-5 shrink-0 rounded-sm bg-amber-500" aria-hidden />
-            <span className="font-semibold text-amber-400">Testing</span>
+            <span className="font-semibold text-amber-700 dark:text-amber-400">Testing</span>
             <span className="text-zinc-500">
               {testing.endDate
                 ? `${formatShortDate(testing.startDate)} – ${formatShortDate(testing.endDate)}`
@@ -105,7 +105,7 @@ function PhaseTimeline({ dailyStatus, phases }: { dailyStatus: DayStatus[]; phas
         {production && (
           <div className="flex items-center gap-2 text-[10px]">
             <span className="h-1.5 w-5 shrink-0 rounded-sm bg-emerald-500" aria-hidden />
-            <span className="font-semibold text-emerald-400">Production</span>
+            <span className="font-semibold text-emerald-700 dark:text-emerald-400">Production</span>
             <span className="text-zinc-500 inline-flex items-center gap-1.5">
               from {formatShortDate(production.startDate)}
               {!production.endDate && (
@@ -161,29 +161,29 @@ export default function AutomationCard({
   const statusLabel = STATUS_LABELS[statusKind]
 
   return (
-    <div className="bg-zinc-800/30 border border-zinc-700/50 rounded-xl overflow-hidden">
+    <div className="bg-white border border-zinc-200 shadow-sm dark:bg-zinc-800/30 dark:border-zinc-700/50 dark:shadow-none rounded-xl overflow-hidden">
       {/* Card header */}
       <div className="px-5 pt-5 pb-4">
         <div className="flex items-start justify-between gap-4 mb-1">
           <div className="flex items-start gap-3">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 ring-1 ring-emerald-500/25">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className="stroke-emerald-600 dark:stroke-emerald-400">
                 <rect x="2" y="4" width="20" height="16" rx="2" />
                 <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
               </svg>
             </div>
             <div>
-              <h3 className="font-semibold text-white text-[15px]">{name}</h3>
-              <p className="text-xs text-zinc-400 mt-0.5">{description}</p>
+              <h3 className="font-semibold text-zinc-900 dark:text-white text-[15px]">{name}</h3>
+              <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">{description}</p>
             </div>
           </div>
           <div className="flex shrink-0 flex-col items-end gap-2.5 mt-0.5">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.04] px-2.5 py-1 text-xs font-medium ring-1 ring-white/10">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-900/[0.04] px-2.5 py-1 text-xs font-medium ring-1 ring-zinc-900/10 dark:bg-white/[0.04] dark:ring-white/10">
               <span className={cn('h-1.5 w-1.5 rounded-full', dotColor)} />
               <span className={textColor}>{statusLabel}</span>
             </span>
             {adminHref && (
-              <Link href={adminHref} className="inline-flex items-center gap-1 text-[11px] text-zinc-600 transition-colors hover:text-zinc-300" title="Admin · manual push recovery">
+              <Link href={adminHref} className="inline-flex items-center gap-1 text-[11px] text-zinc-500 transition-colors hover:text-zinc-800 dark:text-zinc-600 dark:hover:text-zinc-300" title="Admin · manual push recovery">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" /></svg>
                 Admin
               </Link>
@@ -224,7 +224,7 @@ export default function AutomationCard({
       {/* Expand toggle */}
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between px-5 py-3 border-t border-zinc-700/50 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700/30 transition-colors"
+        className="w-full flex items-center justify-between px-5 py-3 border-t border-zinc-200 text-xs text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 dark:border-zinc-700/50 dark:text-zinc-400 dark:hover:text-zinc-200 dark:hover:bg-zinc-700/30 transition-colors"
       >
         <span>{expanded ? 'Hide run history' : 'View run history'}</span>
         <ChevronDown
@@ -237,7 +237,7 @@ export default function AutomationCard({
 
       {/* Expanded layer breakdown */}
       {expanded && (
-        <div className="border-t border-zinc-700/50 px-2 py-3">
+        <div className="border-t border-zinc-200 dark:border-zinc-700/50 px-2 py-3">
           <LayerBreakdown runs={recentRuns} />
         </div>
       )}

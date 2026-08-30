@@ -7,12 +7,12 @@ const PHASE_ROW = {
   testing: {
     ping: 'bg-amber-400',
     dot: 'bg-amber-500',
-    text: 'text-amber-400',
+    text: 'text-amber-700 dark:text-amber-400',
   },
   production: {
     ping: 'bg-emerald-400',
     dot: 'bg-emerald-500',
-    text: 'text-emerald-400',
+    text: 'text-emerald-700 dark:text-emerald-400',
   },
 } as const
 
@@ -20,21 +20,21 @@ const CONFIG = {
   operational: {
     bg: 'bg-emerald-500/10 border-emerald-500/20',
     divider: 'border-emerald-500/10',
-    text: 'text-emerald-400',
+    text: 'text-emerald-700 dark:text-emerald-400',
     dot: 'bg-emerald-500',
     ping: 'bg-emerald-400',
   },
   degraded: {
     bg: 'bg-amber-500/10 border-amber-500/20',
     divider: 'border-amber-500/10',
-    text: 'text-amber-400',
+    text: 'text-amber-700 dark:text-amber-400',
     dot: 'bg-amber-500',
     ping: 'bg-amber-400',
   },
   outage: {
     bg: 'bg-red-500/10 border-red-500/20',
     divider: 'border-red-500/10',
-    text: 'text-red-400',
+    text: 'text-red-700 dark:text-red-400',
     dot: 'bg-red-500',
     ping: 'bg-red-400',
   },
@@ -62,13 +62,13 @@ export default function StatusHeader({ overallStatus, lastRun, phases = [] }: Pr
           </span>
           <div>
             <p className={`font-semibold text-base ${c.text}`}>{overallStatus.label}</p>
-            <p className="text-xs text-zinc-400 mt-0.5">{overallStatus.description}</p>
+            <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">{overallStatus.description}</p>
           </div>
         </div>
 
         {lastRun && (
           <p className="text-xs text-zinc-500 shrink-0">
-            Last run <span className="text-zinc-400">{formatRelativeTime(lastRun.startedAt)}</span>
+            Last run <span className="text-zinc-600 dark:text-zinc-400">{formatRelativeTime(lastRun.startedAt)}</span>
           </p>
         )}
       </div>

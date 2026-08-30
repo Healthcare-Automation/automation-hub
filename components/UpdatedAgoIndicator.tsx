@@ -23,5 +23,5 @@ export function UpdatedAgoIndicator() {
   }, [])
 
   if (!label) return null
-  return <span className="text-[11px] text-zinc-400">{label}</span>
+  return <span className="text-[11px] text-zinc-600 dark:text-zinc-400">{label}</span>
 }

@@ -37,22 +37,22 @@ export function getDayStatusKind(day: {
 
 export const BAR_COLORS: Record<DayStatusKind, string> = {
   operational: 'bg-emerald-500',
-  idle: 'bg-emerald-900',
+  idle: 'bg-emerald-300 dark:bg-emerald-900',
   degraded: 'bg-amber-500',
   outage: 'bg-red-500',
-  no_data: 'bg-zinc-700/50',
+  no_data: 'bg-zinc-300 dark:bg-zinc-700/50',
 }
 
 export const STATUS_COLORS: Record<string, string> = {
-  operational: 'text-emerald-400',
-  idle: 'text-emerald-700',
-  degraded: 'text-amber-400',
-  outage: 'text-red-400',
+  operational: 'text-emerald-700 dark:text-emerald-400',
+  idle: 'text-emerald-600 dark:text-emerald-700',
+  degraded: 'text-amber-700 dark:text-amber-400',
+  outage: 'text-red-700 dark:text-red-400',
 }
 
 export const STATUS_DOT_COLORS: Record<string, string> = {
   operational: 'bg-emerald-500',
-  idle: 'bg-emerald-800',
+  idle: 'bg-emerald-400 dark:bg-emerald-800',
   degraded: 'bg-amber-500',
   outage: 'bg-red-500',
 }
