@@ -160,12 +160,165 @@ function LinkedinCard({
   )
 }
 
+function EmailCard({
+  email, isAdmin, onDecision,
+}: {
+  email: CompanyDetail['emails'][number]
+  isAdmin: boolean
+  onDecision: (id: number, decision: 'approved' | 'qa_failed', note: string | null) => Promise<boolean>
+}) {
+  const [failing, setFailing] = useState(false)
+  const [note, setNote] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const decided = email.status === 'approved' || email.status === 'qa_failed'
+
+  return (
+    <div className="rounded-lg bg-zinc-50 ring-zinc-200 dark:bg-zinc-800/30 dark:ring-zinc-800/60 p-3.5 ring-1">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[12.5px] font-medium text-zinc-800 dark:text-zinc-200">
+          {email.step_number ? `Touch ${email.step_number} — ` : ''}{email.subject}
+        </p>
+        <span className="rounded-full bg-zinc-200/70 dark:bg-zinc-700/40 px-2 py-0.5 text-[10.5px] text-zinc-600 dark:text-zinc-400">{email.status}</span>
+      </div>
+      <p className="mt-2 whitespace-pre-wrap text-[11.5px] leading-relaxed text-zinc-700 dark:text-zinc-300">{email.body}</p>
+      <p className="mt-2 text-[10.5px] text-zinc-500 dark:text-zinc-600">
+        {email.sent_at ? `sent ${email.sent_at}` : `drafted ${email.created_at ?? ''}`}
+        {email.qa_notes ? ` — ${email.qa_notes}` : ''}
+      </p>
+
+      {isAdmin && !decided && !failing && (
+        <div className="mt-2.5 flex gap-1.5">
+          <button
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true); setError(null)
+              const ok = await onDecision(email.id, 'approved', null)
+              setBusy(false)
+              if (!ok) setError('Could not save — try again.')
+            }}
+            className="rounded-md bg-emerald-600/80 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-emerald-600 disabled:opacity-50"
+          >
+            Approve copy
+          </button>
+          <button
+            disabled={busy}
+            onClick={() => setFailing(true)}
+            className="rounded-md bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-700/60 dark:hover:bg-zinc-700 px-2.5 py-1 text-[11px] font-medium text-zinc-800 dark:text-zinc-200"
+          >
+            Needs rewrite
+          </button>
+        </div>
+      )}
+      {isAdmin && failing && (
+        <div className="mt-2.5 flex items-center gap-1.5">
+          <input
+            value={note}
+            onChange={e => setNote(e.target.value)}
+            placeholder="What's wrong with it?"
+            className="flex-1 rounded-md border border-zinc-200 bg-white placeholder:text-zinc-400 dark:border-zinc-700/60 dark:bg-zinc-900/60 dark:placeholder:text-zinc-600 px-2 py-1 text-[11px] text-zinc-800 dark:text-zinc-200"
+          />
+          <button
+            disabled={busy || note.trim().length === 0}
+            onClick={async () => {
+              setBusy(true); setError(null)
+              const ok = await onDecision(email.id, 'qa_failed', note.trim())
+              setBusy(false)
+              if (ok) setFailing(false)
+              else setError('Could not save — try again.')
+            }}
+            className="rounded-md bg-red-600/80 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-red-600 disabled:opacity-50"
+          >
+            Confirm
+          </button>
+          <button onClick={() => setFailing(false)}
+            className="rounded-md px-2 py-1 text-[11px] text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300">Cancel</button>
+        </div>
+      )}
+      {error && <p className="mt-1.5 text-[11px] text-red-600 dark:text-red-400">{error}</p>}
+      <p className="mt-2 text-[10px] text-zinc-500 dark:text-zinc-600">
+        Approving here only marks the copy send-ready — no email actually sends until sending
+        infrastructure is provisioned and approved separately.
+      </p>
+    </div>
+  )
+}
+
+const CLASSIFICATIONS = [
+  'positive_interest', 'meeting_intent', 'question', 'soft_interest', 'not_now',
+  'objection', 'already_solved', 'wrong_person', 'referral', 'unsubscribe',
+  'negative', 'ooo', 'bounce', 'automated', 'other',
+] as const
+
+function LogReplyForm({ companyId, onLogged }: { companyId: number; onLogged: () => void }) {
+  const [channel, setChannel] = useState('email')
+  const [text, setText] = useState('')
+  const [classification, setClassification] = useState<string>('question')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  return (
+    <div className="rounded-lg bg-zinc-50 ring-zinc-200 dark:bg-zinc-800/30 dark:ring-zinc-800/60 p-3.5 ring-1 space-y-2">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">Log a reply</p>
+      <div className="flex gap-2">
+        <select value={channel} onChange={e => setChannel(e.target.value)}
+          className="rounded-md border border-zinc-200 bg-white dark:border-zinc-700/60 dark:bg-zinc-900/60 px-2 py-1 text-[11px] text-zinc-800 dark:text-zinc-200">
+          <option value="email">Email</option>
+          <option value="linkedin">LinkedIn</option>
+        </select>
+        <select value={classification} onChange={e => setClassification(e.target.value)}
+          className="flex-1 rounded-md border border-zinc-200 bg-white dark:border-zinc-700/60 dark:bg-zinc-900/60 px-2 py-1 text-[11px] text-zinc-800 dark:text-zinc-200">
+          {CLASSIFICATIONS.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+      </div>
+      <textarea
+        value={text}
+        onChange={e => setText(e.target.value)}
+        placeholder="Paste what they replied…"
+        rows={3}
+        className="w-full rounded-md border border-zinc-200 bg-white placeholder:text-zinc-400 dark:border-zinc-700/60 dark:bg-zinc-900/60 dark:placeholder:text-zinc-600 px-2 py-1.5 text-[11.5px] text-zinc-800 dark:text-zinc-200"
+      />
+      {classification !== 'bounce' && classification !== 'ooo' && classification !== 'automated' && (
+        <p className="text-[10.5px] text-amber-700 dark:text-amber-400">
+          Logging this will pause the sequence and cancel any pending follow-up/LinkedIn steps.
+        </p>
+      )}
+      <div className="flex items-center gap-2">
+        <button
+          disabled={busy || text.trim().length === 0}
+          onClick={async () => {
+            setBusy(true); setError(null)
+            const res = await fetch('/api/outreach/log-reply', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ companyId, channel, text: text.trim(), classification }),
+            })
+            setBusy(false)
+            if (res.ok) { setText(''); onLogged() } else setError('Could not save — try again.')
+          }}
+          className="rounded-md bg-cyan-600/80 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-cyan-600 disabled:opacity-50"
+        >
+          Log reply
+        </button>
+        {error && <p className="text-[11px] text-red-600 dark:text-red-400">{error}</p>}
+      </div>
+    </div>
+  )
+}
+
 export default function CompanyPanel({
   id, isAdmin, onClose,
 }: { id: number; isAdmin: boolean; onClose: () => void }) {
   const [data, setData] = useState<CompanyDetail | null>(null)
   const [failReason, setFailReason] = useState<'none' | 'unauthorized' | 'error'>('none')
   const [tab, setTab] = useState<Tab>('score')
+
+  function refetch() {
+    fetch(`/api/outreach/company/${id}`)
+      .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then(d => setData(d))
+      .catch(() => {})
+  }
 
   useEffect(() => {
     let live = true
@@ -200,6 +353,23 @@ export default function CompanyPanel({
         ...data,
         linkedinActions: data.linkedinActions.map(a =>
           a.id === actionId ? { ...a, status: decision, verification_note: note } : a),
+      })
+      return true
+    }
+    return false
+  }
+
+  async function handleEmailDecision(emailId: number, decision: 'approved' | 'qa_failed', note: string | null): Promise<boolean> {
+    const res = await fetch('/api/outreach/email-decision', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: emailId, decision, note }),
+    })
+    if (res.ok && data) {
+      setData({
+        ...data,
+        emails: data.emails.map(e =>
+          e.id === emailId ? { ...e, status: decision, qa_notes: note } : e),
       })
       return true
     }
@@ -328,18 +498,20 @@ export default function CompanyPanel({
 
               {tab === 'emails' && (
                 <div className="space-y-3">
+                  {data.sequence && (
+                    <div className="rounded-lg bg-zinc-50 ring-zinc-200 dark:bg-zinc-800/30 dark:ring-zinc-800/60 p-3 ring-1 flex items-center justify-between">
+                      <p className="text-[11px] text-zinc-600 dark:text-zinc-400">
+                        Sequence: <span className="font-medium text-zinc-800 dark:text-zinc-200">{data.sequence.status}</span>
+                        {data.sequence.channel_plan && ` · ${JSON.parse(data.sequence.channel_plan).join(' → ')}`}
+                      </p>
+                      {data.sequence.status === 'paused' && (
+                        <span className="text-[10.5px] text-amber-700 dark:text-amber-400">paused — human reply detected</span>
+                      )}
+                    </div>
+                  )}
                   {data.emails.length === 0 && <p className="text-[12px] text-zinc-500 dark:text-zinc-600">No drafts yet.</p>}
                   {data.emails.map(e => (
-                    <div key={e.id} className="rounded-lg bg-zinc-50 ring-zinc-200 dark:bg-zinc-800/30 dark:ring-zinc-800/60 p-3.5 ring-1">
-                      <div className="flex items-center justify-between">
-                        <p className="text-[12.5px] font-medium text-zinc-800 dark:text-zinc-200">{e.subject}</p>
-                        <span className="rounded-full bg-zinc-200/70 dark:bg-zinc-700/40 px-2 py-0.5 text-[10.5px] text-zinc-600 dark:text-zinc-400">{e.status}</span>
-                      </div>
-                      <p className="mt-2 whitespace-pre-wrap text-[11.5px] leading-relaxed text-zinc-700 dark:text-zinc-300">{e.body}</p>
-                      <p className="mt-2 text-[10.5px] text-zinc-500 dark:text-zinc-600">
-                        {e.sent_at ? `sent ${e.sent_at}` : `drafted ${e.created_at ?? ''}`}
-                      </p>
-                    </div>
+                    <EmailCard key={e.id} email={e} isAdmin={isAdmin} onDecision={handleEmailDecision} />
                   ))}
                 </div>
               )}
@@ -355,6 +527,7 @@ export default function CompanyPanel({
 
               {tab === 'replies' && (
                 <div className="space-y-3">
+                  {isAdmin && <LogReplyForm companyId={id} onLogged={refetch} />}
                   {data.replies.length === 0 && <p className="text-[12px] text-zinc-500 dark:text-zinc-600">No replies yet.</p>}
                   {data.replies.map(r => (
                     <div key={r.id} className="rounded-lg bg-zinc-50 ring-zinc-200 dark:bg-zinc-800/30 dark:ring-zinc-800/60 p-3.5 ring-1">

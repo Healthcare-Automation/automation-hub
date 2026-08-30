@@ -9,18 +9,18 @@ import {
 import { RunReviewLink } from './RunReviewLink'
 
 const stageStyles: Record<StageSummary['status'], string> = {
-  passed: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-  blocked: 'bg-amber-50 text-amber-800 border-amber-200',
-  failed: 'bg-red-50 text-red-800 border-red-200',
-  not_run: 'bg-zinc-50 text-zinc-500 border-zinc-200',
+  passed: 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/30',
+  blocked: 'bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/30',
+  failed: 'bg-red-50 text-red-800 border-red-200 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/30',
+  not_run: 'bg-zinc-50 dark:bg-zinc-900/50 text-zinc-500 border-zinc-200 dark:border-zinc-800',
 }
 
 const eventStyles: Record<string, string> = {
-  ok: 'text-emerald-700',
+  ok: 'text-emerald-700 dark:text-emerald-400',
   started: 'text-zinc-500',
   skipped: 'text-zinc-500',
-  blocked: 'text-amber-700',
-  failed: 'text-red-700 font-semibold',
+  blocked: 'text-amber-700 dark:text-amber-400',
+  failed: 'text-red-700 dark:text-red-400 font-semibold',
 }
 
 function clock(iso: string) {
@@ -48,10 +48,10 @@ export function RunTrace({ ledger }: { ledger: RunLedgerSnapshot }) {
         <span
           className={`rounded-full px-3 py-1 text-xs font-medium ${
             ledger.status === 'failed'
-              ? 'bg-red-50 text-red-800'
+              ? 'bg-red-50 text-red-800 dark:bg-red-500/10 dark:text-red-300'
               : ledger.status === 'blocked'
-                ? 'bg-amber-50 text-amber-800'
-                : 'bg-emerald-50 text-emerald-800'
+                ? 'bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300'
+                : 'bg-emerald-50 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300'
           }`}
         >
           {ledger.status === 'review_ready' ? 'Reached review' : ledger.status === 'blocked' ? 'Rows blocked' : 'Failed'}
@@ -73,19 +73,19 @@ export function RunTrace({ ledger }: { ledger: RunLedgerSnapshot }) {
       </div>
 
       {failure ? (
-        <div className="mt-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+        <div className="mt-3 rounded-xl border border-red-200 bg-red-50 text-red-900 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200 p-4 text-sm">
           <p className="text-xs font-semibold uppercase tracking-wider">Stopped at</p>
           <p className="mt-1 font-mono text-xs">{failure}</p>
         </div>
       ) : (
-        <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+        <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200 p-4 text-sm">
           Every assembled claim reached HCPF Review. Nothing was submitted.
         </div>
       )}
 
       {claims.length > 0 && (
-        <div className="mt-4 overflow-hidden rounded-2xl border border-zinc-200 bg-white">
-          <div className="border-b border-zinc-200 px-5 py-3">
+        <div className="mt-4 overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+          <div className="border-b border-zinc-200 dark:border-zinc-800 px-5 py-3">
             <h3 className="text-sm font-semibold">Claims in this run</h3>
             <p className="mt-0.5 text-xs text-zinc-500">
               Claim refs are keyed hashes — no member ID, name, or date is stored or shown. Procedure, modifiers,
@@ -93,14 +93,14 @@ export function RunTrace({ ledger }: { ledger: RunLedgerSnapshot }) {
             </p>
           </div>
           <table className="w-full text-left text-xs">
-            <thead className="bg-zinc-50 text-zinc-500">
+            <thead className="bg-zinc-50 dark:bg-zinc-900/50 text-zinc-500">
               <tr>
                 {['Claim ref', 'Procedure', 'Modifiers', 'Units', 'Charge', 'Portal actions', 'Result', 'Stopped at', 'Review'].map(label => (
                   <th key={label} className="px-4 py-2 font-medium">{label}</th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-100">
+            <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
               {claims.map(claim => (
                 <tr key={claim.claimRef}>
                   <td className="px-4 py-2 font-mono">{claim.claimRef}</td>
@@ -110,11 +110,11 @@ export function RunTrace({ ledger }: { ledger: RunLedgerSnapshot }) {
                   <td className="px-4 py-2">{claim.chargeCents != null ? money(claim.chargeCents) : '—'}</td>
                   <td className="px-4 py-2">{claim.portalActions}</td>
                   <td className="px-4 py-2">
-                    <span className={`rounded-full px-2 py-0.5 font-medium ${claim.reachedReview ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-800'}`}>
+                    <span className={`rounded-full px-2 py-0.5 font-medium ${claim.reachedReview ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300' : 'bg-red-50 text-red-800 dark:bg-red-500/10 dark:text-red-300'}`}>
                       {claim.reachedReview ? 'Reached review' : 'Did not reach review'}
                     </span>
                   </td>
-                  <td className="px-4 py-2 font-mono text-zinc-600">
+                  <td className="px-4 py-2 font-mono text-zinc-600 dark:text-zinc-400">
                     {claim.failureCode ? [claim.failureField, claim.failureCode].filter(Boolean).join(' · ') : '—'}
                   </td>
                   <td className="px-4 py-2">
@@ -131,21 +131,21 @@ export function RunTrace({ ledger }: { ledger: RunLedgerSnapshot }) {
         </div>
       )}
 
-      <details className="mt-4 rounded-2xl border border-zinc-200 bg-white">
+      <details className="mt-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
         <summary className="cursor-pointer px-5 py-3 text-sm font-semibold">All events ({ledger.events.length})</summary>
-        <div className="overflow-x-auto border-t border-zinc-200">
+        <div className="overflow-x-auto border-t border-zinc-200 dark:border-zinc-800">
           <table className="w-full min-w-[900px] text-left text-[11px]">
-            <thead className="bg-zinc-50 text-zinc-500">
+            <thead className="bg-zinc-50 dark:bg-zinc-900/50 text-zinc-500">
               <tr>
                 {['#', 'Time (UTC)', 'Stage', 'Step', 'Status', 'Claim', 'Action', 'Field', 'Code', 'Detail', 'ms'].map(label => (
                   <th key={label} className="px-3 py-2 font-medium">{label}</th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-100 font-mono">
+            <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800 font-mono">
               {ledger.events.map(event => (
-                <tr key={event.seq} className={event.status === 'failed' ? 'bg-red-50' : ''}>
-                  <td className="px-3 py-1.5 text-zinc-400">{event.seq}</td>
+                <tr key={event.seq} className={event.status === 'failed' ? 'bg-red-50 dark:bg-red-500/10' : ''}>
+                  <td className="px-3 py-1.5 text-zinc-400 dark:text-zinc-500">{event.seq}</td>
                   <td className="px-3 py-1.5 text-zinc-500">{clock(event.at)}</td>
                   <td className="px-3 py-1.5">{event.stage}</td>
                   <td className="px-3 py-1.5">{event.step}</td>
@@ -157,7 +157,7 @@ export function RunTrace({ ledger }: { ledger: RunLedgerSnapshot }) {
                   <td className="px-3 py-1.5 text-zinc-500">
                     {Object.entries(event.detail).map(([key, value]) => `${key}=${value}`).join(' ')}
                   </td>
-                  <td className="px-3 py-1.5 text-zinc-400">{event.duration_ms ?? ''}</td>
+                  <td className="px-3 py-1.5 text-zinc-400 dark:text-zinc-500">{event.duration_ms ?? ''}</td>
                 </tr>
               ))}
             </tbody>
