@@ -407,7 +407,7 @@ export function SfFieldCompared({
           />
           {!emptyPrev && !emptyNext ? (
             <details className="rounded-md border border-zinc-200 dark:border-zinc-700/50 bg-white dark:bg-zinc-900/40 text-[10px]">
-              <summary className="cursor-pointer select-none px-2 py-1.5 text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-700 dark:text-zinc-300">
+              <summary className="cursor-pointer select-none px-2 py-1.5 text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-300">
                 Side-by-side originals (no diff highlights)
               </summary>
               <SideBySideSyncedSfHtml field={field} prev={prev} next={next} afterTone={afterTone} />

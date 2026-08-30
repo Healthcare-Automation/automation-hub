@@ -237,7 +237,7 @@ export default function CompanyPanel({
             )}
           </div>
           <button onClick={onClose}
-            className="shrink-0 rounded-md px-2 py-1 text-[12px] text-zinc-600 dark:text-zinc-400 hover:bg-zinc-800 hover:text-zinc-800 dark:text-zinc-200">
+            className="shrink-0 rounded-md px-2 py-1 text-[12px] text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200">
             Close
           </button>
         </div>
