@@ -22,7 +22,7 @@ function StatusBadge({
 }) {
   if (status === 'error') {
     return (
-      <span className="inline-flex items-center gap-1 text-red-400 text-xs font-medium whitespace-nowrap">
+      <span className="inline-flex items-center gap-1 text-red-600 dark:text-red-400 text-xs font-medium whitespace-nowrap">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
           <path d="M18 6 6 18M6 6l12 12" />
         </svg>
@@ -36,7 +36,7 @@ function StatusBadge({
   if (unresolvedFailedJobCount > 0) {
     return (
       <span
-        className="inline-flex items-center gap-1 text-red-400 text-xs font-medium whitespace-nowrap"
+        className="inline-flex items-center gap-1 text-red-600 dark:text-red-400 text-xs font-medium whitespace-nowrap"
         title={`${unresolvedFailedJobCount} job${unresolvedFailedJobCount === 1 ? '' : 's'} in this run did not fully land in Salesforce (creation failed, or mapped but fields never synced) and have not been recovered yet — these auto-correct on the next cycle`}
       >
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -50,7 +50,7 @@ function StatusBadge({
   }
   if (status === 'running') {
     return (
-      <span className="inline-flex items-center gap-1 text-amber-400 text-xs font-medium whitespace-nowrap">
+      <span className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-400 text-xs font-medium whitespace-nowrap">
         <span className="relative flex h-1.5 w-1.5">
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
           <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500" />
@@ -77,7 +77,7 @@ function StatusBadge({
   // completed — check for SF errors
   if (sfErrorCount > 0) {
     return (
-      <span className="inline-flex items-center gap-1 text-amber-400 text-xs font-medium whitespace-nowrap">
+      <span className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-400 text-xs font-medium whitespace-nowrap">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
           <line x1="12" y1="9" x2="12" y2="13" />
@@ -93,7 +93,7 @@ function StatusBadge({
   if (recoveredLaterCount > 0) {
     return (
       <span
-        className="inline-flex items-center gap-1 text-cyan-400 text-xs font-medium whitespace-nowrap"
+        className="inline-flex items-center gap-1 text-cyan-700 dark:text-cyan-400 text-xs font-medium whitespace-nowrap"
         title={`${recoveredLaterCount} job${recoveredLaterCount === 1 ? '' : 's'} in this run didn't fully sync at first but was auto-corrected afterward — surfaced so the failure isn't hidden behind a clean success`}
       >
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -107,7 +107,7 @@ function StatusBadge({
     )
   }
   return (
-    <span className="inline-flex items-center gap-1 text-emerald-400 text-xs font-medium whitespace-nowrap">
+    <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400 text-xs font-medium whitespace-nowrap">
       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
         <path d="M20 6 9 17l-5-5" />
       </svg>
@@ -125,7 +125,7 @@ function SFErrorBadge({ errors }: { errors: SFErrorDetail[] }) {
   return (
     <>
       <span
-        className="ml-1.5 text-red-400 text-[10px] font-medium cursor-help inline-flex items-center gap-0.5 whitespace-nowrap"
+        className="ml-1.5 text-red-600 dark:text-red-400 text-[10px] font-medium cursor-help inline-flex items-center gap-0.5 whitespace-nowrap"
         onMouseEnter={(e) => {
           const r = e.currentTarget.getBoundingClientRect()
           const rawX = r.left + r.width / 2
@@ -153,8 +153,8 @@ function SFErrorBadge({ errors }: { errors: SFErrorDetail[] }) {
             transform: 'translateX(-50%) translateY(-100%)',
           }}
         >
-          <div className="bg-zinc-800 border border-red-500/30 rounded-xl p-3.5 shadow-2xl w-80 text-xs">
-            <p className="font-semibold text-red-400 mb-2.5 flex items-center gap-1.5">
+          <div className="bg-white border border-red-300 dark:bg-zinc-800 dark:border-red-500/30 rounded-xl p-3.5 shadow-2xl w-80 text-xs">
+            <p className="font-semibold text-red-600 dark:text-red-400 mb-2.5 flex items-center gap-1.5">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
                 <line x1="12" y1="9" x2="12" y2="13" />
@@ -168,7 +168,7 @@ function SFErrorBadge({ errors }: { errors: SFErrorDetail[] }) {
                   <p className="text-zinc-500 font-mono text-[10px] mb-0.5">
                     {err.eventType === 'sf_mapping_pull_failed' ? 'SOQL query failed' : `Job ${err.jobId}`}
                   </p>
-                  <p className="text-zinc-300 leading-relaxed break-words">{err.error}</p>
+                  <p className="text-zinc-700 dark:text-zinc-300 leading-relaxed break-words">{err.error}</p>
                 </div>
               ))}
             </div>
@@ -190,11 +190,11 @@ function LayerCell({
 }) {
   const isEmpty = count === 0 && sfErrors.length === 0
   if (isEmpty && dimWhenZero) {
-    return <span className="text-zinc-600 tabular-nums">—</span>
+    return <span className="text-zinc-400 dark:text-zinc-600 tabular-nums">—</span>
   }
   return (
     <span className="tabular-nums inline-flex items-center">
-      <span className={cn(count > 0 ? 'text-zinc-200' : 'text-zinc-600')}>
+      <span className={cn(count > 0 ? 'text-zinc-800 dark:text-zinc-200' : 'text-zinc-400 dark:text-zinc-600')}>
         {count}
       </span>
       <SFErrorBadge errors={sfErrors} />
@@ -206,7 +206,7 @@ function RecoveryBadge({ count }: { count: number }) {
   if (!count) return null
   return (
     <span
-      className="ml-1.5 text-emerald-400 text-[10px] font-medium inline-flex items-center gap-0.5 whitespace-nowrap"
+      className="ml-1.5 text-emerald-600 dark:text-emerald-400 text-[10px] font-medium inline-flex items-center gap-0.5 whitespace-nowrap"
       title={`${count} previously-failed push${count === 1 ? '' : 'es'} was automatically recovered on this run`}
     >
       <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -225,7 +225,7 @@ function QuarantineBadge({ count, fields }: { count: number; fields: string[] })
     : `${count} field${count === 1 ? '' : 's'} dropped from payload (parser fix needed)`
   return (
     <span
-      className="ml-1.5 text-amber-300 text-[10px] font-medium inline-flex items-center gap-0.5 whitespace-nowrap"
+      className="ml-1.5 text-amber-700 dark:text-amber-300 text-[10px] font-medium inline-flex items-center gap-0.5 whitespace-nowrap"
       title={title}
     >
       <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -265,7 +265,7 @@ function SfPushCell({ run }: { run: RunDetail }) {
             'inline-flex items-center gap-1',
             'text-[10px] font-semibold leading-tight',
             'px-1.5 py-0.5 rounded-md border',
-            'bg-amber-500/10 border-amber-500/30 text-amber-300',
+            'bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300',
             'truncate max-w-full'
           )}
           title={`${recoveredLater} job${recoveredLater === 1 ? '' : 's'} failed during this run but were patched later via a subsequent rescrape or recovery.`}
@@ -277,12 +277,12 @@ function SfPushCell({ run }: { run: RunDetail }) {
         </span>
       )
     }
-    return <span className="text-zinc-600 tabular-nums">—</span>
+    return <span className="text-zinc-400 dark:text-zinc-600 tabular-nums">—</span>
   }
   return (
     <span className="tabular-nums inline-flex flex-col items-start gap-0.5 min-w-0">
       <span className="inline-flex items-center">
-        <span className={cn(patch > 0 ? 'text-zinc-200' : 'text-zinc-600')}>{patch}</span>
+        <span className={cn(patch > 0 ? 'text-zinc-800 dark:text-zinc-200' : 'text-zinc-400 dark:text-zinc-600')}>{patch}</span>
         <SFErrorBadge errors={errs} />
         <RecoveryBadge count={recovered} />
         <QuarantineBadge count={quarantined} fields={run.sfQuarantinedFields ?? []} />
@@ -293,7 +293,7 @@ function SfPushCell({ run }: { run: RunDetail }) {
             'inline-flex items-center gap-1',
             'text-[10px] font-semibold leading-tight',
             'px-1.5 py-0.5 rounded-md border',
-            'bg-violet-500/10 border-violet-500/25 text-violet-300',
+            'bg-violet-500/10 border-violet-500/25 text-violet-700 dark:text-violet-300',
             'shadow-[0_0_0_1px_rgba(139,92,246,0.08)]',
             'truncate max-w-full'
           )}
@@ -316,7 +316,7 @@ function SfPushCell({ run }: { run: RunDetail }) {
             'inline-flex items-center gap-1',
             'text-[10px] font-semibold leading-tight',
             'px-1.5 py-0.5 rounded-md border',
-            'bg-sky-500/10 border-sky-500/30 text-sky-300',
+            'bg-sky-500/10 border-sky-500/30 text-sky-700 dark:text-sky-300',
             'shadow-[0_0_0_1px_rgba(14,165,233,0.08)]',
             'truncate max-w-full'
           )}
@@ -340,7 +340,7 @@ function SfPushCell({ run }: { run: RunDetail }) {
             'inline-flex items-center gap-1',
             'text-[10px] font-semibold leading-tight',
             'px-1.5 py-0.5 rounded-md border',
-            'bg-red-500/10 border-red-500/30 text-red-300',
+            'bg-red-500/10 border-red-500/30 text-red-700 dark:text-red-300',
             'shadow-[0_0_0_1px_rgba(239,68,68,0.08)]',
             'truncate max-w-full'
           )}
@@ -364,7 +364,7 @@ function SfPushCell({ run }: { run: RunDetail }) {
             'inline-flex items-center gap-1',
             'text-[10px] font-semibold leading-tight',
             'px-1.5 py-0.5 rounded-md border',
-            'bg-amber-500/10 border-amber-500/30 text-amber-300',
+            'bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300',
             'shadow-[0_0_0_1px_rgba(245,158,11,0.08)]',
             'truncate max-w-full'
           )}
@@ -621,12 +621,12 @@ export default function LayerBreakdown({ runs }: Props) {
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             placeholder="job_id (19596), Salesforce id (a01UP00000…), or practice name"
-            className="w-full bg-zinc-900/40 border border-zinc-700/50 rounded-lg px-3 py-2 pr-8 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-zinc-600/50"
+            className="w-full bg-white border border-zinc-200 text-zinc-800 placeholder:text-zinc-400 focus:ring-zinc-300 dark:bg-zinc-900/40 dark:border-zinc-700/50 dark:text-zinc-200 dark:placeholder:text-zinc-600 dark:focus:ring-zinc-600/50 rounded-lg px-3 py-2 pr-8 text-xs focus:outline-none focus:ring-2"
           />
           {canSearch && (
             <button
               onClick={() => setSearchInput('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-200 p-1"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 p-1"
               aria-label="Clear search"
               type="button"
             >
@@ -646,20 +646,20 @@ export default function LayerBreakdown({ runs }: Props) {
         <div className="px-3 pb-1 text-[11px] text-zinc-500">
           {activeQuery ? (
             <>
-              <span className="text-zinc-400">{filteredRuns?.length ?? 0}</span>{' '}
+              <span className="text-zinc-600 dark:text-zinc-400">{filteredRuns?.length ?? 0}</span>{' '}
               run{(filteredRuns?.length ?? 0) === 1 ? '' : 's'} match{' '}
-              <span className="text-zinc-300">{SEARCH_MODE_LABEL[activeQuery.mode]}</span>
+              <span className="text-zinc-700 dark:text-zinc-300">{SEARCH_MODE_LABEL[activeQuery.mode]}</span>
               {': '}
-              <span className="font-mono text-zinc-300">{activeQuery.value}</span>
+              <span className="font-mono text-zinc-700 dark:text-zinc-300">{activeQuery.value}</span>
             </>
           ) : previewMode ? (
-            <>Will search as <span className="text-zinc-300">{SEARCH_MODE_LABEL[previewMode]}</span></>
+            <>Will search as <span className="text-zinc-700 dark:text-zinc-300">{SEARCH_MODE_LABEL[previewMode]}</span></>
           ) : null}
         </div>
       )}
 
       {error && (
-        <div className="px-3 pb-1 text-[11px] text-red-400">
+        <div className="px-3 pb-1 text-[11px] text-red-600 dark:text-red-400">
           {error}
         </div>
       )}
@@ -678,13 +678,13 @@ export default function LayerBreakdown({ runs }: Props) {
           const countPool: RunDetail[] = allRuns ?? filteredRuns ?? pageRuns
           const count = countPool.filter(f.match).length
           const toneActive: Record<string, string> = {
-            red:     'bg-red-500/15 border-red-500/40 text-red-300',
-            amber:   'bg-amber-500/15 border-amber-500/40 text-amber-300',
-            violet:  'bg-violet-500/15 border-violet-500/40 text-violet-300',
-            cyan:    'bg-cyan-500/15 border-cyan-500/40 text-cyan-300',
-            emerald: 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300',
-            slate:   'bg-zinc-500/20 border-zinc-500/40 text-zinc-300',
-            sky:     'bg-sky-500/15 border-sky-500/40 text-sky-300',
+            red:     'bg-red-500/15 border-red-500/40 text-red-700 dark:text-red-300',
+            amber:   'bg-amber-500/15 border-amber-500/40 text-amber-700 dark:text-amber-300',
+            violet:  'bg-violet-500/15 border-violet-500/40 text-violet-700 dark:text-violet-300',
+            cyan:    'bg-cyan-500/15 border-cyan-500/40 text-cyan-700 dark:text-cyan-300',
+            emerald: 'bg-emerald-500/15 border-emerald-500/40 text-emerald-700 dark:text-emerald-300',
+            slate:   'bg-zinc-500/20 border-zinc-500/40 text-zinc-700 dark:text-zinc-300',
+            sky:     'bg-sky-500/15 border-sky-500/40 text-sky-700 dark:text-sky-300',
           }
           return (
             <button
@@ -703,8 +703,8 @@ export default function LayerBreakdown({ runs }: Props) {
                 active
                   ? toneActive[f.tone]
                   : count > 0
-                    ? 'border-zinc-700/60 text-zinc-400 hover:text-zinc-200 hover:border-zinc-500'
-                    : 'border-zinc-800 text-zinc-700 cursor-not-allowed',
+                    ? 'border-zinc-300 text-zinc-600 hover:text-zinc-900 hover:border-zinc-400 dark:border-zinc-700/60 dark:text-zinc-400 dark:hover:text-zinc-200 dark:hover:border-zinc-500'
+                    : 'border-zinc-200 text-zinc-400 dark:border-zinc-800 dark:text-zinc-700 cursor-not-allowed',
               )}
             >
               {f.label}
@@ -719,7 +719,7 @@ export default function LayerBreakdown({ runs }: Props) {
           <button
             type="button"
             onClick={() => setFacets(new Set())}
-            className="text-[11px] text-zinc-500 hover:text-zinc-200 underline underline-offset-2"
+            className="text-[11px] text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 underline underline-offset-2"
           >
             Clear filters
           </button>
@@ -736,12 +736,12 @@ export default function LayerBreakdown({ runs }: Props) {
           <span className="text-zinc-500">· loading full history for filters…</span>
         )}
         {facets.size > 0 && !allRunsLoading && (
-          <span className="text-zinc-400">
-            · <span className="text-zinc-200">{displayedRuns.length}</span> matching across all {facetCandidatePool.length} runs
+          <span className="text-zinc-600 dark:text-zinc-400">
+            · <span className="text-zinc-800 dark:text-zinc-200">{displayedRuns.length}</span> matching across all {facetCandidatePool.length} runs
           </span>
         )}
         {allRunsError && (
-          <span className="text-red-400">· couldn't load full history: {allRunsError}</span>
+          <span className="text-red-600 dark:text-red-400">· couldn't load full history: {allRunsError}</span>
         )}
       </div>
 
@@ -779,7 +779,7 @@ export default function LayerBreakdown({ runs }: Props) {
       </div>
 
       {isEmpty && (
-        <div className="py-10 text-center text-zinc-600 text-sm">
+        <div className="py-10 text-center text-zinc-500 dark:text-zinc-600 text-sm">
           {emptyMessage}
         </div>
       )}
@@ -793,17 +793,17 @@ export default function LayerBreakdown({ runs }: Props) {
           }}
           className={cn(
             'grid px-3 py-2.5 rounded-lg text-sm items-center cursor-pointer',
-            'hover:bg-zinc-700/30 hover:border-zinc-600 transition-all duration-200 group',
+            'hover:bg-zinc-100 hover:border-zinc-300 dark:hover:bg-zinc-700/30 dark:hover:border-zinc-600 transition-all duration-200 group',
             'border border-transparent relative',
-            lastOpenedRunId === run.id && 'bg-zinc-700/30 border-zinc-600',
+            lastOpenedRunId === run.id && 'bg-zinc-100 border-zinc-300 dark:bg-zinc-700/30 dark:border-zinc-600',
             COLS,
           )}
         >
           {/* Run IDs: show gmail + batch */}
-          <span className="font-mono text-zinc-400 text-[11px] group-hover:text-zinc-200 leading-tight transition-colors">
+          <span className="font-mono text-zinc-600 dark:text-zinc-400 text-[11px] group-hover:text-zinc-900 dark:group-hover:text-zinc-200 leading-tight transition-colors">
             <span>#{run.id}</span>
             {run.batchId && (
-              <span className="block text-zinc-600">#{run.batchId}</span>
+              <span className="block text-zinc-400 dark:text-zinc-600">#{run.batchId}</span>
             )}
           </span>
 
@@ -817,10 +817,10 @@ export default function LayerBreakdown({ runs }: Props) {
           />
 
           {/* Started + duration */}
-          <span className="text-zinc-400 text-xs leading-tight group-hover:text-zinc-300 transition-colors">
+          <span className="text-zinc-600 dark:text-zinc-400 text-xs leading-tight group-hover:text-zinc-800 dark:group-hover:text-zinc-300 transition-colors">
             <span className="block">{formatRelativeTime(run.startedAt)}</span>
             {run.durationSeconds != null && (
-              <span className="block text-zinc-600 text-[10px]">
+              <span className="block text-zinc-400 dark:text-zinc-600 text-[10px]">
                 {run.gmailDurationSeconds != null && run.batchDurationSeconds != null
                   ? formatDuration(run.gmailDurationSeconds + run.batchDurationSeconds)
                   : formatDuration(run.durationSeconds)
@@ -835,7 +835,7 @@ export default function LayerBreakdown({ runs }: Props) {
 
           {/* Click indicator */}
           <div className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
-            <span className="text-xs text-zinc-400 bg-zinc-800 px-2 py-1 rounded border border-zinc-600 flex items-center gap-1">
+            <span className="text-xs text-zinc-600 bg-white border-zinc-300 shadow-sm dark:text-zinc-400 dark:bg-zinc-800 dark:border-zinc-600 dark:shadow-none px-2 py-1 rounded border flex items-center gap-1">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M9 18l6-6-6-6"/>
               </svg>
@@ -860,8 +860,8 @@ export default function LayerBreakdown({ runs }: Props) {
               className={cn(
                 'px-2.5 py-1.5 rounded-lg text-[11px] font-medium border transition-colors inline-flex items-center gap-1.5',
                 pageOffset === 0 || paging
-                  ? 'border-zinc-800 text-zinc-600 cursor-not-allowed'
-                  : 'border-zinc-700/60 text-zinc-200 hover:bg-zinc-700/30'
+                  ? 'border-zinc-200 text-zinc-400 dark:border-zinc-800 dark:text-zinc-600 cursor-not-allowed'
+                  : 'border-zinc-300 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700/60 dark:text-zinc-200 dark:hover:bg-zinc-700/30'
               )}
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -874,7 +874,7 @@ export default function LayerBreakdown({ runs }: Props) {
               <div className="flex items-center gap-1 flex-wrap justify-center">
                 {pageItems.map((item, i) =>
                   item === 'ellipsis' ? (
-                    <span key={`gap-${i}`} className="text-[11px] text-zinc-600 px-1 select-none">…</span>
+                    <span key={`gap-${i}`} className="text-[11px] text-zinc-400 dark:text-zinc-600 px-1 select-none">…</span>
                   ) : (
                     <button
                       key={item}
@@ -884,8 +884,8 @@ export default function LayerBreakdown({ runs }: Props) {
                       className={cn(
                         'min-w-[26px] px-1.5 py-1 rounded-md text-[11px] font-medium border transition-colors tabular-nums',
                         item === currentPage
-                          ? 'border-zinc-500 bg-zinc-700/40 text-zinc-100 cursor-default'
-                          : 'border-zinc-800 text-zinc-400 hover:border-zinc-700/60 hover:text-zinc-200 hover:bg-zinc-700/30'
+                          ? 'border-zinc-300 bg-zinc-200/70 text-zinc-900 dark:border-zinc-500 dark:bg-zinc-700/40 dark:text-zinc-100 cursor-default'
+                          : 'border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:text-zinc-900 hover:bg-zinc-100 dark:border-zinc-800 dark:text-zinc-400 dark:hover:border-zinc-700/60 dark:hover:text-zinc-200 dark:hover:bg-zinc-700/30'
                       )}
                     >
                       {item}
@@ -894,7 +894,7 @@ export default function LayerBreakdown({ runs }: Props) {
                 )}
               </div>
             ) : (
-              <span className="text-[11px] text-zinc-600 tabular-nums">
+              <span className="text-[11px] text-zinc-500 dark:text-zinc-600 tabular-nums">
                 Page {currentPage}
               </span>
             )}
@@ -905,8 +905,8 @@ export default function LayerBreakdown({ runs }: Props) {
               className={cn(
                 'px-2.5 py-1.5 rounded-lg text-[11px] font-medium border transition-colors inline-flex items-center gap-1.5',
                 atLastPage || paging
-                  ? 'border-zinc-800 text-zinc-600 cursor-not-allowed'
-                  : 'border-zinc-700/60 text-zinc-200 hover:bg-zinc-700/30'
+                  ? 'border-zinc-200 text-zinc-400 dark:border-zinc-800 dark:text-zinc-600 cursor-not-allowed'
+                  : 'border-zinc-300 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700/60 dark:text-zinc-200 dark:hover:bg-zinc-700/30'
               )}
             >
               Next

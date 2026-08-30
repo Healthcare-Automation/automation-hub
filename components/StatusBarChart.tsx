@@ -16,7 +16,7 @@ function TooltipRow({ label, value, highlight }: { label: string; value: string;
   return (
     <div className="flex items-center justify-between gap-4">
       <span className="text-zinc-500">{label}</span>
-      <span className={cn('font-medium tabular-nums', highlight ? 'text-red-400' : 'text-zinc-300')}>
+      <span className={cn('font-medium tabular-nums', highlight ? 'text-red-600 dark:text-red-400' : 'text-zinc-700 dark:text-zinc-300')}>
         {value}
       </span>
     </div>
@@ -36,9 +36,9 @@ function ReasonLines({ day }: { day: DayStatus }) {
     reasons.push({ text: `${day.sfErrors} unresolved Salesforce error${day.sfErrors === 1 ? '' : 's'}`, tone: 'amber' })
   if (reasons.length === 0) return null
   return (
-    <div className="mt-2 pt-2 border-t border-zinc-700/60 space-y-1">
+    <div className="mt-2 pt-2 border-t border-zinc-200 dark:border-zinc-700/60 space-y-1">
       {reasons.map((r, i) => (
-        <div key={i} className={cn('flex items-start gap-1.5 leading-snug', r.tone === 'red' ? 'text-red-400' : 'text-amber-400')}>
+        <div key={i} className={cn('flex items-start gap-1.5 leading-snug', r.tone === 'red' ? 'text-red-600 dark:text-red-400' : 'text-amber-700 dark:text-amber-400')}>
           <span className={cn('mt-[5px] h-1 w-1 shrink-0 rounded-full', r.tone === 'red' ? 'bg-red-400' : 'bg-amber-400')} />
           {r.text}
         </div>
@@ -52,7 +52,7 @@ function JobLinks({ label, ids, tone }: { label: string; ids: string[]; tone: 'r
   if (ids.length === 0) return null
   return (
     <div className="mt-2">
-      <p className={cn('text-[10px] font-semibold uppercase tracking-wider mb-1', tone === 'red' ? 'text-red-400/80' : 'text-amber-400/80')}>
+      <p className={cn('text-[10px] font-semibold uppercase tracking-wider mb-1', tone === 'red' ? 'text-red-600 dark:text-red-400/80' : 'text-amber-700 dark:text-amber-400/80')}>
         {label}
       </p>
       <div className="flex flex-wrap gap-x-2 gap-y-0.5">
@@ -62,7 +62,7 @@ function JobLinks({ label, ids, tone }: { label: string; ids: string[]; tone: 'r
             href={`https://portal.kimedics.com/app/workspace/job-posts/${id}`}
             target="_blank"
             rel="noreferrer"
-            className="text-blue-400 hover:text-blue-300 hover:underline"
+            className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:underline"
           >
             #{id}
           </a>
@@ -135,7 +135,7 @@ export default function StatusBarChart({ days }: Props) {
         ))}
       </div>
 
-      <div className="flex justify-between text-[10px] text-zinc-600 select-none">
+      <div className="flex justify-between text-[10px] text-zinc-500 dark:text-zinc-600 select-none">
         <span>90 days ago</span>
         <span>Today</span>
       </div>
@@ -155,13 +155,13 @@ export default function StatusBarChart({ days }: Props) {
             transform: 'translateX(-50%) translateY(-100%)',
           }}
         >
-          <div className="bg-zinc-800 border border-zinc-600/60 rounded-xl p-3.5 shadow-2xl w-60 text-xs">
-            <p className="font-medium text-white mb-2.5">
+          <div className="bg-white border border-zinc-200 dark:bg-zinc-800 dark:border-zinc-600/60 rounded-xl p-3.5 shadow-2xl w-60 text-xs">
+            <p className="font-medium text-zinc-900 dark:text-white mb-2.5">
               {formatShortDate(tooltip.day.day)}
             </p>
 
             {tooltip.day.status === 'idle' ? (
-              <p className="text-zinc-400">No emails to scrape</p>
+              <p className="text-zinc-600 dark:text-zinc-400">No emails to scrape</p>
             ) : tooltip.day.totalRuns === 0 ? (
               <p className="text-zinc-500">No runs scheduled</p>
             ) : (
@@ -194,7 +194,7 @@ export default function StatusBarChart({ days }: Props) {
 
             <div
               className={cn(
-                'mt-2.5 pt-2 border-t border-zinc-800 flex items-center justify-between text-[10px] font-semibold uppercase tracking-widest',
+                'mt-2.5 pt-2 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between text-[10px] font-semibold uppercase tracking-widest',
                 STATUS_COLORS[tooltip.day.status] ?? 'text-zinc-500',
               )}
             >
