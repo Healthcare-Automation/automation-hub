@@ -66,6 +66,21 @@ function LinkedinCard({
         </div>
       </div>
 
+      {/* Fast side-by-side compare: what LinkedIn shows vs. what the company's own site/page
+          confirms, so Andy can verify the match without opening a new tab. */}
+      {(action.profile_summary || action.site_evidence) && (
+        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <div className="rounded-md bg-zinc-900/50 p-2.5 ring-1 ring-zinc-800/50">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">On LinkedIn</p>
+            <p className="mt-1 text-[11px] leading-relaxed text-zinc-300">{action.profile_summary ?? '—'}</p>
+          </div>
+          <div className="rounded-md bg-zinc-900/50 p-2.5 ring-1 ring-zinc-800/50">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">Confirmed by company site</p>
+            <p className="mt-1 text-[11px] leading-relaxed text-zinc-300">{action.site_evidence ?? '—'}</p>
+          </div>
+        </div>
+      )}
+
       <div className="mt-2.5 space-y-2 text-[11.5px]">
         <div>
           <p className="text-zinc-500">Connection note</p>

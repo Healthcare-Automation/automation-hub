@@ -113,6 +113,7 @@ export interface CompanyDetail {
     sent_at: string | null; created_at: string | null }[]
   linkedinActions: { id: number; recommended_action: string | null; connection_note: string | null;
     dm_draft: string | null; urgency: string | null; profile_confidence: string | null;
+    profile_summary: string | null; site_evidence: string | null;
     status: string; verification_note: string | null; contact_name: string | null;
     linkedin_url: string | null }[]
   replies: { id: number; channel: string | null; body: string | null; classification: string | null;
@@ -160,7 +161,8 @@ export async function getCompanyDetail(id: number): Promise<CompanyDetail | null
   `
   const linkedinActions = await sql<CompanyDetail['linkedinActions']>`
     select la.id, la.recommended_action, la.connection_note, la.dm_draft, la.urgency,
-           la.profile_confidence, la.status, la.verification_note,
+           la.profile_confidence, la.profile_summary, la.site_evidence,
+           la.status, la.verification_note,
            ct.full_name as contact_name, ct.linkedin_url
     from outreach_linkedin_actions la
     left join outreach_contacts ct on ct.id = la.contact_id
