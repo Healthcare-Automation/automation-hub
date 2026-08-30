@@ -106,9 +106,9 @@ interface ValidationPopupProps {
 
 function StatusBadge({ status, reason }: { status: 'success' | 'failed' | 'partial'; reason?: string | null }) {
   const styles = {
-    success: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
-    failed: 'text-red-400 bg-red-500/10 border-red-500/20',
-    partial: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
+    success: 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
+    failed: 'text-red-600 dark:text-red-400 bg-red-500/10 border-red-500/20',
+    partial: 'text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20',
   }
 
   const icons = {
@@ -145,7 +145,7 @@ function StatusBadge({ status, reason }: { status: 'success' | 'failed' | 'parti
       {icons[status]}
       {labels[status]}
       {reason ? (
-        <span className="ml-1 text-[10px] font-normal text-zinc-400 normal-case">· {reason}</span>
+        <span className="ml-1 text-[10px] font-normal text-zinc-600 dark:text-zinc-400 normal-case">· {reason}</span>
       ) : null}
     </span>
   )
@@ -245,21 +245,21 @@ type TimelineItem = {
 function kindStyles(kind: TimelineKind) {
   switch (kind) {
     case 'new':
-      return { dot: 'bg-violet-400', border: 'border-violet-500/20', bg: 'bg-violet-500/10', text: 'text-violet-300' }
+      return { dot: 'bg-violet-400', border: 'border-violet-500/20', bg: 'bg-violet-500/10', text: 'text-violet-700 dark:text-violet-300' }
     case 'mapping':
-      return { dot: 'bg-emerald-400', border: 'border-emerald-500/20', bg: 'bg-emerald-500/10', text: 'text-emerald-300' }
+      return { dot: 'bg-emerald-400', border: 'border-emerald-500/20', bg: 'bg-emerald-500/10', text: 'text-emerald-700 dark:text-emerald-300' }
     case 'sf':
-      return { dot: 'bg-emerald-400', border: 'border-emerald-500/20', bg: 'bg-emerald-500/10', text: 'text-emerald-300' }
+      return { dot: 'bg-emerald-400', border: 'border-emerald-500/20', bg: 'bg-emerald-500/10', text: 'text-emerald-700 dark:text-emerald-300' }
     case 'recovered':
-      return { dot: 'bg-teal-400', border: 'border-teal-500/30', bg: 'bg-teal-500/10', text: 'text-teal-200' }
+      return { dot: 'bg-teal-400', border: 'border-teal-500/30', bg: 'bg-teal-500/10', text: 'text-teal-800 dark:text-teal-200' }
     case 'quarantined':
-      return { dot: 'bg-amber-300', border: 'border-amber-500/25', bg: 'bg-amber-500/10', text: 'text-amber-200' }
+      return { dot: 'bg-amber-300', border: 'border-amber-500/25', bg: 'bg-amber-500/10', text: 'text-amber-800 dark:text-amber-200' }
     case 'skip':
-      return { dot: 'bg-blue-400', border: 'border-blue-500/20', bg: 'bg-blue-500/10', text: 'text-blue-300' }
+      return { dot: 'bg-blue-400', border: 'border-blue-500/20', bg: 'bg-blue-500/10', text: 'text-blue-700 dark:text-blue-300' }
     case 'error':
-      return { dot: 'bg-red-400', border: 'border-red-500/20', bg: 'bg-red-500/10', text: 'text-red-300' }
+      return { dot: 'bg-red-400', border: 'border-red-500/20', bg: 'bg-red-500/10', text: 'text-red-700 dark:text-red-300' }
     default:
-      return { dot: 'bg-zinc-500', border: 'border-zinc-700/40', bg: 'bg-zinc-800/30', text: 'text-zinc-300' }
+      return { dot: 'bg-zinc-500', border: 'border-zinc-200 dark:border-zinc-700/40', bg: 'bg-zinc-100 dark:bg-zinc-800/30', text: 'text-zinc-700 dark:text-zinc-300' }
   }
 }
 
@@ -740,13 +740,13 @@ function Timeline({ job }: { job: ValidationJobDetail }) {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <p className="text-xs font-semibold text-zinc-400">Timeline</p>
-        <span className="text-[10px] text-zinc-600">{/* intentionally blank */}</span>
+        <p className="text-xs font-semibold text-zinc-600 dark:text-zinc-400">Timeline</p>
+        <span className="text-[10px] text-zinc-500 dark:text-zinc-600">{/* intentionally blank */}</span>
       </div>
 
       <div className="relative pl-6">
         {/* Vertical rail (lives in the left gutter, behind markers) */}
-        <div className="absolute left-[8px] top-1 bottom-1 w-px bg-zinc-700/60" />
+        <div className="absolute left-[8px] top-1 bottom-1 w-px bg-zinc-200 dark:bg-zinc-700/60" />
         <div className="space-y-2">
           {items.map((it) => {
             const isOpen = open.has(it.key)
@@ -754,31 +754,31 @@ function Timeline({ job }: { job: ValidationJobDetail }) {
             return (
               <div key={it.key} className="relative">
                 {/* Marker: outer shell masks the vertical line, inner dot conveys status */}
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-4 rounded-full bg-zinc-950 border border-zinc-700/60 flex items-center justify-center">
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-4 rounded-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700/60 flex items-center justify-center">
                   <div className={cn('h-2.5 w-2.5 rounded-full', s.dot)} />
                 </div>
                 {/* Card is offset so marker never touches its outline */}
-                <div className={cn('border rounded-lg ml-6', s.border, 'bg-zinc-900/40')}>
+                <div className={cn('border rounded-lg ml-6', s.border, 'bg-white dark:bg-zinc-900/40')}>
                   <button
                     onClick={() => toggle(it.key)}
-                    className="w-full text-left px-3 py-2.5 flex items-start justify-between gap-3 hover:bg-zinc-800/30 transition-colors rounded-lg"
+                    className="w-full text-left px-3 py-2.5 flex items-start justify-between gap-3 hover:bg-zinc-100 dark:hover:bg-zinc-800/30 transition-colors rounded-lg"
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <span className={cn('text-[11px] font-semibold', s.text)}>{it.title}</span>
-                        <span className="text-[10px] text-zinc-600 font-mono">
+                        <span className="text-[10px] text-zinc-500 dark:text-zinc-600 font-mono">
                           {it.event?.id != null ? `#${it.event.id}` : null}
                         </span>
                       </div>
                       {it.subtitle ? (
-                        <div className="text-xs text-zinc-400 mt-0.5 break-words whitespace-pre-line">
+                        <div className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5 break-words whitespace-pre-line">
                           {it.subtitle}
                         </div>
                       ) : null}
                     </div>
                     <div className="shrink-0 text-right">
                       <div className="text-[10px] text-zinc-500 tabular-nums">{formatTime(it.ts)}</div>
-                      <div className="text-[10px] text-zinc-600 mt-0.5">{isOpen ? '—' : ''}</div>
+                      <div className="text-[10px] text-zinc-500 dark:text-zinc-600 mt-0.5">{isOpen ? '—' : ''}</div>
                     </div>
                   </button>
 
@@ -787,18 +787,18 @@ function Timeline({ job }: { job: ValidationJobDetail }) {
                       {/* Single-expand details (no nested expanders) */}
                       {it.event?.eventType === 'sf_ids_update' && (
                         <div className={cn('mt-2 rounded-lg p-3', s.bg)}>
-                          <div className="text-xs text-zinc-300">
+                          <div className="text-xs text-zinc-700 dark:text-zinc-300">
                             <span className="text-zinc-500">Method:</span>{' '}
-                            <span className="text-emerald-200 font-medium">
+                            <span className="text-emerald-800 dark:text-emerald-200 font-medium">
                               {humanizeMappingSource(it.event?.payload?.source as string | undefined)}
                             </span>
                             {it.event?.payload?.source ? (
-                              <span className="text-zinc-600 font-mono text-[10px] ml-1">
+                              <span className="text-zinc-500 dark:text-zinc-600 font-mono text-[10px] ml-1">
                                 ({String(it.event.payload.source)})
                               </span>
                             ) : null}
                             {it.event?.payload?.mapping_detail ? (
-                              <span className="text-zinc-600"> · {String(it.event.payload.mapping_detail)}</span>
+                              <span className="text-zinc-500 dark:text-zinc-600"> · {String(it.event.payload.mapping_detail)}</span>
                             ) : null}
                           </div>
 
@@ -808,7 +808,7 @@ function Timeline({ job }: { job: ValidationJobDetail }) {
                                 it.event.payload.fields_changed.filter((f: string) => f !== 'sf_worksite_account_id'),
                               ).map((field: string) => (
                                   <div key={field} className="bg-emerald-500/5 border border-emerald-500/10 rounded p-2">
-                                    <div className="text-[10px] font-semibold text-emerald-400 mb-1">{field}</div>
+                                    <div className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 mb-1">{field}</div>
                                     <SfFieldCompared
                                       field={field}
                                       prev={it.event?.payload?.prev?.[field]}
@@ -824,9 +824,9 @@ function Timeline({ job }: { job: ValidationJobDetail }) {
 
                       {it.event?.eventType === 'sf_scrape_fields_patched' && (
                         <div className={cn('mt-2 rounded-lg p-3', s.bg)}>
-                          <div className="text-xs text-zinc-300">
+                          <div className="text-xs text-zinc-700 dark:text-zinc-300">
                             <span className="text-zinc-500">Record:</span>{' '}
-                            <span className="font-mono text-emerald-200">{it.event?.payload?.sf_job_id ?? '—'}</span>
+                            <span className="font-mono text-emerald-800 dark:text-emerald-200">{it.event?.payload?.sf_job_id ?? '—'}</span>
                           </div>
                           {(() => {
                             const p = it.event?.payload || {}
@@ -845,19 +845,19 @@ function Timeline({ job }: { job: ValidationJobDetail }) {
                                         'rounded p-2 border',
                                         didPatch
                                           ? 'bg-emerald-500/5 border-emerald-500/10'
-                                          : 'bg-zinc-800/40 border-zinc-700/40',
+                                          : 'bg-zinc-100 dark:bg-zinc-800/40 border-zinc-200 dark:border-zinc-700/40',
                                       )}
                                     >
                                       <div className="flex items-center justify-between gap-2 mb-1">
-                                        <div className="text-[10px] font-semibold text-emerald-400">{field}</div>
+                                        <div className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">{field}</div>
                                         <span
                                           className={cn(
                                             'text-[9px] px-1.5 py-0.5 rounded shrink-0',
                                             didPatch
-                                              ? 'bg-emerald-500/20 text-emerald-300'
+                                              ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300'
                                               : matched
-                                                ? 'bg-zinc-700/60 text-zinc-400'
-                                                : 'bg-amber-500/15 text-amber-300',
+                                                ? 'bg-zinc-200 dark:bg-zinc-700/60 text-zinc-600 dark:text-zinc-400'
+                                                : 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
                                           )}
                                         >
                                           {didPatch ? 'updated in SF' : matched ? 'unchanged' : 'review'}
@@ -877,17 +877,17 @@ function Timeline({ job }: { job: ValidationJobDetail }) {
                         Array.isArray(it.event.payload?.fields_compared) &&
                         it.event.payload.fields_compared.length > 0 && (
                           <div className="mt-2 rounded-lg p-3 bg-blue-500/5 border border-blue-500/15">
-                            <div className="text-xs text-zinc-300">
+                            <div className="text-xs text-zinc-700 dark:text-zinc-300">
                               <span className="text-zinc-500">Record:</span>{' '}
-                              <span className="font-mono text-blue-200">{it.event?.payload?.sf_job_id ?? '—'}</span>
+                              <span className="font-mono text-blue-800 dark:text-blue-200">{it.event?.payload?.sf_job_id ?? '—'}</span>
                             </div>
                             <p className="text-[10px] text-zinc-500 mt-1">
                               Full audit — values already matched Salesforce (no write sent).
                             </p>
                             <div className="mt-3 space-y-2">
                               {sfSyncDisplayedFields(it.event.payload).map((field: string) => (
-                                <div key={field} className="bg-zinc-800/40 border border-zinc-700/40 rounded p-2">
-                                  <div className="text-[10px] font-semibold text-blue-300 mb-1">{field}</div>
+                                <div key={field} className="bg-zinc-100 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-700/40 rounded p-2">
+                                  <div className="text-[10px] font-semibold text-blue-700 dark:text-blue-300 mb-1">{field}</div>
                                   <SfFieldCompared
                                     field={field}
                                     prev={it.event?.payload?.prev?.[field]}
@@ -907,8 +907,8 @@ function Timeline({ job }: { job: ValidationJobDetail }) {
                           it.event?.payload?.detail &&
                           !(Array.isArray(it.event.payload?.fields_compared) && it.event.payload.fields_compared.length > 0))) && (
                         <div className="mt-2 rounded-lg p-3 bg-blue-500/5 border border-blue-500/15">
-                          <p className="text-[10px] font-semibold text-blue-300 mb-1">Why this was skipped</p>
-                          <p className="text-xs text-zinc-300 leading-relaxed">
+                          <p className="text-[10px] font-semibold text-blue-700 dark:text-blue-300 mb-1">Why this was skipped</p>
+                          <p className="text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed">
                             {String(it.event.payload?.detail || it.event.payload?.reason || '—')}
                           </p>
                           {it.event.payload?.job_id ? (
@@ -921,7 +921,7 @@ function Timeline({ job }: { job: ValidationJobDetail }) {
 
                       {(it.event?.eventType === 'job_current_sf_ids_changed' ||
                         it.event?.eventType === 'job_current_upsert') && (
-                        <div className="mt-2 rounded-lg p-3 bg-emerald-500/5 border border-emerald-500/10 text-xs text-zinc-300 space-y-1">
+                        <div className="mt-2 rounded-lg p-3 bg-emerald-500/5 border border-emerald-500/10 text-xs text-zinc-700 dark:text-zinc-300 space-y-1">
                           <p>
                             <span className="text-zinc-500">saved_as:</span>{' '}
                             {String(it.event.payload?.saved_as ?? '—')}
@@ -935,28 +935,28 @@ function Timeline({ job }: { job: ValidationJobDetail }) {
                       )}
 
                       {it.event?.eventType === 'job_created_in_salesforce' && (
-                        <div className="mt-2 rounded-lg p-3 bg-violet-500/10 border border-violet-500/25 text-xs text-zinc-300 space-y-2">
-                          <p className="text-[11px] font-semibold text-violet-200">
+                        <div className="mt-2 rounded-lg p-3 bg-violet-500/10 border border-violet-500/25 text-xs text-zinc-700 dark:text-zinc-300 space-y-2">
+                          <p className="text-[11px] font-semibold text-violet-800 dark:text-violet-200">
                             New job (automation — not an existing match)
                           </p>
                           {it.event.payload?.summary ? (
-                            <p className="text-[11px] text-zinc-400 leading-relaxed">{String(it.event.payload.summary)}</p>
+                            <p className="text-[11px] text-zinc-600 dark:text-zinc-400 leading-relaxed">{String(it.event.payload.summary)}</p>
                           ) : null}
                           <div className="grid gap-1 font-mono text-[11px]">
                             <p>
                               <span className="text-zinc-500">sf_job_id</span>{' '}
-                              <span className="text-violet-200">{String(it.event.payload?.sf_job_id ?? '—')}</span>
+                              <span className="text-violet-800 dark:text-violet-200">{String(it.event.payload?.sf_job_id ?? '—')}</span>
                             </p>
                             {it.event.payload?.sf_worksite_account_id ? (
                               <p>
                                 <span className="text-zinc-500">sf_worksite_account_id</span>{' '}
-                                <span className="text-violet-200">
+                                <span className="text-violet-800 dark:text-violet-200">
                                   {String(it.event.payload.sf_worksite_account_id)}
                                 </span>
                               </p>
                             ) : null}
                             {it.event.payload?.automation_kind ? (
-                              <p className="text-zinc-600">
+                              <p className="text-zinc-500 dark:text-zinc-600">
                                 automation_kind: {String(it.event.payload.automation_kind)}
                               </p>
                             ) : null}
@@ -1016,8 +1016,8 @@ function SalesforceMappingSection({ job }: { job: ValidationJobDetail }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-xs font-semibold text-zinc-400">Salesforce Mapping</p>
-        <span className="text-[10px] text-zinc-600">Family A + B</span>
+        <p className="text-xs font-semibold text-zinc-600 dark:text-zinc-400">Salesforce Mapping</p>
+        <span className="text-[10px] text-zinc-500 dark:text-zinc-600">Family A + B</span>
       </div>
 
       {/* Successful Mapping Resolution */}
@@ -1027,24 +1027,24 @@ function SalesforceMappingSection({ job }: { job: ValidationJobDetail }) {
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M20 6 9 17l-5-5" />
             </svg>
-            <span className="text-emerald-400 text-xs font-semibold">Mapping Resolved</span>
-            <span className="text-[10px] px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-300">
+            <span className="text-emerald-600 dark:text-emerald-400 text-xs font-semibold">Mapping Resolved</span>
+            <span className="text-[10px] px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-300">
               {job.mappingResolution?.status}
             </span>
           </div>
 
           {/* Compact for 1:1 mappings */}
           {isSimpleOneToOne ? (
-            <div className="text-xs text-zinc-300">
+            <div className="text-xs text-zinc-700 dark:text-zinc-300">
               <span className="text-zinc-500">Practice:</span>{' '}
-              <span className="text-emerald-200 font-medium">{practice || '—'}</span>
-              <span className="text-zinc-600"> · </span>
+              <span className="text-emerald-800 dark:text-emerald-200 font-medium">{practice || '—'}</span>
+              <span className="text-zinc-500 dark:text-zinc-600"> · </span>
               <span className="text-zinc-500">Mapped via:</span>{' '}
-              <span className="text-emerald-200 font-medium">
+              <span className="text-emerald-800 dark:text-emerald-200 font-medium">
                 {humanizeMappingSource(job.mappingResolution?.source)}
               </span>
               {job.mappingResolution?.source ? (
-                <span className="text-zinc-600 font-mono text-[10px] ml-1">
+                <span className="text-zinc-500 dark:text-zinc-600 font-mono text-[10px] ml-1">
                   ({job.mappingResolution.source})
                 </span>
               ) : null}
@@ -1053,21 +1053,21 @@ function SalesforceMappingSection({ job }: { job: ValidationJobDetail }) {
             <div className="space-y-2 text-xs">
               <div className="flex items-center gap-2">
                 <span className="text-zinc-500">Practice:</span>
-                <span className="text-emerald-200 font-medium">{practice || '—'}</span>
+                <span className="text-emerald-800 dark:text-emerald-200 font-medium">{practice || '—'}</span>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-zinc-500">Mapped via:</span>
-                <span className="text-emerald-200 font-medium">
+                <span className="text-emerald-800 dark:text-emerald-200 font-medium">
                   {humanizeMappingSource(job.mappingResolution?.source)}
                 </span>
                 {job.mappingResolution?.source ? (
-                  <span className="text-zinc-600 font-mono text-[10px]">({job.mappingResolution.source})</span>
+                  <span className="text-zinc-500 dark:text-zinc-600 font-mono text-[10px]">({job.mappingResolution.source})</span>
                 ) : null}
               </div>
               {job.mappingResolution?.detail && (
                 <div className="flex items-center gap-2">
                   <span className="text-zinc-500">Detail:</span>
-                  <span className="text-emerald-300">{job.mappingResolution?.detail}</span>
+                  <span className="text-emerald-700 dark:text-emerald-300">{job.mappingResolution?.detail}</span>
                 </div>
               )}
 
@@ -1075,7 +1075,7 @@ function SalesforceMappingSection({ job }: { job: ValidationJobDetail }) {
               <div className="grid grid-cols-1 gap-2 mt-3">
                 {changedFields.map((field) => (
                   <div key={field} className="bg-emerald-500/5 border border-emerald-500/10 rounded p-2">
-                    <div className="text-[10px] font-semibold text-emerald-400 mb-1">{field}</div>
+                    <div className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 mb-1">{field}</div>
                     <SfFieldCompared
                       field={field}
                       prev={job.mappingResolution?.prev?.[field] ?? null}
@@ -1093,7 +1093,7 @@ function SalesforceMappingSection({ job }: { job: ValidationJobDetail }) {
       {/* Mapping Issues */}
       {hasMappingIssues && (
         <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
-          <p className="text-red-400 text-xs font-semibold mb-2 flex items-center gap-1">
+          <p className="text-red-600 dark:text-red-400 text-xs font-semibold mb-2 flex items-center gap-1">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M18 6 6 18M6 6l12 12" />
             </svg>
@@ -1103,12 +1103,12 @@ function SalesforceMappingSection({ job }: { job: ValidationJobDetail }) {
             {job.mappingIssues?.map((issue, i) => (
               <div key={i} className="text-xs">
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <span className="text-[10px] px-2 py-1 rounded bg-red-500/20 text-red-300">
+                  <span className="text-[10px] px-2 py-1 rounded bg-red-500/20 text-red-700 dark:text-red-300">
                     {humanizeMappingLogEventTitle(issue.type)}
                   </span>
-                  <span className="text-[10px] text-zinc-600 font-mono">{issue.type}</span>
+                  <span className="text-[10px] text-zinc-500 dark:text-zinc-600 font-mono">{issue.type}</span>
                 </div>
-                <p className="text-red-300 leading-relaxed">{issue.message}</p>
+                <p className="text-red-700 dark:text-red-300 leading-relaxed">{issue.message}</p>
               </div>
             ))}
           </div>
@@ -1155,8 +1155,8 @@ function SalesforceFieldUpdatesSection({ job }: { job: ValidationJobDetail }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-xs font-semibold text-zinc-400">Salesforce field sync</p>
-        <span className="text-[10px] text-zinc-600">Family C</span>
+        <p className="text-xs font-semibold text-zinc-600 dark:text-zinc-400">Salesforce field sync</p>
+        <span className="text-[10px] text-zinc-500 dark:text-zinc-600">Family C</span>
       </div>
 
       {hasPatches && (
@@ -1165,16 +1165,16 @@ function SalesforceFieldUpdatesSection({ job }: { job: ValidationJobDetail }) {
             'rounded-lg p-3 border',
             anyPatched && !anyAudit && 'bg-emerald-500/10 border-emerald-500/20',
             anyAudit && !anyPatched && 'bg-blue-500/10 border-blue-500/20',
-            anyAudit && anyPatched && 'bg-zinc-800/40 border-zinc-700/50',
+            anyAudit && anyPatched && 'bg-zinc-100 dark:bg-zinc-800/40 border-zinc-200 dark:border-zinc-700/50',
           )}
         >
           <div className="flex items-center justify-between mb-3">
             <p
               className={cn(
                 'text-xs font-semibold flex items-center gap-1',
-                anyPatched && !anyAudit && 'text-emerald-400',
-                anyAudit && !anyPatched && 'text-blue-300',
-                anyAudit && anyPatched && 'text-zinc-300',
+                anyPatched && !anyAudit && 'text-emerald-600 dark:text-emerald-400',
+                anyAudit && !anyPatched && 'text-blue-700 dark:text-blue-300',
+                anyAudit && anyPatched && 'text-zinc-700 dark:text-zinc-300',
               )}
             >
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1188,9 +1188,9 @@ function SalesforceFieldUpdatesSection({ job }: { job: ValidationJobDetail }) {
               <span
                 className={cn(
                   'text-[10px] px-2 py-1 rounded-full',
-                  anyPatched && !anyAudit && 'bg-emerald-500/20 text-emerald-300',
-                  anyAudit && !anyPatched && 'bg-blue-500/20 text-blue-300',
-                  anyAudit && anyPatched && 'bg-zinc-700/50 text-zinc-300',
+                  anyPatched && !anyAudit && 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300',
+                  anyAudit && !anyPatched && 'bg-blue-500/20 text-blue-700 dark:text-blue-300',
+                  anyAudit && anyPatched && 'bg-zinc-200 dark:bg-zinc-700/50 text-zinc-700 dark:text-zinc-300',
                 )}
               >
                 {patchList.length} event{patchList.length !== 1 ? 's' : ''}
@@ -1198,7 +1198,7 @@ function SalesforceFieldUpdatesSection({ job }: { job: ValidationJobDetail }) {
               {patchList.length > 1 && (
                 <button
                   onClick={toggleAllPatches}
-                  className="text-[10px] px-2 py-1 rounded border border-zinc-600 text-zinc-300 hover:bg-zinc-800/50 transition-colors"
+                  className="text-[10px] px-2 py-1 rounded border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors"
                 >
                   {patchList.every((_, i) => expandedPatches.has(i)) ? 'Collapse All' : 'Expand All'}
                 </button>
@@ -1242,7 +1242,7 @@ function SalesforceFieldUpdatesSection({ job }: { job: ValidationJobDetail }) {
                     <div
                       className={cn(
                         'text-xs font-medium mb-1',
-                        isFreshCreate ? 'text-violet-300' : isAudit ? 'text-blue-300' : 'text-emerald-400',
+                        isFreshCreate ? 'text-violet-700 dark:text-violet-300' : isAudit ? 'text-blue-700 dark:text-blue-300' : 'text-emerald-600 dark:text-emerald-400',
                       )}
                     >
                       {isFreshCreate ? 'New Salesforce record · ' : 'Record '}
@@ -1264,7 +1264,7 @@ function SalesforceFieldUpdatesSection({ job }: { job: ValidationJobDetail }) {
                         </span>
                       )}
                     </div>
-                    <div className="text-[10px] text-zinc-400 truncate">
+                    <div className="text-[10px] text-zinc-600 dark:text-zinc-400 truncate">
                       {fieldsOrdered.slice(0, 4).join(', ')}
                       {fieldsOrdered.length > 4 ? ` +${fieldsOrdered.length - 4} more` : ''}
                     </div>
@@ -1280,7 +1280,7 @@ function SalesforceFieldUpdatesSection({ job }: { job: ValidationJobDetail }) {
                     strokeLinejoin="round"
                     className={cn(
                       'shrink-0 transition-transform',
-                      isFreshCreate ? 'text-violet-400' : isAudit ? 'text-blue-400' : 'text-emerald-400',
+                      isFreshCreate ? 'text-violet-600 dark:text-violet-400' : isAudit ? 'text-blue-400' : 'text-emerald-600 dark:text-emerald-400',
                       isExpanded ? 'rotate-90' : '',
                     )}
                   >
@@ -1296,8 +1296,8 @@ function SalesforceFieldUpdatesSection({ job }: { job: ValidationJobDetail }) {
                     )}
                   >
                     {isFreshCreate ? (
-                      <div className="mt-2 rounded-md border border-violet-500/20 bg-violet-500/5 px-3 py-2 text-[11px] leading-relaxed text-violet-200/90">
-                        <span className="font-semibold text-violet-300">Why fields look “unchanged”:</span>{' '}
+                      <div className="mt-2 rounded-md border border-violet-500/20 bg-violet-500/5 px-3 py-2 text-[11px] leading-relaxed text-violet-800 dark:text-violet-200/90">
+                        <span className="font-semibold text-violet-700 dark:text-violet-300">Why fields look “unchanged”:</span>{' '}
                         this PATCH ran <em>after</em> our POST created the record, so Salesforce
                         already had the values we wrote. Fields marked <span className="font-semibold">set on create</span>{' '}
                         were established by the create itself; <span className="font-semibold">patched after create</span>{' '}
@@ -1325,20 +1325,20 @@ function SalesforceFieldUpdatesSection({ job }: { job: ValidationJobDetail }) {
                                   ? 'unchanged'
                                   : 'review'
                         const badgeClass = patchedAfterCreate
-                          ? 'bg-violet-500/25 text-violet-200'
+                          ? 'bg-violet-500/25 text-violet-800 dark:text-violet-200'
                           : setOnCreate
-                            ? 'bg-violet-500/15 text-violet-300'
+                            ? 'bg-violet-500/15 text-violet-700 dark:text-violet-300'
                             : didPatch
-                              ? 'bg-emerald-500/20 text-emerald-300'
+                              ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300'
                               : isAudit || matched
-                                ? 'bg-zinc-700/60 text-zinc-400'
-                                : 'bg-amber-500/15 text-amber-300'
+                                ? 'bg-zinc-200 dark:bg-zinc-700/60 text-zinc-600 dark:text-zinc-400'
+                                : 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
                         const containerClass = patchedAfterCreate || setOnCreate
                           ? 'bg-violet-500/5 border-violet-500/15'
                           : didPatch
                             ? 'bg-emerald-500/5 border-emerald-500/15'
-                            : 'bg-zinc-900/50 border-zinc-700/40'
-                        const labelTone = isFreshCreate ? 'text-violet-300' : isAudit ? 'text-blue-300' : 'text-emerald-400'
+                            : 'bg-white dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-700/40'
+                        const labelTone = isFreshCreate ? 'text-violet-700 dark:text-violet-300' : isAudit ? 'text-blue-700 dark:text-blue-300' : 'text-emerald-600 dark:text-emerald-400'
                         return (
                           <div key={field} className={cn('rounded p-2 border', containerClass)}>
                             <div className="flex items-center justify-between gap-2 mb-1">
@@ -1378,8 +1378,8 @@ function SalesforceFieldUpdatesSection({ job }: { job: ValidationJobDetail }) {
           {job.salesforceIssues?.map((issue, i) => {
             const isSkip = issue.type.includes('skip')
             const bgColor = isSkip ? 'bg-blue-500/10 border-blue-500/20' : 'bg-red-500/10 border-red-500/20'
-            const textColor = isSkip ? 'text-blue-400' : 'text-red-400'
-            const iconColor = isSkip ? 'text-blue-400' : 'text-red-400'
+            const textColor = isSkip ? 'text-blue-400' : 'text-red-600 dark:text-red-400'
+            const iconColor = isSkip ? 'text-blue-400' : 'text-red-600 dark:text-red-400'
 
             return (
               <div key={i} className={cn('border rounded-lg p-3', bgColor)}>
@@ -1395,18 +1395,18 @@ function SalesforceFieldUpdatesSection({ job }: { job: ValidationJobDetail }) {
                   )}
                   {isSkip ? 'Skipped' : 'Error'}
                   {issue.count > 1 && (
-                    <span className="text-[10px] px-2 py-1 rounded-full bg-zinc-500/20 text-zinc-300">
+                    <span className="text-[10px] px-2 py-1 rounded-full bg-zinc-500/20 dark:bg-zinc-500/20 text-zinc-700 dark:text-zinc-300">
                       {issue.count}x
                     </span>
                   )}
                 </p>
                 <div className="text-xs">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className={cn('text-[10px] px-2 py-1 rounded', isSkip ? 'bg-blue-500/20 text-blue-300' : 'bg-red-500/20 text-red-300')}>
+                    <span className={cn('text-[10px] px-2 py-1 rounded', isSkip ? 'bg-blue-500/20 text-blue-700 dark:text-blue-300' : 'bg-red-500/20 text-red-700 dark:text-red-300')}>
                       {issue.type}
                     </span>
                   </div>
-                  <p className={cn('leading-relaxed', isSkip ? 'text-blue-300' : 'text-red-300')}>
+                  <p className={cn('leading-relaxed', isSkip ? 'text-blue-700 dark:text-blue-300' : 'text-red-700 dark:text-red-300')}>
                     {issue.message}
                   </p>
                   {/* Show affected fields for grouped events */}
@@ -1436,7 +1436,7 @@ function JobCard({ job }: { job: ValidationJobDetail }) {
   const jc = job.salesforceJobCreated
 
   return (
-    <div className="border border-zinc-700/40 rounded-xl p-4 space-y-4">
+    <div className="border border-zinc-200 dark:border-zinc-700/40 rounded-xl p-4 space-y-4">
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-2 min-w-0 flex-1">
           <div className="flex items-center gap-3 flex-wrap">
@@ -1446,26 +1446,26 @@ function JobCard({ job }: { job: ValidationJobDetail }) {
                    {jc && (
             <div className="rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-2.5">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-violet-300">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-violet-700 dark:text-violet-300">
                   New job
                 </span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/25 text-violet-200">
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/25 text-violet-800 dark:text-violet-200">
                   auto-created
                 </span>
               </div>
-              <p className="text-[11px] text-zinc-400 mt-1.5 leading-relaxed">
+              <p className="text-[11px] text-zinc-600 dark:text-zinc-400 mt-1.5 leading-relaxed">
                 {jc.summary ||
                   'Salesforce record was created by automation because no existing job matched this Kimedics post.'}
               </p>
               {jc.sfJobId ? (
-                <p className="text-[11px] font-mono text-violet-200 mt-2">
+                <p className="text-[11px] font-mono text-violet-800 dark:text-violet-200 mt-2">
                   <span className="text-zinc-500">sf_job_id</span> {jc.sfJobId}
                 </p>
               ) : null}
             </div>
           )}
           {/* Subtle debug IDs (kept small for non-technical users) */}
-          <div className="text-[10px] text-zinc-600 font-mono">
+          <div className="text-[10px] text-zinc-500 dark:text-zinc-600 font-mono">
             {job.jobId ? <span>job_id={job.jobId}</span> : null}
             {job.jobPostId ? <span>{job.jobId ? ' · ' : ''}job_post_id={job.jobPostId}</span> : null}
             {job.runId != null ? <span>{(job.jobId || job.jobPostId) ? ' · ' : ''}run_id={job.runId}</span> : null}
@@ -1477,7 +1477,7 @@ function JobCard({ job }: { job: ValidationJobDetail }) {
               href={job.kimedicsLink}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-400 hover:text-blue-300 underline flex items-center gap-1"
+              className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-700 dark:text-blue-300 underline flex items-center gap-1"
             >
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3" />
@@ -1489,7 +1489,7 @@ function JobCard({ job }: { job: ValidationJobDetail }) {
                 href={sfLink}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-400 hover:text-blue-300 underline flex items-center gap-1"
+                className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-700 dark:text-blue-300 underline flex items-center gap-1"
               >
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3" />
@@ -1499,12 +1499,12 @@ function JobCard({ job }: { job: ValidationJobDetail }) {
             )}
           </div>
           {(job.kimedicsData?.practice || job.kimedicsData?.practice_value) ? (
-            <div className="text-[11px] text-zinc-400 leading-snug">
+            <div className="text-[11px] text-zinc-600 dark:text-zinc-400 leading-snug">
               <span className="text-zinc-500">Kimedics practice → Salesforce </span>
-              <span className="font-mono text-zinc-300">Job_Client_Job_Id__c</span>
+              <span className="font-mono text-zinc-700 dark:text-zinc-300">Job_Client_Job_Id__c</span>
               <span className="text-zinc-500">: </span>
-              <span className="text-zinc-200">{String(job.kimedicsData.practice ?? job.kimedicsData.practice_value)}</span>
-              <span className="text-zinc-600"> · </span>
+              <span className="text-zinc-800 dark:text-zinc-200">{String(job.kimedicsData.practice ?? job.kimedicsData.practice_value)}</span>
+              <span className="text-zinc-500 dark:text-zinc-600"> · </span>
               <span className="text-zinc-500">Shown when Salesforce values differ from the scrape.</span>
             </div>
           ) : null}
@@ -1582,23 +1582,23 @@ export default function ValidationPopup({ runId, isOpen, onClose, jobId, sfJobId
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-end bg-black/50"
+      className="fixed inset-0 z-50 flex items-center justify-end bg-zinc-900/40 dark:bg-black/50"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           onClose()
         }
       }}
     >
-      <div className="h-full w-full max-w-4xl bg-zinc-900 border-l border-zinc-700/50 overflow-hidden flex flex-col">
+      <div className="h-full w-full max-w-4xl bg-white dark:bg-zinc-900 border-l border-zinc-200 dark:border-zinc-700/50 overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-zinc-700/40">
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-zinc-200 dark:border-zinc-700/40">
           <div>
-            <h2 className="text-lg font-semibold text-white">Validation Details</h2>
-            <p className="text-sm text-zinc-400">Run #{runId}</p>
+            <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">Validation Details</h2>
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">Run #{runId}</p>
           </div>
           <button
             onClick={onClose}
-            className="text-zinc-400 hover:text-white p-2 rounded-lg hover:bg-zinc-800/50 transition-colors"
+            className="text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M18 6 6 18M6 6l12 12" />
@@ -1607,22 +1607,22 @@ export default function ValidationPopup({ runId, isOpen, onClose, jobId, sfJobId
         </div>
 
         {/* Stats Summary */}
-        <div className="p-4 sm:p-6 border-b border-zinc-700/40">
+        <div className="p-4 sm:p-6 border-b border-zinc-200 dark:border-zinc-700/40">
           <div className="grid grid-cols-4 gap-2 sm:gap-4">
             <div className="text-center">
-              <div className="text-2xl font-bold text-white">{jobs.length}</div>
+              <div className="text-2xl font-bold text-zinc-900 dark:text-white">{jobs.length}</div>
               <div className="text-xs text-zinc-500">Total Jobs</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-emerald-400">{successCount}</div>
+              <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{successCount}</div>
               <div className="text-xs text-zinc-500">Successful</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-red-400">{failedCount}</div>
+              <div className="text-2xl font-bold text-red-600 dark:text-red-400">{failedCount}</div>
               <div className="text-xs text-zinc-500">Failed</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-amber-400">{partialCount}</div>
+              <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">{partialCount}</div>
               <div className="text-xs text-zinc-500">Partial</div>
             </div>
           </div>
@@ -1637,7 +1637,7 @@ export default function ValidationPopup({ runId, isOpen, onClose, jobId, sfJobId
           )}
 
           {error && (
-            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 text-red-400">
+            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 text-red-600 dark:text-red-400">
               {error}
             </div>
           )}

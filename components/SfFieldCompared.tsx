@@ -76,7 +76,7 @@ function SideBySideSyncedSfHtml({
   }
 
   return (
-    <div className="grid grid-cols-2 gap-2 border-t border-zinc-700/50 p-2">
+    <div className="grid grid-cols-2 gap-2 border-t border-zinc-200 dark:border-zinc-700/50 p-2">
       <SfHtmlFieldValue
         field={field}
         value={prev}
@@ -110,7 +110,7 @@ function InlineDiffBefore({ parts }: { parts: Change[] }) {
           return (
             <span
               key={i}
-              className="line-through decoration-rose-400/90 text-rose-100/90 bg-rose-950/40 rounded px-0.5"
+              className="line-through decoration-rose-500 text-rose-900 bg-rose-100 dark:decoration-rose-400/90 dark:text-rose-100/90 dark:bg-rose-950/40 rounded px-0.5"
               title="Removed"
             >
               {part.value}
@@ -118,7 +118,7 @@ function InlineDiffBefore({ parts }: { parts: Change[] }) {
           )
         }
         return (
-          <span key={i} className="text-zinc-300" title="Unchanged">
+          <span key={i} className="text-zinc-700 dark:text-zinc-300" title="Unchanged">
             {part.value}
           </span>
         )
@@ -129,13 +129,15 @@ function InlineDiffBefore({ parts }: { parts: Change[] }) {
 
 function addedHighlightClass(afterTone: AfterTone): string {
   return afterTone === 'blue'
-    ? 'bg-sky-500/25 text-sky-50 ring-1 ring-sky-400/35 rounded px-0.5'
-    : 'bg-emerald-500/25 text-emerald-50 ring-1 ring-emerald-400/30 rounded px-0.5'
+    ? 'bg-sky-100 text-sky-900 ring-sky-300 dark:bg-sky-500/25 dark:text-sky-50 dark:ring-sky-400/35 ring-1 rounded px-0.5'
+    : 'bg-emerald-100 text-emerald-900 ring-emerald-300 dark:bg-emerald-500/25 dark:text-emerald-50 dark:ring-emerald-400/30 ring-1 rounded px-0.5'
 }
 
 function InlineDiffAfter({ parts, afterTone }: { parts: Change[]; afterTone: AfterTone }) {
   const addCls = addedHighlightClass(afterTone)
-  const unchangedCls = afterTone === 'blue' ? 'text-blue-100/95' : 'text-emerald-100/90'
+  const unchangedCls = afterTone === 'blue'
+    ? 'text-blue-900 dark:text-blue-100/95'
+    : 'text-emerald-900 dark:text-emerald-100/90'
   return (
     <span className="whitespace-pre-wrap break-words text-[11px] leading-relaxed">
       {parts.map((part, i) => {
@@ -210,7 +212,7 @@ function JdHtmlFormattedDiff({
 
   if (merged === null) {
     return (
-      <div className="text-[10px] text-zinc-500 py-2 border border-zinc-700/40 rounded-md px-2 bg-zinc-950/40">
+      <div className="text-[10px] text-zinc-500 py-2 border border-zinc-200 dark:border-zinc-700/40 rounded-md px-2 bg-zinc-50 dark:bg-zinc-950/40">
         Preparing formatted comparison…
       </div>
     )
@@ -219,7 +221,7 @@ function JdHtmlFormattedDiff({
   return (
     <div
       className={cn(
-        'sf-jd-html sf-jd-html-diff mt-0.5 max-h-96 overflow-y-auto rounded-md border border-zinc-600/40 bg-zinc-950/50 px-3 py-2 text-[13px] leading-relaxed text-zinc-200',
+        'sf-jd-html sf-jd-html-diff mt-0.5 max-h-96 overflow-y-auto rounded-md border border-zinc-200 dark:border-zinc-600/40 bg-zinc-50 dark:bg-zinc-950/50 px-3 py-2 text-[13px] leading-relaxed text-zinc-800 dark:text-zinc-200',
         afterTone === 'blue' ? 'sf-jd-diff-tone-blue' : 'sf-jd-diff-tone-emerald',
       )}
       dangerouslySetInnerHTML={{ __html: merged }}
@@ -338,7 +340,7 @@ export function SfFieldCompared({
   if (tooLong) {
     return (
       <div className="space-y-1">
-        <p className="text-[10px] text-amber-400/90">Content too long for inline diff; showing full values.</p>
+        <p className="text-[10px] text-amber-700 dark:text-amber-400/90">Content too long for inline diff; showing full values.</p>
         <div className="grid grid-cols-2 gap-2 text-[11px]">
           <div>
             <span className="text-zinc-500">{beforeLabel}</span>
@@ -360,7 +362,7 @@ export function SfFieldCompared({
           <span className="text-zinc-500">{beforeLabel}</span>
           <div
             className={cn(
-              'mt-0.5 max-h-72 overflow-y-auto rounded-md border border-zinc-600/40 bg-zinc-950/50 px-2 py-1.5',
+              'mt-0.5 max-h-72 overflow-y-auto rounded-md border border-zinc-200 dark:border-zinc-600/40 bg-zinc-50 dark:bg-zinc-950/50 px-2 py-1.5',
               usePlainExtract ? 'font-sans' : 'font-mono',
             )}
           >
@@ -375,7 +377,7 @@ export function SfFieldCompared({
           <span className="text-zinc-500">{afterLabel}</span>
           <div
             className={cn(
-              'mt-0.5 max-h-72 overflow-y-auto rounded-md border border-zinc-600/40 bg-zinc-950/50 px-2 py-1.5',
+              'mt-0.5 max-h-72 overflow-y-auto rounded-md border border-zinc-200 dark:border-zinc-600/40 bg-zinc-50 dark:bg-zinc-950/50 px-2 py-1.5',
               usePlainExtract ? 'font-sans' : 'font-mono',
             )}
           >
@@ -395,7 +397,7 @@ export function SfFieldCompared({
           <div>
             <span className="text-[10px] text-zinc-500">{beforeLabel.replace(/:\s*$/, '')} / </span>
             <span className="text-[10px] text-zinc-500">{afterLabel.replace(/:\s*$/, '')}</span>
-            <span className="text-[10px] text-zinc-600"> — merged (formatting preserved)</span>
+            <span className="text-[10px] text-zinc-500 dark:text-zinc-600"> — merged (formatting preserved)</span>
           </div>
           <JdHtmlFormattedDiff
             prev={prev}
@@ -404,8 +406,8 @@ export function SfFieldCompared({
             fallback={wordDiffGrid}
           />
           {!emptyPrev && !emptyNext ? (
-            <details className="rounded-md border border-zinc-700/50 bg-zinc-900/40 text-[10px]">
-              <summary className="cursor-pointer select-none px-2 py-1.5 text-zinc-400 hover:text-zinc-300">
+            <details className="rounded-md border border-zinc-200 dark:border-zinc-700/50 bg-white dark:bg-zinc-900/40 text-[10px]">
+              <summary className="cursor-pointer select-none px-2 py-1.5 text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-700 dark:text-zinc-300">
                 Side-by-side originals (no diff highlights)
               </summary>
               <SideBySideSyncedSfHtml field={field} prev={prev} next={next} afterTone={afterTone} />

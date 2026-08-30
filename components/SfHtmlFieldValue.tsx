@@ -24,10 +24,10 @@ function sanitizeSfJobHtml(raw: string): string {
 type Tone = 'muted' | 'emerald' | 'blue' | 'violet'
 
 const tonePlain: Record<Tone, string> = {
-  muted: 'text-zinc-300',
-  emerald: 'text-emerald-200',
-  blue: 'text-blue-200',
-  violet: 'text-violet-200',
+  muted: 'text-zinc-700 dark:text-zinc-300',
+  emerald: 'text-emerald-800 dark:text-emerald-200',
+  blue: 'text-blue-800 dark:text-blue-200',
+  violet: 'text-violet-800 dark:text-violet-200',
 }
 
 function SfHtmlFieldValue({
@@ -64,7 +64,7 @@ function SfHtmlFieldValue({
 
   if (showHtml) {
     const shellClass = cn(
-      'mt-1 max-h-72 overflow-y-auto rounded-md border border-zinc-600/40 bg-zinc-950/80 px-3 py-2 text-[13px] leading-relaxed',
+      'mt-1 max-h-72 overflow-y-auto rounded-md border border-zinc-200 bg-zinc-50 dark:border-zinc-600/40 dark:bg-zinc-950/80 px-3 py-2 text-[13px] leading-relaxed',
       tonePlain[tone],
     )
     if (!sanitized) {
