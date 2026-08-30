@@ -69,7 +69,7 @@ export function ClaimsByMember({
     <div className="space-y-4">
       {groups.map(group => (
         <div key={group.memberId ?? group.claims[0].claimRef}>
-          <h3 className="mb-1.5 text-xs font-semibold text-zinc-500">
+          <h3 className="mb-1.5 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
             {group.memberId ? `Member ${group.memberId}` : 'Member (pending)'} — {group.claims.length} claim
             {group.claims.length === 1 ? '' : 's'}
           </h3>

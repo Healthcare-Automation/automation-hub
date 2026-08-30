@@ -43,15 +43,15 @@ export function CoverageGapAlertCard({ runId, alert }: { runId: string; alert: C
   }
 
   return (
-    <section className="relative mt-5 overflow-hidden rounded-2xl border border-zinc-200 bg-white pl-5 shadow-sm">
+    <section className="relative mt-5 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-none pl-5">
       <span className="absolute inset-y-0 left-0 w-1 bg-amber-400" aria-hidden />
       <div className="flex items-start gap-3 p-4 pl-3.5">
-        <InfoIcon className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+        <InfoIcon className="mt-0.5 h-4 w-4 shrink-0 text-amber-500 dark:text-amber-400" />
         <div className="min-w-0 flex-1">
-          <h2 className="text-xs font-semibold text-zinc-900">
+          <h2 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
             {alert.visitsNeverBilled} visit{alert.visitsNeverBilled === 1 ? '' : 's'} excluded — working as designed, per your rule
           </h2>
-          <p className="mt-1 text-xs text-zinc-600">
+          <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
             {alert.membersAffected} client{alert.membersAffected === 1 ? '' : 's'} in this run{' '}
             {alert.membersAffected === 1 ? 'is' : 'are'} missing one of the two required coverages
             (HCBS EBD Waiver / Community First Choice). Per your decision these visits are never billed
@@ -60,13 +60,13 @@ export function CoverageGapAlertCard({ runId, alert }: { runId: string; alert: C
           <button
             type="button"
             onClick={toggle}
-            className="mt-2 text-xs font-medium text-amber-700 hover:underline"
+            className="mt-2 text-xs font-medium text-amber-700 dark:text-amber-400 hover:underline"
           >
             {expanded ? 'Hide' : 'Show'} which clients
           </button>
           {expanded && (
             <div className="mt-2">
-              {fetched.phase === 'loading' && <p className="text-xs text-zinc-400">Loading…</p>}
+              {fetched.phase === 'loading' && <p className="text-xs text-zinc-400 dark:text-zinc-500">Loading…</p>}
               {fetched.phase === 'error' && (
                 <p className="text-xs text-zinc-500">Could not load the client list for this run (older runs may not have this saved).</p>
               )}
@@ -75,7 +75,7 @@ export function CoverageGapAlertCard({ runId, alert }: { runId: string; alert: C
                   {fetched.members.map(memberId => (
                     <li
                       key={memberId}
-                      className="rounded-md bg-amber-50 px-2 py-1 text-xs font-medium tabular-nums text-amber-900 ring-1 ring-inset ring-amber-200"
+                      className="rounded-md bg-amber-50 text-amber-900 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-200 dark:ring-amber-500/30 px-2 py-1 text-xs font-medium tabular-nums ring-1 ring-inset"
                     >
                       {memberId}
                     </li>

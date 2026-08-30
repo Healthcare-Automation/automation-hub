@@ -50,17 +50,17 @@ export function ClientQuestionsCard({
   const answered = questions.filter(q => q.status === 'answered')
 
   return (
-    <section data-section="questions" className="relative mt-5 overflow-hidden rounded-2xl border border-zinc-200 bg-white pl-5 shadow-sm">
+    <section data-section="questions" className="relative mt-5 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-none pl-5">
       <span className="absolute inset-y-0 left-0 w-1 bg-sky-400" aria-hidden />
       <div className="p-5 pl-3.5">
-        <h2 className="text-sm font-semibold text-zinc-900">Questions for you</h2>
+        <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Questions for you</h2>
         <p className="mt-0.5 text-xs text-zinc-500">
           The automation needs these billing-rule decisions from you. Answers here become the rules it follows.
         </p>
         {degraded ? (
-          <p className="mt-3 text-xs text-amber-700">Reconnecting… refreshes automatically.</p>
+          <p className="mt-3 text-xs text-amber-700 dark:text-amber-400">Reconnecting… refreshes automatically.</p>
         ) : questions.length === 0 ? (
-          <p className="mt-3 text-xs text-zinc-400">No open questions right now.</p>
+          <p className="mt-3 text-xs text-zinc-400 dark:text-zinc-500">No open questions right now.</p>
         ) : (
           <div className="mt-3 space-y-3">
             {open.map(q => (
@@ -100,22 +100,22 @@ function OpenQuestion({ question, canAnswer }: { question: ClientQuestion; canAn
   }
 
   return (
-    <div className="rounded-xl border border-zinc-200 bg-zinc-50/60 p-4">
+    <div className="rounded-xl border border-zinc-200 bg-zinc-50/60 dark:border-zinc-800 dark:bg-zinc-800/30 p-4">
       <div className="flex items-start gap-2">
         <span className="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-sky-500" />
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-zinc-900">{topicHeadline(question.topic)}</p>
-          <p className="mt-0.5 text-sm text-zinc-700">{summary}</p>
+          <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{topicHeadline(question.topic)}</p>
+          <p className="mt-0.5 text-sm text-zinc-700 dark:text-zinc-300">{summary}</p>
           {rest && (
             <button
               type="button"
               onClick={() => setShowDetails(v => !v)}
-              className="mt-1 text-xs font-medium text-sky-700 hover:underline"
+              className="mt-1 text-xs font-medium text-sky-700 dark:text-sky-400 hover:underline"
             >
               {showDetails ? 'Hide details' : 'Show details'}
             </button>
           )}
-          {showDetails && rest && <p className="mt-1 text-sm text-zinc-700">{rest}</p>}
+          {showDetails && rest && <p className="mt-1 text-sm text-zinc-700 dark:text-zinc-300">{rest}</p>}
         </div>
       </div>
       {canAnswer ? (
@@ -126,12 +126,12 @@ function OpenQuestion({ question, canAnswer }: { question: ClientQuestion; canAn
             rows={2}
             maxLength={4000}
             placeholder="Type your answer…"
-            className="flex-1 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-sky-400 focus:outline-none"
+            className="flex-1 rounded-lg border border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-950 px-3 py-2 text-sm focus:border-sky-400 focus:outline-none"
           />
           <button
             onClick={submit}
             disabled={state === 'saving' || !answer.trim()}
-            className="shrink-0 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50"
+            className="shrink-0 rounded-lg bg-zinc-900 text-white hover:bg-zinc-700 dark:bg-white dark:text-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-200 px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50"
           >
             {state === 'saving' ? 'Saving…' : 'Save answer'}
           </button>
@@ -139,7 +139,7 @@ function OpenQuestion({ question, canAnswer }: { question: ClientQuestion; canAn
       ) : (
         <p className="mt-2 text-xs text-zinc-500">Log in to answer.</p>
       )}
-      {state === 'error' && <p className="mt-1 text-xs text-red-600">Could not save — try again.</p>}
+      {state === 'error' && <p className="mt-1 text-xs text-red-600 dark:text-red-400">Could not save — try again.</p>}
     </div>
   )
 }
@@ -151,21 +151,21 @@ function AnsweredQuestion({ question }: { question: ClientQuestion }) {
   const { summary: answerSummary } = splitClamped(answerText)
 
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-4">
+    <div className="rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900 p-4">
       <button type="button" onClick={() => setExpanded(v => !v)} className="flex w-full items-start gap-2 text-left">
-        <span className="mt-0.5 shrink-0 text-emerald-600" aria-hidden>✓</span>
+        <span className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden>✓</span>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-zinc-900">{topicHeadline(question.topic)}</p>
+          <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{topicHeadline(question.topic)}</p>
           <p className="mt-0.5 truncate text-xs text-zinc-500">{answerSummary}</p>
         </div>
-        <span className="shrink-0 text-xs text-zinc-400">{expanded ? 'Hide' : 'Details'}</span>
+        <span className="shrink-0 text-xs text-zinc-400 dark:text-zinc-500">{expanded ? 'Hide' : 'Details'}</span>
       </button>
       {expanded && (
-        <div className="mt-3 space-y-2 border-t border-zinc-100 pt-3">
-          <p className="text-sm text-zinc-700">{questionSummary}</p>
-          <div className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+        <div className="mt-3 space-y-2 border-t border-zinc-100 dark:border-zinc-800 pt-3">
+          <p className="text-sm text-zinc-700 dark:text-zinc-300">{questionSummary}</p>
+          <div className="rounded-lg bg-emerald-50 text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-200 px-3 py-2 text-sm">
             <span className="font-medium">Answer:</span> {answerText}
-            <span className="ml-2 text-[11px] text-emerald-700">
+            <span className="ml-2 text-[11px] text-emerald-700 dark:text-emerald-400">
               {question.answeredAt ? new Date(question.answeredAt).toLocaleDateString() : ''}
             </span>
           </div>

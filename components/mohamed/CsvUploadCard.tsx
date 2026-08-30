@@ -93,17 +93,17 @@ export function CsvUploadCard({ hasFile }: { hasFile: boolean }) {
   const busy = phase === 'requesting' || phase === 'uploading'
 
   return (
-    <section data-section="upload" className="mt-5 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
-      <div className="border-b border-zinc-100 px-5 py-4">
-        <h2 className="text-sm font-semibold text-zinc-900">Upload billing report</h2>
+    <section data-section="upload" className="mt-5 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-none">
+      <div className="border-b border-zinc-100 dark:border-zinc-800 px-5 py-4">
+        <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Upload billing report</h2>
         <p className="mt-1 text-xs text-zinc-500">
           Export the AxisCare Billing Report as CSV and drop it here. The run starts on its own — no separate trigger needed.
         </p>
       </div>
       <div className="p-5">
         {waitingForPortalSession && (
-          <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50/70 px-3 py-2.5">
-            <p className="text-xs font-medium text-amber-900">
+          <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50/70 dark:border-amber-500/30 dark:bg-amber-500/10 px-3 py-2.5">
+            <p className="text-xs font-medium text-amber-900 dark:text-amber-200">
               Portal session is being repaired automatically — your upload will queue and start when it recovers.
             </p>
           </div>
@@ -113,29 +113,31 @@ export function CsvUploadCard({ hasFile }: { hasFile: boolean }) {
           onDragOver={e => e.preventDefault()}
           onClick={() => inputRef.current?.click()}
           className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-8 text-center transition-colors ${
-            busy ? 'border-zinc-200 bg-zinc-50' : 'border-zinc-300 bg-zinc-50/40 hover:border-emerald-400 hover:bg-emerald-50/40'
+            busy
+              ? 'border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900/50'
+              : 'border-zinc-300 bg-zinc-50/40 hover:border-emerald-400 hover:bg-emerald-50/40 dark:border-zinc-700 dark:bg-zinc-900/40 dark:hover:bg-emerald-500/10'
           }`}
         >
           <input ref={inputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={onFileChosen} disabled={busy} />
           {phase === 'idle' && (
             <>
-              <p className="text-sm font-medium text-zinc-700">Drag a CSV here, or click to choose a file</p>
-              <p className="text-xs text-zinc-400">One file, straight to the VPS — not stored on Vercel</p>
+              <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Drag a CSV here, or click to choose a file</p>
+              <p className="text-xs text-zinc-400 dark:text-zinc-500">One file, straight to the VPS — not stored on Vercel</p>
             </>
           )}
           {busy && (
-            <p className="text-sm font-medium text-zinc-700">
+            <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
               {phase === 'requesting' ? 'Preparing upload…' : `Uploading ${fileName ?? 'file'}…`}
             </p>
           )}
-          {phase === 'queued' && <p className="text-sm font-medium text-emerald-700">✓ {fileName}</p>}
-          {phase === 'error' && <p className="text-sm font-medium text-red-700">Upload failed — click to try again</p>}
+          {phase === 'queued' && <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">✓ {fileName}</p>}
+          {phase === 'error' && <p className="text-sm font-medium text-red-700 dark:text-red-400">Upload failed — click to try again</p>}
         </div>
         {message && (
-          <p className={`mt-3 text-xs ${phase === 'error' ? 'text-red-700' : 'text-emerald-700'}`}>{message}</p>
+          <p className={`mt-3 text-xs ${phase === 'error' ? 'text-red-700 dark:text-red-400' : 'text-emerald-700 dark:text-emerald-400'}`}>{message}</p>
         )}
         {!hasFile && phase === 'idle' && (
-          <p className="mt-3 text-[11px] text-zinc-400">No run has been started from an upload yet.</p>
+          <p className="mt-3 text-[11px] text-zinc-400 dark:text-zinc-500">No run has been started from an upload yet.</p>
         )}
       </div>
     </section>

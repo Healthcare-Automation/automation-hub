@@ -22,14 +22,14 @@ const POLL_MS = 3_000
 
 const TONE_TEXT: Record<StateTone, string> = {
   zinc: 'text-zinc-500',
-  blue: 'text-blue-700',
-  emerald: 'text-emerald-700',
-  amber: 'text-amber-700',
-  red: 'text-red-700',
+  blue: 'text-blue-700 dark:text-blue-300',
+  emerald: 'text-emerald-700 dark:text-emerald-300',
+  amber: 'text-amber-700 dark:text-amber-300',
+  red: 'text-red-700 dark:text-red-300',
 }
 
 const TONE_DOT: Record<StateTone, string> = {
-  zinc: 'bg-zinc-300',
+  zinc: 'bg-zinc-300 dark:bg-zinc-600',
   blue: 'bg-blue-500',
   emerald: 'bg-emerald-500',
   amber: 'bg-amber-500',
@@ -37,12 +37,12 @@ const TONE_DOT: Record<StateTone, string> = {
 }
 
 const LEG_FILL: Record<LegState, string> = {
-  pending: 'bg-zinc-200',
+  pending: 'bg-zinc-200 dark:bg-zinc-700',
   active: 'bg-blue-500 animate-pulse',
   done: 'bg-emerald-500',
   warn: 'bg-amber-400',
   fail: 'bg-red-500',
-  skipped: 'bg-zinc-100',
+  skipped: 'bg-zinc-100 dark:bg-zinc-800',
 }
 
 /** Three segments — Coverage → Claim entry → Review — as one compact bar so
@@ -66,7 +66,7 @@ function MemberRow({ member }: { member: LiveMember }) {
   const claimCount = Object.keys(member.claims).length
 
   return (
-    <li className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg bg-white px-3 py-2 text-xs ring-1 ring-zinc-200">
+    <li className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg bg-white ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800 px-3 py-2 text-xs ring-1">
       <span className="flex shrink-0 items-center gap-2">
         {view.busy ? (
           <span className="relative flex h-1.5 w-1.5">
@@ -76,12 +76,12 @@ function MemberRow({ member }: { member: LiveMember }) {
         ) : (
           <span className={`h-1.5 w-1.5 rounded-full ${TONE_DOT[view.tone]}`} />
         )}
-        <span className="font-medium tabular-nums text-zinc-900">Member {member.memberId}</span>
+        <span className="font-medium tabular-nums text-zinc-900 dark:text-zinc-100">Member {member.memberId}</span>
       </span>
       <LegTracker legs={view.legs} />
       <span className={`min-w-0 flex-1 ${TONE_TEXT[view.tone]}`}>{view.label}</span>
       {claimCount > 1 && (
-        <span className="shrink-0 text-[11px] text-zinc-400">{claimCount} claims</span>
+        <span className="shrink-0 text-[11px] text-zinc-400 dark:text-zinc-500">{claimCount} claims</span>
       )}
     </li>
   )
@@ -129,13 +129,13 @@ function CancelButton({ requestId }: { requestId: number }) {
   }
 
   if (state === 'sent') {
-    return <p className="text-[11px] font-medium text-amber-800">Stop requested — finishing the current claim, then stopping.</p>
+    return <p className="text-[11px] font-medium text-amber-800 dark:text-amber-300">Stop requested — finishing the current claim, then stopping.</p>
   }
 
   if (state === 'confirming') {
     return (
       <div className="flex items-center gap-2">
-        <span className="text-[11px] text-zinc-600">Stop this run? It finishes the claim in progress first.</span>
+        <span className="text-[11px] text-zinc-600 dark:text-zinc-400">Stop this run? It finishes the claim in progress first.</span>
         <button
           type="button"
           onClick={confirm}
@@ -147,7 +147,7 @@ function CancelButton({ requestId }: { requestId: number }) {
         <button
           type="button"
           onClick={() => setState('idle')}
-          className="rounded-lg border border-zinc-300 px-2.5 py-1 text-[11px] font-medium text-zinc-600 hover:bg-zinc-50"
+          className="rounded-lg border border-zinc-300 dark:border-zinc-700 px-2.5 py-1 text-[11px] font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
         >
           Cancel
         </button>
@@ -161,11 +161,11 @@ function CancelButton({ requestId }: { requestId: number }) {
         type="button"
         onClick={() => setState('confirming')}
         disabled={state === 'sending'}
-        className="rounded-lg border border-red-300 px-2.5 py-1 text-[11px] font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
+        className="rounded-lg border border-red-300 text-red-700 hover:bg-red-50 dark:border-red-500/40 dark:text-red-400 dark:hover:bg-red-500/10 px-2.5 py-1 text-[11px] font-semibold disabled:opacity-50"
       >
         {state === 'sending' ? 'Sending…' : 'Stop run'}
       </button>
-      {state === 'error' && error && <span className="text-[11px] text-red-700">{error}</span>}
+      {state === 'error' && error && <span className="text-[11px] text-red-700 dark:text-red-400">{error}</span>}
     </div>
   )
 }
@@ -274,7 +274,7 @@ export function LiveRunBoard({
   if (stale) {
     return (
       <>
-        <p className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-xs font-medium text-amber-900">
+        <p className="mt-3 rounded-lg border border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200 px-3 py-2.5 text-xs font-medium">
           Waiting for the automation… no update in the last few minutes.
         </p>
         <RunProgress progress={progress} />
@@ -289,8 +289,8 @@ export function LiveRunBoard({
 
   if (isTerminalPhase(board.phase)) {
     return (
-      <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5">
-        <p className="text-xs font-medium text-emerald-900">
+      <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 dark:border-emerald-500/30 dark:bg-emerald-500/10 px-3 py-2.5">
+        <p className="text-xs font-medium text-emerald-900 dark:text-emerald-200">
           {board.phase === 'failed'
             ? 'Run stopped — see the result below.'
             : board.phase === 'cancelled'
@@ -311,7 +311,7 @@ export function LiveRunBoard({
     <div className="mt-3">
       {/* Summary strip: the whole run in one line, before any per-member detail. */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-        <span className="text-xs font-medium text-zinc-900">
+        <span className="text-xs font-medium text-zinc-900 dark:text-zinc-100">
           {summary.total} client{summary.total === 1 ? '' : 's'} in this run
         </span>
         <span className="text-xs text-zinc-500">
@@ -319,15 +319,15 @@ export function LiveRunBoard({
           {claimsCount && ` (${claimsCount.done} of ${claimsCount.total})`}
         </span>
         <div className="flex flex-wrap gap-1.5">
-          <Count value={summary.ready} label="ready to review" className="bg-emerald-100 text-emerald-900" />
-          <Count value={summary.inProgress} label="in progress" className="bg-blue-100 text-blue-900" />
-          <Count value={summary.heldBack} label="held back" className="bg-amber-100 text-amber-900" />
-          <Count value={summary.failed} label="failed" className="bg-red-100 text-red-900" />
-          <Count value={summary.waiting} label="waiting" className="bg-zinc-100 text-zinc-600" />
+          <Count value={summary.ready} label="ready to review" className="bg-emerald-100 text-emerald-900 dark:bg-emerald-500/15 dark:text-emerald-200" />
+          <Count value={summary.inProgress} label="in progress" className="bg-blue-100 text-blue-900 dark:bg-blue-500/15 dark:text-blue-200" />
+          <Count value={summary.heldBack} label="held back" className="bg-amber-100 text-amber-900 dark:bg-amber-500/15 dark:text-amber-200" />
+          <Count value={summary.failed} label="failed" className="bg-red-100 text-red-900 dark:bg-red-500/15 dark:text-red-200" />
+          <Count value={summary.waiting} label="waiting" className="bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400" />
         </div>
       </div>
 
-      <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-zinc-200">
+      <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
         <div className="h-full rounded-full bg-emerald-500 transition-all duration-500" style={{ width: `${summary.percent}%` }} />
       </div>
 
