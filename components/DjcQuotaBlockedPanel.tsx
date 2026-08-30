@@ -15,22 +15,22 @@ const RESOLUTION_META: Record<
   needs_view: {
     label: 'Needs a view',
     hint: 'Never checked — the profile scraped but the Profile Views wall blocked the contact reveal. A view is required to get their phone or email.',
-    cls: 'bg-amber-500/15 text-amber-300 ring-amber-500/30',
+    cls: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 ring-amber-500/30',
   },
   checked_empty: {
     label: 'Checked — empty',
     hint: 'A Profile View was spent and no phone, email or resume was found. Done, not pending.',
-    cls: 'bg-zinc-500/15 text-zinc-400 ring-zinc-500/30',
+    cls: 'bg-zinc-500/15 text-zinc-700 dark:text-zinc-400 ring-zinc-500/30',
   },
   already_in_sf: {
     label: 'Already in Salesforce',
     hint: 'Matched to an existing contact after the block — no view needed.',
-    cls: 'bg-emerald-500/15 text-emerald-300 ring-emerald-500/30',
+    cls: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 ring-emerald-500/30',
   },
   gone: {
     label: 'No longer listed',
     hint: 'Dropped off the DJC search list — a view cannot be spent on them any more.',
-    cls: 'bg-zinc-500/15 text-zinc-400 ring-zinc-500/30',
+    cls: 'bg-zinc-500/15 text-zinc-700 dark:text-zinc-400 ring-zinc-500/30',
   },
 }
 
@@ -47,7 +47,7 @@ export default function DjcQuotaBlockedPanel({ rows }: Props) {
   const shown = filter === 'all' ? rows : rows.filter(r => r.resolution === filter)
 
   if (!rows.length) {
-    return <p className="text-xs text-zinc-600">No candidates have been blocked by the Profile Views quota.</p>
+    return <p className="text-xs text-zinc-500 dark:text-zinc-600">No candidates have been blocked by the Profile Views quota.</p>
   }
 
   const tab = (key: Filter, label: string, n: number) => (
@@ -56,7 +56,9 @@ export default function DjcQuotaBlockedPanel({ rows }: Props) {
       onClick={() => setFilter(key)}
       className={cn(
         'rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors',
-        filter === key ? 'bg-white/10 text-zinc-100 ring-1 ring-white/15' : 'text-zinc-500 hover:text-zinc-300',
+        filter === key
+          ? 'bg-zinc-900/[0.06] text-zinc-900 ring-1 ring-zinc-900/10 dark:bg-white/10 dark:text-zinc-100 dark:ring-white/15'
+          : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300',
       )}
     >
       {label} <span className="tabular-nums text-zinc-500">{n}</span>
@@ -66,16 +68,16 @@ export default function DjcQuotaBlockedPanel({ rows }: Props) {
   return (
     <div className="space-y-3">
       <div>
-        <p className="text-[13px] leading-relaxed text-zinc-300">
-          <span className="font-semibold text-amber-300 tabular-nums">{counts.needs_view ?? 0}</span> of{' '}
-          <span className="tabular-nums text-white">{rows.length}</span> blocked candidates need a Profile View. Their
+        <p className="text-[13px] leading-relaxed text-zinc-700 dark:text-zinc-300">
+          <span className="font-semibold text-amber-700 dark:text-amber-300 tabular-nums">{counts.needs_view ?? 0}</span> of{' '}
+          <span className="tabular-nums text-zinc-900 dark:text-white">{rows.length}</span> blocked candidates need a Profile View. Their
           profiles scraped fine — the quota wall blocked the contact reveal, so nothing was ever learned about them.
           Each row links straight to the DJC profile so you can check it by hand.
         </p>
         <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-500">
-          Based on every view actually spent to date, expect roughly <span className="text-zinc-300">26%</span> to
-          become new Salesforce contacts, <span className="text-zinc-300">33%</span> to turn out already on file, and{' '}
-          <span className="text-zinc-300">33%</span> to have no reachable contact info. A view&rsquo;s outcome can only
+          Based on every view actually spent to date, expect roughly <span className="text-zinc-800 dark:text-zinc-300">26%</span> to
+          become new Salesforce contacts, <span className="text-zinc-800 dark:text-zinc-300">33%</span> to turn out already on file, and{' '}
+          <span className="text-zinc-800 dark:text-zinc-300">33%</span> to have no reachable contact info. A view&rsquo;s outcome can only
           be known after it is spent.
           {masked > 0 && (
             <> {masked} of these show initials only — that affects what you see in the table, not whether a view is
@@ -92,9 +94,9 @@ export default function DjcQuotaBlockedPanel({ rows }: Props) {
         {tab('all', 'All', rows.length)}
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-zinc-700/50">
+      <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-700/50">
         <table className="w-full min-w-[62rem] text-left text-[12px]">
-          <thead className="bg-zinc-800/50 text-[10px] uppercase tracking-wider text-zinc-500">
+          <thead className="bg-zinc-100 dark:bg-zinc-800/50 text-[10px] uppercase tracking-wider text-zinc-500">
             <tr>
               <th className="px-3 py-2 font-semibold whitespace-nowrap">Candidate</th>
               <th className="px-3 py-2 font-semibold whitespace-nowrap">Role / specialty</th>
@@ -106,19 +108,19 @@ export default function DjcQuotaBlockedPanel({ rows }: Props) {
               <th className="px-3 py-2 font-semibold whitespace-nowrap">Profile</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-zinc-800/60">
+          <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800/60">
             {shown.map(r => {
               const meta = RESOLUTION_META[r.resolution]
               return (
-                <tr key={r.candidateId} className="hover:bg-zinc-800/30">
+                <tr key={r.candidateId} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30">
                   <td className="px-3 py-2 whitespace-nowrap">
                     <span className="flex items-center gap-1.5">
-                      <span className={cn('font-medium', r.nameMasked ? 'text-zinc-500 italic' : 'text-zinc-200')}>
+                      <span className={cn('font-medium', r.nameMasked ? 'text-zinc-500 italic' : 'text-zinc-800 dark:text-zinc-200')}>
                         {r.displayName || '—'}
                       </span>
                       {r.nameMasked && (
                         <span
-                          className="shrink-0 rounded bg-zinc-500/15 px-1 py-0.5 text-[9px] font-semibold tracking-wide text-zinc-400 ring-1 ring-zinc-500/25"
+                          className="shrink-0 rounded bg-zinc-500/15 px-1 py-0.5 text-[9px] font-semibold tracking-wide text-zinc-600 dark:text-zinc-400 ring-1 ring-zinc-500/25"
                           title="DJC masks the name until the profile is opened"
                         >
                           HIDDEN
@@ -126,11 +128,11 @@ export default function DjcQuotaBlockedPanel({ rows }: Props) {
                       )}
                     </span>
                   </td>
-                  <td className="px-3 py-2 whitespace-nowrap text-zinc-400">
+                  <td className="px-3 py-2 whitespace-nowrap text-zinc-600 dark:text-zinc-400">
                     {r.target || '—'}
-                    {r.degrees && <span className="ml-1.5 text-zinc-600">{r.degrees}</span>}
+                    {r.degrees && <span className="ml-1.5 text-zinc-400 dark:text-zinc-600">{r.degrees}</span>}
                   </td>
-                  <td className="px-3 py-2 whitespace-nowrap text-zinc-400">
+                  <td className="px-3 py-2 whitespace-nowrap text-zinc-600 dark:text-zinc-400">
                     {(r.cardLocation || '—').replace(/,\s*United States$/, '')}
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap text-zinc-500 tabular-nums">
@@ -149,7 +151,7 @@ export default function DjcQuotaBlockedPanel({ rows }: Props) {
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap text-zinc-500 tabular-nums">
                     {formatShortDate(r.lastBlocked)}
-                    {r.blockCount > 1 && <span className="text-zinc-600"> · {r.blockCount}×</span>}
+                    {r.blockCount > 1 && <span className="text-zinc-400 dark:text-zinc-600"> · {r.blockCount}×</span>}
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap">
                     {r.profileUrl ? (
@@ -157,12 +159,12 @@ export default function DjcQuotaBlockedPanel({ rows }: Props) {
                         href={r.profileUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="whitespace-nowrap text-cyan-400 underline-offset-2 hover:text-cyan-300 hover:underline"
+                        className="whitespace-nowrap text-cyan-700 hover:text-cyan-800 dark:text-cyan-400 dark:hover:text-cyan-300 underline-offset-2 hover:underline"
                       >
                         Open
                       </a>
                     ) : (
-                      <span className="text-zinc-600">—</span>
+                      <span className="text-zinc-400 dark:text-zinc-600">—</span>
                     )}
                   </td>
                 </tr>
@@ -171,7 +173,7 @@ export default function DjcQuotaBlockedPanel({ rows }: Props) {
           </tbody>
         </table>
       </div>
-      <p className="text-[11px] leading-relaxed text-zinc-600">
+      <p className="text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-600">
         Opening a profile from this table spends one of the shared Profile Views — the same budget the automation
         draws on.
       </p>

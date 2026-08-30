@@ -89,12 +89,12 @@ function candidateOutcome(c: DjcCandidateRow, events: DjcEvent[] = [], runId?: n
   return { kind: 'skipped', label: 'Skipped', sub: 'no contact details found' }
 }
 const OUTCOME_STYLE: Record<OutcomeKind, string> = {
-  new: 'text-cyan-300 bg-cyan-500/10 ring-cyan-500/25',
-  created: 'text-emerald-300 bg-emerald-500/10 ring-emerald-500/25',
-  exists: 'text-zinc-400 bg-zinc-600/15 ring-zinc-500/20',
-  skipped: 'text-amber-300 bg-amber-500/10 ring-amber-500/25',
-  blocked: 'text-sky-300 bg-sky-500/10 ring-sky-500/25',
-  error: 'text-red-300 bg-red-500/10 ring-red-500/25',
+  new: 'text-cyan-700 dark:text-cyan-300 bg-cyan-500/10 ring-cyan-500/25',
+  created: 'text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 ring-emerald-500/25',
+  exists: 'text-zinc-700 dark:text-zinc-400 bg-zinc-600/15 ring-zinc-500/20',
+  skipped: 'text-amber-700 dark:text-amber-300 bg-amber-500/10 ring-amber-500/25',
+  blocked: 'text-sky-700 dark:text-sky-300 bg-sky-500/10 ring-sky-500/25',
+  error: 'text-red-700 dark:text-red-300 bg-red-500/10 ring-red-500/25',
 }
 
 /* ── Small pieces ─────────────────────────────────────────────────────── */
@@ -108,12 +108,16 @@ function StatusGlyph({ status, errorCount }: { status: string; errorCount: numbe
 }
 
 function Metric({ value, label, tone = 'default' }: { value: number; label: string; tone?: 'default' | 'cyan' | 'amber' }) {
-  const tones = { default: 'text-zinc-100', cyan: 'text-cyan-300', amber: 'text-amber-300' }
+  const tones = {
+    default: 'text-zinc-900 dark:text-zinc-100',
+    cyan: 'text-cyan-700 dark:text-cyan-300',
+    amber: 'text-amber-700 dark:text-amber-300',
+  }
   return <div className="flex flex-col"><span className={cn('text-xl font-semibold tabular-nums leading-none', tones[tone])}>{value}</span><span className="mt-1 text-[11px] text-zinc-500">{label}</span></div>
 }
 
 function Field({ label, value }: { label: string; value: string | null | undefined }) {
-  return <div className="min-w-0"><p className="text-[10px] uppercase tracking-wider text-zinc-600">{label}</p><p className="truncate text-[13px] text-zinc-200" title={value ?? ''}>{value || '—'}</p></div>
+  return <div className="min-w-0"><p className="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-600">{label}</p><p className="truncate text-[13px] text-zinc-800 dark:text-zinc-200" title={value ?? ''}>{value || '—'}</p></div>
 }
 
 // A date-only ('YYYY-MM-DD') or timestamp → short 'Mon D, YYYY' in ET; null-safe.
@@ -128,7 +132,7 @@ function ProfileLink({ url }: { url: string | null }) {
   if (!url) return null
   return (
     <a href={url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
-      className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-zinc-500 ring-1 ring-zinc-700/50 transition-colors hover:text-cyan-300 hover:ring-cyan-500/30" title="Open DJC profile">
+      className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-zinc-500 ring-1 ring-zinc-300 dark:ring-zinc-700/50 transition-colors hover:text-cyan-700 dark:hover:text-cyan-300 hover:ring-cyan-500/30" title="Open DJC profile">
       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /></svg>
       DJC
     </a>
@@ -139,7 +143,7 @@ function SfLink({ id }: { id: string | null }) {
   if (!id) return null
   return (
     <a href={`https://proxi.my.salesforce.com/${id}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
-      className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-zinc-500 ring-1 ring-zinc-700/50 transition-colors hover:text-emerald-300 hover:ring-emerald-500/30" title="Open Salesforce contact">
+      className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-zinc-500 ring-1 ring-zinc-300 dark:ring-zinc-700/50 transition-colors hover:text-emerald-700 dark:hover:text-emerald-300 hover:ring-emerald-500/30" title="Open Salesforce contact">
       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /></svg>
       SF
     </a>
@@ -156,8 +160,8 @@ function CandidateDetail({ c, events, runId }: { c: DjcCandidateRow; events: Djc
   const out = candidateOutcome(c, events, runId)
   const willSend = out.kind === 'new' || out.kind === 'created'
   return (
-    <div className="border-t border-zinc-800/80 px-4 pb-4 pt-3">
-      {willSend && <p className="mb-2.5 text-[11px] font-medium uppercase tracking-wider text-cyan-400/80">{out.kind === 'created' ? 'Sent to Salesforce' : 'Prepared for Salesforce'}</p>}
+    <div className="border-t border-zinc-200 dark:border-zinc-800/80 px-4 pb-4 pt-3">
+      {willSend && <p className="mb-2.5 text-[11px] font-medium uppercase tracking-wider text-cyan-700 dark:text-cyan-400/80">{out.kind === 'created' ? 'Sent to Salesforce' : 'Prepared for Salesforce'}</p>}
       <div className="grid grid-cols-2 gap-x-5 gap-y-3 sm:grid-cols-3">
         <Field label="Name" value={c.name} />
         <Field label="Specialty" value={c.target} />
@@ -176,14 +180,14 @@ function CandidateDetail({ c, events, runId }: { c: DjcCandidateRow; events: Djc
         <Field label="DJC candidate id" value={c.candidateId} />
       </div>
       {events.length > 0 && (
-        <div className="mt-4 border-t border-zinc-800/80 pt-3">
-          <p className="mb-2 text-[10px] uppercase tracking-wider text-zinc-600">Activity</p>
+        <div className="mt-4 border-t border-zinc-200 dark:border-zinc-800/80 pt-3">
+          <p className="mb-2 text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-600">Activity</p>
           <ol className="space-y-1.5">
             {events.map(e => (
               <li key={e.id} className="flex items-center gap-2 text-[12px]">
-                <span className={cn('h-1 w-1 rounded-full', e.level === 'error' ? 'bg-red-500' : e.level === 'warn' ? 'bg-amber-500' : 'bg-zinc-600')} />
-                <span className="text-zinc-400">{EVENT_COPY[e.eventType] ?? e.eventType.replace(/_/g, ' ')}</span>
-                {e.eventType === 'dedup_match' && e.payload?.reason ? <span className="text-zinc-600">({DEDUP_COPY[String(e.payload?.reason)] ?? String(e.payload?.reason)})</span> : null}
+                <span className={cn('h-1 w-1 rounded-full', e.level === 'error' ? 'bg-red-500' : e.level === 'warn' ? 'bg-amber-500' : 'bg-zinc-400 dark:bg-zinc-600')} />
+                <span className="text-zinc-600 dark:text-zinc-400">{EVENT_COPY[e.eventType] ?? e.eventType.replace(/_/g, ' ')}</span>
+                {e.eventType === 'dedup_match' && e.payload?.reason ? <span className="text-zinc-500 dark:text-zinc-600">({DEDUP_COPY[String(e.payload?.reason)] ?? String(e.payload?.reason)})</span> : null}
               </li>
             ))}
           </ol>
@@ -195,11 +199,24 @@ function CandidateDetail({ c, events, runId }: { c: DjcCandidateRow; events: Djc
 
 
 const TONES: Record<string, string> = {
-  emerald: 'bg-emerald-400/70 text-emerald-300',
-  amber: 'bg-amber-400/70 text-amber-300',
-  cyan: 'bg-cyan-400/70 text-cyan-300',
-  zinc: 'bg-zinc-500/60 text-zinc-400',
-  red: 'bg-red-400/70 text-red-300',
+  emerald: 'bg-emerald-400/70 text-emerald-700',
+  amber: 'bg-amber-400/70 text-amber-700',
+  cyan: 'bg-cyan-400/70 text-cyan-700',
+  zinc: 'bg-zinc-500/60 text-zinc-600',
+  red: 'bg-red-400/70 text-red-700',
+}
+
+/**
+ * Dark-mode counterparts, keyed the same way. The two maps are split because FunnelRow pulls the
+ * bar and the text class apart with `.split(' ')` — a `text-x dark:text-y` pair in one string
+ * would land the dark half in the wrong slot.
+ */
+const TONES_DARK: Record<string, string> = {
+  emerald: 'dark:text-emerald-300',
+  amber: 'dark:text-amber-300',
+  cyan: 'dark:text-cyan-300',
+  zinc: 'dark:text-zinc-400',
+  red: 'dark:text-red-300',
 }
 
 /** One funnel line: label, count, and a bar showing its share — so the split reads at a glance. */
@@ -208,17 +225,18 @@ function FunnelRow({ label, n, total, tone, sub }: {
 }) {
   const pct = total > 0 ? Math.round((n / total) * 100) : 0
   const [bar, text] = (TONES[tone] ?? TONES.zinc).split(' ')
+  const textDark = TONES_DARK[tone] ?? TONES_DARK.zinc
   return (
     <div>
       <div className="flex items-baseline gap-2">
-        <span className={cn('w-8 shrink-0 text-right text-[13px] font-semibold tabular-nums', text)}>{n}</span>
-        <span className="min-w-0 flex-1 truncate text-[12px] text-zinc-300">{label}</span>
-        <span className="shrink-0 text-[10px] tabular-nums text-zinc-600">{pct}%</span>
+        <span className={cn('w-8 shrink-0 text-right text-[13px] font-semibold tabular-nums', text, textDark)}>{n}</span>
+        <span className="min-w-0 flex-1 truncate text-[12px] text-zinc-700 dark:text-zinc-300">{label}</span>
+        <span className="shrink-0 text-[10px] tabular-nums text-zinc-500 dark:text-zinc-600">{pct}%</span>
       </div>
-      <div className="ml-10 mt-0.5 h-1 overflow-hidden rounded-full bg-zinc-700/40">
+      <div className="ml-10 mt-0.5 h-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700/40">
         <div className={cn('h-full rounded-full', bar)} style={{ width: `${pct}%` }} />
       </div>
-      {sub && <p className="ml-10 mt-0.5 text-[10px] leading-snug text-zinc-600">{sub}</p>}
+      {sub && <p className="ml-10 mt-0.5 text-[10px] leading-snug text-zinc-500 dark:text-zinc-600">{sub}</p>}
     </div>
   )
 }
@@ -227,12 +245,12 @@ function CandidateRow({ c, events, runId }: { c: DjcCandidateRow; events: DjcEve
   const [open, setOpen] = useState(false)
   const out = candidateOutcome(c, events, runId)
   return (
-    <div className="overflow-hidden rounded-lg bg-zinc-800/30 ring-1 ring-zinc-700/40">
+    <div className="overflow-hidden rounded-lg bg-zinc-50 ring-zinc-200 dark:bg-zinc-800/30 dark:ring-zinc-700/40 ring-1">
       <div className="flex items-center gap-3 px-4 py-2.5">
         <button onClick={() => setOpen(!open)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={cn('shrink-0 text-zinc-600 transition-transform', open && 'rotate-90')}><path d="m9 18 6-6-6-6" /></svg>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={cn('shrink-0 text-zinc-400 dark:text-zinc-600 transition-transform', open && 'rotate-90')}><path d="m9 18 6-6-6-6" /></svg>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[13px] font-medium text-zinc-100">{c.name || c.candidateId}</p>
+            <p className="truncate text-[13px] font-medium text-zinc-900 dark:text-zinc-100">{c.name || c.candidateId}</p>
             <p className="truncate text-[11px] text-zinc-500">{[c.target, [c.mailingCity, c.mailingState].filter(Boolean).join(', ')].filter(Boolean).join(' · ')}</p>
           </div>
         </button>
@@ -240,14 +258,14 @@ function CandidateRow({ c, events, runId }: { c: DjcCandidateRow; events: DjcEve
         <SfLink id={c.sfContactId} />
         {viewSpent(c) ? (
           <span
-            className="shrink-0 whitespace-nowrap rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300 ring-1 ring-amber-500/25"
+            className="shrink-0 whitespace-nowrap rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-300 ring-1 ring-amber-500/25"
             title="A Profile View was spent on this candidate"
           >
             1 VIEW
           </span>
         ) : (
           <span
-            className="shrink-0 whitespace-nowrap rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300 ring-1 ring-emerald-500/25"
+            className="shrink-0 whitespace-nowrap rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-500/25"
             title="Decided from free list-view data — no Profile View spent"
           >
             FREE
@@ -255,7 +273,7 @@ function CandidateRow({ c, events, runId }: { c: DjcCandidateRow; events: DjcEve
         )}
         <div className="flex shrink-0 flex-col items-end">
           <span className={cn('rounded-md px-2 py-0.5 text-[11px] font-medium ring-1', OUTCOME_STYLE[out.kind])}>{out.label}</span>
-          {out.sub && <span className="mt-0.5 text-[10px] text-zinc-600">{out.sub}</span>}
+          {out.sub && <span className="mt-0.5 text-[10px] text-zinc-500 dark:text-zinc-600">{out.sub}</span>}
         </div>
       </div>
       {open && <CandidateDetail c={c} events={events} runId={runId} />}
@@ -269,11 +287,11 @@ function CandidateGroup({ kind, title, rows, eventsBy, runId }: { kind: OutcomeK
   const dot = kind === 'new' ? 'bg-cyan-400' : kind === 'created' ? 'bg-emerald-400' : kind === 'skipped' ? 'bg-amber-400' : kind === 'error' ? 'bg-red-400' : 'bg-zinc-500'
   return (
     <div>
-      <button onClick={() => setOpen(!open)} className="flex w-full items-center gap-2 rounded-md px-1 py-1.5 text-left transition-colors hover:bg-zinc-700/20">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={cn('shrink-0 text-zinc-600 transition-transform', open && 'rotate-90')}><path d="m9 18 6-6-6-6" /></svg>
+      <button onClick={() => setOpen(!open)} className="flex w-full items-center gap-2 rounded-md px-1 py-1.5 text-left transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-700/20">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={cn('shrink-0 text-zinc-400 dark:text-zinc-600 transition-transform', open && 'rotate-90')}><path d="m9 18 6-6-6-6" /></svg>
         <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', dot)} />
-        <span className="text-[11px] font-medium uppercase tracking-wider text-zinc-400">{title}</span>
-        <span className="text-[11px] text-zinc-600">· {rows.length}</span>
+        <span className="text-[11px] font-medium uppercase tracking-wider text-zinc-600 dark:text-zinc-400">{title}</span>
+        <span className="text-[11px] text-zinc-500 dark:text-zinc-600">· {rows.length}</span>
       </button>
       {open && <div className="mt-1.5 space-y-1.5 pl-1">{rows.map(c => <CandidateRow key={c.candidateId} c={c} events={eventsBy.get(c.candidateId) ?? []} runId={runId} />)}</div>}
     </div>
@@ -285,13 +303,13 @@ function CandidateGroup({ kind, title, rows, eventsBy, runId }: { kind: OutcomeK
 function RunActivity({ events }: { events: DjcEvent[] }) {
   if (events.length === 0) return null
   return (
-    <div className="rounded-lg bg-zinc-900/50 px-4 py-3 ring-1 ring-zinc-700/40">
-      <p className="mb-2 text-[10px] uppercase tracking-wider text-zinc-600">Run activity</p>
+    <div className="rounded-lg bg-zinc-50 ring-zinc-200 dark:bg-zinc-900/50 dark:ring-zinc-700/40 px-4 py-3 ring-1">
+      <p className="mb-2 text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-600">Run activity</p>
       <ol className="space-y-1.5">
         {events.map(e => (
           <li key={e.id} className="flex items-center gap-2 text-[12px]">
-            <span className={cn('h-1 w-1 rounded-full', e.level === 'error' ? 'bg-red-500' : e.level === 'warn' ? 'bg-amber-500' : 'bg-zinc-600')} />
-            <span className="text-zinc-400">{EVENT_COPY[e.eventType] ?? e.eventType.replace(/_/g, ' ')}</span>
+            <span className={cn('h-1 w-1 rounded-full', e.level === 'error' ? 'bg-red-500' : e.level === 'warn' ? 'bg-amber-500' : 'bg-zinc-400 dark:bg-zinc-600')} />
+            <span className="text-zinc-600 dark:text-zinc-400">{EVENT_COPY[e.eventType] ?? e.eventType.replace(/_/g, ' ')}</span>
           </li>
         ))}
       </ol>
@@ -330,19 +348,19 @@ export function RunDetailBody({ run, bundle }: { run: DjcRunDetail; bundle: DjcR
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg bg-zinc-900/50 px-4 py-4 ring-1 ring-zinc-700/40">
+      <div className="rounded-lg bg-zinc-50 ring-zinc-200 dark:bg-zinc-900/50 dark:ring-zinc-700/40 px-4 py-4 ring-1">
         {/* One funnel, derived from the SAME candidate list as the groups below, so every number
             here reconciles. The run's own rollup counters are deliberately not mixed in — they
             count different things and reading them side by side is what made this unreadable. */}
         {run.status === 'running' && !run.finishedAt && (
-          <p className="mb-3 rounded-md border border-cyan-500/25 bg-cyan-500/[0.07] px-3 py-2 text-[12px] text-cyan-200">
+          <p className="mb-3 rounded-md border border-cyan-500/25 bg-cyan-500/[0.07] px-3 py-2 text-[12px] text-cyan-800 dark:text-cyan-200">
             This run is still going — the numbers below are partial and will keep changing.
           </p>
         )}
-        <p className="text-[13px] leading-relaxed text-zinc-300">
-          Scanned <span className="font-semibold text-white">{run.candidatesSeen.toLocaleString()}</span> listings
-          {specialties ? <> across <span className="font-semibold text-white">{specialties}</span> specialties</> : null}
-          {' '}(free) → worked through <span className="font-semibold text-white">{processed}</span> candidate{processed === 1 ? '' : 's'}.
+        <p className="text-[13px] leading-relaxed text-zinc-700 dark:text-zinc-300">
+          Scanned <span className="font-semibold text-zinc-900 dark:text-white">{run.candidatesSeen.toLocaleString()}</span> listings
+          {specialties ? <> across <span className="font-semibold text-zinc-900 dark:text-white">{specialties}</span> specialties</> : null}
+          {' '}(free) → worked through <span className="font-semibold text-zinc-900 dark:text-white">{processed}</span> candidate{processed === 1 ? '' : 's'}.
         </p>
 
         <div className="mt-3 space-y-1.5">
@@ -369,7 +387,7 @@ export function RunDetailBody({ run, bundle }: { run: DjcRunDetail; bundle: DjcR
             tone="amber"
             sub="the only step that costs — one view each"
           />
-          <div className="border-l-2 border-zinc-700/60 pl-3 ml-1 space-y-1.5 pt-0.5">
+          <div className="border-l-2 border-zinc-200 dark:border-zinc-700/60 pl-3 ml-1 space-y-1.5 pt-0.5">
             <FunnelRow label="→ added to Salesforce" n={addedCount} total={viewsUsed || 1} tone="cyan" />
             <FunnelRow label="→ turned out already on file" n={dupAfterView} total={viewsUsed || 1} tone="zinc" />
             <FunnelRow label="→ no contact details found" n={noContact} total={viewsUsed || 1} tone="zinc" />
@@ -378,11 +396,11 @@ export function RunDetailBody({ run, bundle }: { run: DjcRunDetail; bundle: DjcR
         <div className="mt-4 hidden grid-cols-2 gap-4 sm:grid-cols-4">
           <Metric value={run.candidatesSeen} label="reviewed" />
         </div>
-        {run.writeMode !== 'live' && <p className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-amber-500/10 px-2 py-1 text-[11px] text-amber-300/90 ring-1 ring-amber-500/20"><span className="h-1.5 w-1.5 rounded-full bg-amber-400" />Test mode — no records were created or changed in Salesforce</p>}
+        {run.writeMode !== 'live' && <p className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-amber-500/10 px-2 py-1 text-[11px] text-amber-700 dark:text-amber-300/90 ring-1 ring-amber-500/20"><span className="h-1.5 w-1.5 rounded-full bg-amber-400" />Test mode — no records were created or changed in Salesforce</p>}
       </div>
       <RunActivity events={runEvents} />
       {bundle.candidates.length === 0 ? (
-        <p className="py-4 text-center text-[13px] text-zinc-600">No candidates were in scope for this run.</p>
+        <p className="py-4 text-center text-[13px] text-zinc-500 dark:text-zinc-600">No candidates were in scope for this run.</p>
       ) : (
         <div className="space-y-1">
           {groups.filter(g => g.rows.length).map(g => <CandidateGroup key={g.key} kind={g.key} title={g.title} rows={g.rows} eventsBy={eventsBy} runId={run.id} />)}
@@ -470,11 +488,11 @@ const DAY_GRID =
 function DayCell({ children, className, title }: { children?: React.ReactNode; className?: string; title?: string }) {
   return <span className={cn('text-right text-[11px] tabular-nums', className)} title={title}>{children}</span>
 }
-const dash = <span className="text-zinc-700">–</span>
+const dash = <span className="text-zinc-300 dark:text-zinc-700">–</span>
 
 function DayColumnHeader() {
   return (
-    <div className={cn(DAY_GRID, 'px-1 text-[9px] uppercase tracking-wider text-zinc-600')}>
+    <div className={cn(DAY_GRID, 'px-1 text-[9px] uppercase tracking-wider text-zinc-500 dark:text-zinc-600')}>
       <span />
       <span />
       <span className="hidden text-right sm:block">Runs</span>
@@ -501,38 +519,38 @@ function DayGroup({ header, runs }: { header: DayHeader; runs: DjcRunDetail[] })
     <div className="space-y-1.5">
       <button
         onClick={() => setOpen(v => !v)}
-        className={cn(DAY_GRID, 'group w-full rounded px-1 py-1 text-left transition-colors hover:bg-zinc-800/40')}
+        className={cn(DAY_GRID, 'group w-full rounded px-1 py-1 text-left transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800/40')}
       >
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
              strokeLinecap="round" strokeLinejoin="round"
-             className={cn('shrink-0 text-zinc-600 transition-transform group-hover:text-zinc-400', open && 'rotate-90')}>
+             className={cn('shrink-0 text-zinc-400 dark:text-zinc-600 transition-transform group-hover:text-zinc-600 dark:group-hover:text-zinc-400', open && 'rotate-90')}>
           <path d="m9 18 6-6-6-6" />
         </svg>
         <span className="flex min-w-0 items-baseline gap-1.5">
-          <span className={cn('truncate text-[12px] font-semibold', header.isToday ? 'text-cyan-300' : 'text-zinc-300')}>{header.primary}</span>
-          <span className="shrink-0 text-[11px] text-zinc-600">{header.secondary}</span>
+          <span className={cn('truncate text-[12px] font-semibold', header.isToday ? 'text-cyan-700 dark:text-cyan-300' : 'text-zinc-700 dark:text-zinc-300')}>{header.primary}</span>
+          <span className="shrink-0 text-[11px] text-zinc-500 dark:text-zinc-600">{header.secondary}</span>
           {s.errors > 0 && (
             <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-500 sm:hidden"
                   title={`${s.errors} unresolved error${s.errors === 1 ? '' : 's'}`} />
           )}
         </span>
-        <DayCell className="hidden text-zinc-600 sm:block">{s.runs}</DayCell>
-        <DayCell className={s.newCount > 0 ? 'font-semibold text-cyan-300' : ''}>{s.newCount || dash}</DayCell>
+        <DayCell className="hidden text-zinc-500 dark:text-zinc-600 sm:block">{s.runs}</DayCell>
+        <DayCell className={s.newCount > 0 ? 'font-semibold text-cyan-700 dark:text-cyan-300' : ''}>{s.newCount || dash}</DayCell>
         <DayCell className="hidden text-zinc-500 sm:block">{s.duplicates || dash}</DayCell>
-        <DayCell className={s.views > 0 ? 'text-amber-300/80' : ''}>{s.views || dash}</DayCell>
+        <DayCell className={s.views > 0 ? 'text-amber-700 dark:text-amber-300/80' : ''}>{s.views || dash}</DayCell>
         <DayCell
           className={cn('font-semibold',
-            s.landed === null ? '' : s.landed >= 50 ? 'text-emerald-300' : s.landed >= 25 ? 'text-zinc-300' : 'text-zinc-500')}
+            s.landed === null ? '' : s.landed >= 50 ? 'text-emerald-700 dark:text-emerald-300' : s.landed >= 25 ? 'text-zinc-700 dark:text-zinc-300' : 'text-zinc-500')}
           title="Share of the day's Profile Views that became a Salesforce contact"
         >
           {s.landed === null ? dash : `${s.landed}%`}
         </DayCell>
-        <DayCell className="hidden text-zinc-600 sm:block">{s.noContact || dash}</DayCell>
-        <DayCell className={cn('hidden sm:block', s.errors > 0 ? 'font-semibold text-red-400' : '')}>{s.errors || dash}</DayCell>
+        <DayCell className="hidden text-zinc-500 dark:text-zinc-600 sm:block">{s.noContact || dash}</DayCell>
+        <DayCell className={cn('hidden sm:block', s.errors > 0 ? 'font-semibold text-red-600 dark:text-red-400' : '')}>{s.errors || dash}</DayCell>
         <span />
       </button>
       {open && (
-        <div className="overflow-hidden rounded-xl ring-1 ring-zinc-700/40 divide-y divide-zinc-800/70">
+        <div className="overflow-hidden rounded-xl ring-1 ring-zinc-200 divide-y divide-zinc-200 dark:ring-zinc-700/40 dark:divide-zinc-800/70">
           {runs.map(run => <RunRow key={run.id} run={run} label={timeLabel(run.startedAt)} />)}
         </div>
       )}
@@ -561,49 +579,49 @@ function RunRow({ run, label }: { run: DjcRunDetail; label: string }) {
 
   const time = label.replace(' ET', '')
   return (
-    <div className={cn('transition-colors', open && 'bg-zinc-800/40')}>
+    <div className={cn('transition-colors', open && 'bg-zinc-100 dark:bg-zinc-800/40')}>
       {/* Same grid as the day header, so a run's numbers sit under the same column labels. A run
           has no "runs" count, so that cell stays empty rather than showing a dash — a dash means
           "none of this metric", which would be a lie here. */}
-      <button onClick={toggle} className={cn(DAY_GRID, 'w-full px-3 py-2 text-left transition-colors hover:bg-zinc-700/15')}>
+      <button onClick={toggle} className={cn(DAY_GRID, 'w-full px-3 py-2 text-left transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-700/15')}>
         <StatusGlyph status={run.status} errorCount={run.unresolvedErrorCount} />
         <span className="flex min-w-0 items-baseline gap-2">
-          <span className="shrink-0 text-[12px] font-semibold text-zinc-100 tabular-nums">{time}</span>
+          <span className="shrink-0 text-[12px] font-semibold text-zinc-900 dark:text-zinc-100 tabular-nums">{time}</span>
           {interrupted ? (
-            <span className="truncate text-[11px] text-red-400">
+            <span className="truncate text-[11px] text-red-600 dark:text-red-400">
               did not finish — {run.unresolvedErrorCount > 0 ? 'errored partway' : 'interrupted'}
             </span>
           ) : running ? (
             /* A run in flight has counters that are still filling in. Reporting "no new candidates"
                against a half-written row read as a finished, empty run while the detail below
                already showed nine people added. */
-            <span className="truncate text-[11px] text-cyan-300">running now</span>
+            <span className="truncate text-[11px] text-cyan-700 dark:text-cyan-300">running now</span>
           ) : run.errorCount > 0 ? (
             /* A failure a later run undid is history, not a fault — stated plainly rather than
                deleted, so the record stays honest without reading as a live problem. */
-            <span className="truncate text-[11px] text-zinc-600" title="A step failed here and a later run redid it successfully">recovered</span>
+            <span className="truncate text-[11px] text-zinc-500 dark:text-zinc-600" title="A step failed here and a later run redid it successfully">recovered</span>
           ) : null}
-          {run.trigger === 'backfill' && <span className="shrink-0 rounded bg-violet-500/15 px-1.5 py-0.5 text-[9px] font-medium text-violet-300 ring-1 ring-violet-500/25">recovery</span>}
-          {run.writeMode !== 'live' && <span className="hidden shrink-0 rounded bg-zinc-700/30 px-1.5 py-0.5 text-[9px] text-zinc-500 sm:inline">test</span>}
+          {run.trigger === 'backfill' && <span className="shrink-0 rounded bg-violet-500/15 px-1.5 py-0.5 text-[9px] font-medium text-violet-700 dark:text-violet-300 ring-1 ring-violet-500/25">recovery</span>}
+          {run.writeMode !== 'live' && <span className="hidden shrink-0 rounded bg-zinc-200 dark:bg-zinc-700/30 px-1.5 py-0.5 text-[9px] text-zinc-500 sm:inline">test</span>}
           {!interrupted && !running && (
-            <span className="hidden shrink-0 text-[11px] text-zinc-700 tabular-nums sm:inline">{formatDuration(run.durationSeconds)}</span>
+            <span className="hidden shrink-0 text-[11px] text-zinc-400 dark:text-zinc-700 tabular-nums sm:inline">{formatDuration(run.durationSeconds)}</span>
           )}
         </span>
         <DayCell className="hidden sm:block" />
-        <DayCell className={newCount > 0 ? 'font-semibold text-cyan-300' : ''}>{newCount || dash}</DayCell>
+        <DayCell className={newCount > 0 ? 'font-semibold text-cyan-700 dark:text-cyan-300' : ''}>{newCount || dash}</DayCell>
         <DayCell className="hidden text-zinc-500 sm:block">{run.duplicates || dash}</DayCell>
-        <DayCell className={run.viewsSpent > 0 ? 'text-amber-300/80' : ''}>{run.viewsSpent || dash}</DayCell>
-        <DayCell className={cn(runLanded === null ? '' : runLanded >= 50 ? 'text-emerald-300' : 'text-zinc-500')}
+        <DayCell className={run.viewsSpent > 0 ? 'text-amber-700 dark:text-amber-300/80' : ''}>{run.viewsSpent || dash}</DayCell>
+        <DayCell className={cn(runLanded === null ? '' : runLanded >= 50 ? 'text-emerald-700 dark:text-emerald-300' : 'text-zinc-500')}
                  title="Share of this run's Profile Views that became a Salesforce contact">
           {runLanded === null ? dash : `${runLanded}%`}
         </DayCell>
-        <DayCell className="hidden text-zinc-600 sm:block">{run.uncontactable || dash}</DayCell>
-        <DayCell className={cn('hidden sm:block', run.unresolvedErrorCount > 0 ? 'font-semibold text-red-400' : '')}>
+        <DayCell className="hidden text-zinc-500 dark:text-zinc-600 sm:block">{run.uncontactable || dash}</DayCell>
+        <DayCell className={cn('hidden sm:block', run.unresolvedErrorCount > 0 ? 'font-semibold text-red-600 dark:text-red-400' : '')}>
           {run.unresolvedErrorCount || dash}
         </DayCell>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={cn('shrink-0 text-zinc-600 transition-transform', open && 'rotate-180')}><path d="m6 9 6 6 6-6" /></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={cn('shrink-0 text-zinc-400 dark:text-zinc-600 transition-transform', open && 'rotate-180')}><path d="m6 9 6 6 6-6" /></svg>
       </button>
-      {open && <div className="border-t border-cyan-500/15 bg-zinc-900/40 p-4">{loading ? <p className="py-6 text-center text-[13px] text-zinc-600">Loading…</p> : bundle ? <RunDetailBody run={run} bundle={bundle} /> : null}</div>}
+      {open && <div className="border-t border-cyan-500/15 bg-white dark:bg-zinc-900/40 p-4">{loading ? <p className="py-6 text-center text-[13px] text-zinc-500 dark:text-zinc-600">Loading…</p> : bundle ? <RunDetailBody run={run} bundle={bundle} /> : null}</div>}
     </div>
   )
 }
@@ -629,8 +647,8 @@ function SearchResults({ q, specialty }: { q: string; specialty: string }) {
     return () => { cancelled = true; clearTimeout(t) }
   }, [q, specialty])
 
-  if (loading) return <p className="py-6 text-center text-[13px] text-zinc-600">Searching…</p>
-  if (!rows || rows.length === 0) return <p className="py-6 text-center text-[13px] text-zinc-600">No candidates match.</p>
+  if (loading) return <p className="py-6 text-center text-[13px] text-zinc-500 dark:text-zinc-600">Searching…</p>
+  if (!rows || rows.length === 0) return <p className="py-6 text-center text-[13px] text-zinc-500 dark:text-zinc-600">No candidates match.</p>
   return (
     <div className="space-y-1.5">
       <p className="px-1 text-[11px] text-zinc-500">{rows.length} candidate{rows.length === 1 ? '' : 's'} found</p>
@@ -651,13 +669,13 @@ export default function DjcRunBreakdown({ runs }: { runs: DjcRunDetail[] }) {
       {/* Filter / search bar */}
       <div className="flex flex-col gap-2 px-1 sm:flex-row sm:items-center">
         <div className="relative flex-1">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 dark:text-zinc-600"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search by name or DJC id…"
-            className="w-full rounded-lg bg-zinc-800/50 py-2 pl-9 pr-8 text-[13px] text-zinc-200 placeholder:text-zinc-600 ring-1 ring-zinc-700/50 outline-none focus:ring-cyan-500/40" />
-          {q && <button onClick={() => setQ('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-zinc-300">✕</button>}
+            className="w-full rounded-lg bg-white text-zinc-800 placeholder:text-zinc-400 ring-zinc-200 dark:bg-zinc-800/50 dark:text-zinc-200 dark:placeholder:text-zinc-600 dark:ring-zinc-700/50 py-2 pl-9 pr-8 text-[13px] ring-1 outline-none focus:ring-cyan-500/40" />
+          {q && <button onClick={() => setQ('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 dark:text-zinc-600 dark:hover:text-zinc-300">✕</button>}
         </div>
         <select value={specialty} onChange={e => setSpecialty(e.target.value)}
-          className="rounded-lg bg-zinc-800/50 px-3 py-2 text-[13px] text-zinc-300 ring-1 ring-zinc-700/50 outline-none focus:ring-cyan-500/40">
+          className="rounded-lg bg-white text-zinc-700 ring-zinc-200 dark:bg-zinc-800/50 dark:text-zinc-300 dark:ring-zinc-700/50 px-3 py-2 text-[13px] ring-1 outline-none focus:ring-cyan-500/40">
           <option value="">All specialties</option>
           {TARGETS.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
@@ -666,7 +684,7 @@ export default function DjcRunBreakdown({ runs }: { runs: DjcRunDetail[] }) {
       {searching ? (
         <SearchResults q={q.trim()} specialty={specialty} />
       ) : runs.length === 0 ? (
-        <p className="px-3 py-6 text-center text-[13px] text-zinc-600">No runs yet.</p>
+        <p className="px-3 py-6 text-center text-[13px] text-zinc-500 dark:text-zinc-600">No runs yet.</p>
       ) : (
         <div className="space-y-4">
           <DayColumnHeader />
