@@ -46,8 +46,8 @@ export default function AcquisitionStory({
   return (
     <div className="space-y-14">
       <header className="max-w-3xl">
-        <h1 className="text-[20px] font-semibold text-zinc-100">Is the DJC subscription paying off?</h1>
-        <p className="mt-2 text-[13px] leading-relaxed text-zinc-400">
+        <h1 className="text-[20px] font-semibold text-zinc-900 dark:text-zinc-100">Is the DJC subscription paying off?</h1>
+        <p className="mt-2 text-[13px] leading-relaxed text-zinc-600 dark:text-zinc-400">
           DJC gives us 750 Profile Views a month. A view is the only way to see who someone is, and
           it is spent whether the answer is useful or not. This page follows the budget from the
           moment it refills to what it eventually produced.
@@ -138,18 +138,18 @@ function Step({
   return (
     <section className="scroll-mt-16">
       <div className="mb-5 flex items-start gap-3">
-        <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-zinc-700 text-[11px] font-semibold tabular-nums text-zinc-400">
+        <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-zinc-200 dark:border-zinc-700 text-[11px] font-semibold tabular-nums text-zinc-600 dark:text-zinc-400">
           {n}
         </span>
         <div className="min-w-0">
-          <h2 className="text-[16px] font-semibold text-zinc-100">{title}</h2>
+          <h2 className="text-[16px] font-semibold text-zinc-900 dark:text-zinc-100">{title}</h2>
           <p className="mt-0.5 text-[13px] text-zinc-500">{question}</p>
           {answer && (
-            <p className="mt-2 max-w-3xl text-[13px] leading-relaxed text-zinc-300">{answer}</p>
+            <p className="mt-2 max-w-3xl text-[13px] leading-relaxed text-zinc-700 dark:text-zinc-300">{answer}</p>
           )}
         </div>
       </div>
-      <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/30 p-6">{children}</div>
+      <div className="rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700/50 dark:bg-zinc-800/30 dark:shadow-none p-6">{children}</div>
     </section>
   )
 }

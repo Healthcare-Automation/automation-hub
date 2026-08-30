@@ -55,18 +55,18 @@ export default function RoleSpendView({
   return (
     <div>
       {cheapest && dearest && cheapest.role !== dearest.role && (
-        <p className="mb-5 max-w-3xl text-[13px] leading-relaxed text-zinc-300">
-          <span className="font-semibold text-zinc-100">{dearest.role}</span> take{' '}
-          <span className="font-semibold text-orange-300">{dearest.viewsEach} views</span> to produce
+        <p className="mb-5 max-w-3xl text-[13px] leading-relaxed text-zinc-700 dark:text-zinc-300">
+          <span className="font-semibold text-zinc-900 dark:text-zinc-100">{dearest.role}</span> take{' '}
+          <span className="font-semibold text-orange-700 dark:text-orange-300">{dearest.viewsEach} views</span> to produce
           one contact and absorb{' '}
           {Math.round((dearest.views / (totalViews || 1)) * 100)}% of the budget.{' '}
-          <span className="font-semibold text-zinc-100">{cheapest.role}</span> cost{' '}
-          <span className="font-semibold text-teal-300">{cheapest.viewsEach}</span>.
+          <span className="font-semibold text-zinc-900 dark:text-zinc-100">{cheapest.role}</span> cost{' '}
+          <span className="font-semibold text-teal-700 dark:text-teal-300">{cheapest.viewsEach}</span>.
         </p>
       )}
 
       {/* One row per role: spend, yield, and the cost of a contact. */}
-      <div className="mb-2 flex items-center gap-3 text-[10px] uppercase tracking-wide text-zinc-600">
+      <div className="mb-2 flex items-center gap-3 text-[10px] uppercase tracking-wide text-zinc-500 dark:text-zinc-600">
         <span className="w-36 shrink-0">Role</span>
         <span className="grow">Views spent</span>
         <span className="w-20 shrink-0 text-right">Added</span>
@@ -83,10 +83,10 @@ export default function RoleSpendView({
               key={r.role}
               onClick={() => setFocus(on ? null : r.role)}
               className={cn('flex w-full items-center gap-3 rounded-md px-1.5 py-1.5 text-left transition-colors',
-                on ? 'bg-zinc-800/60 ring-1 ring-zinc-700' : 'hover:bg-zinc-800/30')}
+                on ? 'bg-zinc-100 dark:bg-zinc-800/60 ring-1 ring-zinc-200 dark:ring-zinc-700' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800/30')}
               title={`Show only ${r.role.toLowerCase()} in the weekly pace below`}
             >
-              <span className="flex w-36 shrink-0 items-center gap-2 text-[12px] text-zinc-300">
+              <span className="flex w-36 shrink-0 items-center gap-2 text-[12px] text-zinc-700 dark:text-zinc-300">
                 <span className={cn('h-2 w-2 shrink-0 rounded-full', tone.bar)} />
                 <span className="truncate">{r.role}</span>
               </span>
@@ -97,12 +97,12 @@ export default function RoleSpendView({
                   {r.views}
                 </span>
               </span>
-              <span className="w-20 shrink-0 text-right text-[12px] tabular-nums text-zinc-300">
+              <span className="w-20 shrink-0 text-right text-[12px] tabular-nums text-zinc-700 dark:text-zinc-300">
                 {r.added}
               </span>
               {/* The number this section exists for. */}
               <span className={cn('w-24 shrink-0 text-right text-[13px] font-semibold tabular-nums',
-                r.viewsEach <= 2.5 ? 'text-teal-300' : r.viewsEach >= 4 ? 'text-orange-300' : 'text-zinc-200')}>
+                r.viewsEach <= 2.5 ? 'text-teal-700 dark:text-teal-300' : r.viewsEach >= 4 ? 'text-orange-700 dark:text-orange-300' : 'text-zinc-800 dark:text-zinc-200')}>
                 {r.viewsEach}
               </span>
               <span className="w-16 shrink-0 text-right text-[11px] tabular-nums text-zinc-500">
@@ -113,14 +113,14 @@ export default function RoleSpendView({
         })}
       </div>
 
-      <p className="mt-2 text-[11px] text-zinc-600">
+      <p className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-600">
         &ldquo;Views each&rdquo; is how many Profile Views it took to add one contact. Click a role to
         filter the weekly pace below.
       </p>
 
       {/* Weekly pace — a single series, because comparing stacked segments week to week is guesswork. */}
       <div className="mt-8">
-        <p className="mb-1 text-[11px] uppercase tracking-wide text-zinc-600">
+        <p className="mb-1 text-[11px] uppercase tracking-wide text-zinc-500 dark:text-zinc-600">
           Views spent each week, and how many landed{focus ? ` · ${focus.toLowerCase()} only` : ''}
         </p>
         <p className="mb-3 text-[11px] text-zinc-500">
@@ -136,9 +136,9 @@ export default function RoleSpendView({
               return (
                 <div key={w.week} className="flex min-w-[40px] flex-1 flex-col items-center px-1"
                      title={`${w.n} views · ${w.created} became candidates · ${rate}%`}>
-                  <span className="mb-1.5 text-[11px] font-semibold tabular-nums text-zinc-100">{w.n}</span>
+                  <span className="mb-1.5 text-[11px] font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{w.n}</span>
                   <div className="relative w-full" style={{ height: PLOT }}>
-                    <div className="absolute inset-x-0 bottom-0 h-px bg-zinc-700/70" />
+                    <div className="absolute inset-x-0 bottom-0 h-px bg-zinc-200 dark:bg-zinc-700/70" />
                     <div className={cn('absolute inset-x-0 bottom-0 rounded-t-[3px] transition-colors',
                       focus ? CHART.neutral : CHART.primary)}
                          style={{ height: Math.max((w.n / maxWeek) * PLOT, 2) }} />
@@ -175,7 +175,7 @@ export default function RoleSpendView({
                   {/* Label sits below the point when the line is near the top, so it never runs off
                       the plot or collides with the view count above the bar. */}
                   <span className={cn('absolute left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px]',
-                    'font-medium tabular-nums text-violet-200/90')}
+                    'font-medium tabular-nums text-violet-800 dark:text-violet-200/90')}
                         style={rate > 80
                           ? { top: `calc(${100 - rate}% + 8px)` }
                           : { top: `calc(${100 - rate}% - 18px)` }}>
