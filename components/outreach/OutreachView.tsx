@@ -142,14 +142,16 @@ export default function OutreachView({
                   {c.lead_score ?? '—'}
                 </td>
                 <td className="px-3 py-2.5">
-                  <span className={`inline-flex rounded-full px-2 py-0.5 text-[10.5px] font-medium ring-1 ${stageTone(c.pipeline_stage)}`}>
-                    {STAGE_LABEL[c.pipeline_stage] ?? c.pipeline_stage}
-                  </span>
-                  {c.do_not_contact && (
-                    <span className="ml-1.5 inline-flex rounded-full bg-red-500/10 px-2 py-0.5 text-[10.5px] font-medium text-red-600 dark:text-red-400 ring-1 ring-red-500/25">
-                      DNC
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className={`inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-[10.5px] font-medium ring-1 ${stageTone(c.pipeline_stage)}`}>
+                      {STAGE_LABEL[c.pipeline_stage] ?? c.pipeline_stage}
                     </span>
-                  )}
+                    {c.do_not_contact && (
+                      <span className="inline-flex whitespace-nowrap rounded-full bg-red-500/10 px-2 py-0.5 text-[10.5px] font-medium text-red-600 dark:text-red-400 ring-1 ring-red-500/25">
+                        DNC
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-3 py-2.5 text-zinc-600 dark:text-zinc-400">{c.contact_name ?? '—'}</td>
                 <td className="px-3 py-2.5 text-zinc-500">{c.email_status_current ?? '—'}</td>
