@@ -1,5 +1,5 @@
-import Link from 'next/link'
 import type { RunLedgerSnapshot } from '@/lib/mohamedLedger'
+import { HubNav } from '@/components/HubNav'
 import type { RunHistoryItem } from '@/lib/mohamedQueries'
 import type { RunRequestRow } from '@/lib/mohamedRunRequests'
 import type { ClaimApproval } from '@/lib/mohamedApprovals'
@@ -107,12 +107,7 @@ export function MohamedDashboard({
         </div>
         <div className="flex items-center gap-3 text-xs">
           {(isAdmin || isMohamed) && <UpdatedAgoIndicator />}
-          {isAdmin && (
-            <nav className="flex rounded-full border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-0.5">
-              <Link href="/" prefetch className="rounded-full px-3 py-1.5 font-medium text-zinc-500 transition-colors hover:text-zinc-900 dark:hover:text-zinc-100">Proxi</Link>
-              <Link href="/mohamed" className="rounded-full bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 px-3 py-1.5 font-medium">Mohamed</Link>
-            </nav>
-          )}
+          {isAdmin && <HubNav active="mohamed" />}
           {!isAdmin && (
             <form method="post" action="/api/mohamed/logout">
               <button type="submit" className="font-medium text-zinc-500 transition-colors hover:text-zinc-900 dark:hover:text-zinc-100">Sign out</button>

@@ -1,5 +1,5 @@
-import Link from 'next/link'
 import { unstable_cache } from 'next/cache'
+import { HubNav } from '@/components/HubNav'
 import { getDailyStatus, getRecentRuns, getWeeklySummary, getPipelineBacklog } from '@/lib/queries'
 import { getDjcDailyStatus, getDjcRecentRuns, getDjcSummary, getDjcProfileViews, getDjcQuotaBlocked, getDjcViewYield } from '@/lib/djcQueries'
 import { isDjcConfigured } from '@/lib/djcDb'
@@ -205,11 +205,7 @@ export default async function Page() {
         {/* Top nav */}
         <header className="flex items-center justify-between gap-4">
           <ProxiLogo />
-          <nav className="flex rounded-lg border border-zinc-200 bg-white p-1 text-xs shadow-sm dark:border-zinc-700/60 dark:bg-zinc-900/60 dark:shadow-none">
-            <a href="/" className="rounded-md bg-zinc-900 px-3 py-1.5 font-medium text-white dark:bg-white dark:text-zinc-900">Proxi</a>
-            <Link href="/mohamed" prefetch className="rounded-md px-3 py-1.5 text-zinc-600 transition-colors hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white">Mohamed</Link>
-            <Link href="/outreach" prefetch className="rounded-md px-3 py-1.5 text-zinc-600 transition-colors hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white">Outreach</Link>
-          </nav>
+          <HubNav active="proxi" />
         </header>
 
         {/* Aggregate health across all automations */}

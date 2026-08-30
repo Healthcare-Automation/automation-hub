@@ -5,6 +5,7 @@ import { getOutreachCompanies, getOutreachSummary, getSendingReadiness,
 import { isOutreachConfigured } from '@/lib/outreachDb'
 import OutreachView from '@/components/outreach/OutreachView'
 import SendingReadinessPanel from '@/components/outreach/SendingReadinessPanel'
+import { HubNav } from '@/components/HubNav'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,19 +43,19 @@ export default async function OutreachPage() {
   return (
     <main className="min-h-screen" style={{ background: 'var(--background)' }}>
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-8">
-        <header className="mb-6">
-          <a href="/" className="text-xs text-zinc-500 transition-colors hover:text-zinc-800 dark:hover:text-zinc-300">
-            ← Automation Hub
-          </a>
-          <h1 className="mt-1.5 text-xl font-semibold tracking-tight text-zinc-900 dark:text-white">
-            UZU Outbound Engine — Pipeline
-          </h1>
-          <p className="mt-1 text-xs text-zinc-500">
-            Every prospect, score, draft, sequence, and reply in one place.
-            {summary?.last_synced_at && (
-              <> Last synced {new Date(summary.last_synced_at).toLocaleString()}.</>
-            )}
-          </p>
+        <header className="mb-6 flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-white">
+              UZU Outbound Engine — Pipeline
+            </h1>
+            <p className="mt-1 text-xs text-zinc-500">
+              Every prospect, score, draft, sequence, and reply in one place.
+              {summary?.last_synced_at && (
+                <> Last synced {new Date(summary.last_synced_at).toLocaleString()}.</>
+              )}
+            </p>
+          </div>
+          {isAdmin && <HubNav active="outreach" />}
         </header>
 
         {degraded ? (
