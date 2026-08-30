@@ -262,6 +262,25 @@ export async function setLinkedinActionDecision(
   `
 }
 
+/**
+ * Marks a LinkedIn action as actually sent by Andy (manual execution in his own
+ * browser, per uzu-account-safety -- the hub only stages drafts, it never sends).
+ * Also advances the company's pipeline_stage to 'contacted' and logs an event,
+ * so "reached out" is visible everywhere at once instead of just on this row.
+ */
+export async function markLinkedinActionSent(id: number, companyId: number) {
+  await sql`update outreach_linkedin_actions set status = 'done' where id = ${id}`
+  await sql`
+    update outreach_companies set pipeline_stage = 'contacted'
+    where id = ${companyId} and pipeline_stage not in ('contacted', 'following_up', 'replied',
+      'qualified_conversation', 'meeting', 'opportunity', 'closed_won', 'closed_lost', 'suppressed')
+  `
+  await sql`
+    insert into outreach_events (company_id, event_type, detail, created_at)
+    values (${companyId}, 'contacted', 'LinkedIn connection request sent by Andy manually', now())
+  `
+}
+
 export interface SendingReadiness {
   sendingAccounts: { id: number; email_address: string | null; domain: string | null;
     purpose: string | null; daily_limit: number | null; status: string | null }[]

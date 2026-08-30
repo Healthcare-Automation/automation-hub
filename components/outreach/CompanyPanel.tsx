@@ -35,17 +35,20 @@ const CONFIDENCE_TONE: Record<string, string> = {
 }
 
 function LinkedinCard({
-  action, isAdmin, onDecision,
+  action, isAdmin, companyId, onDecision, onMarkSent,
 }: {
   action: CompanyDetail['linkedinActions'][number]
   isAdmin: boolean
+  companyId: number
   onDecision: (id: number, decision: 'approved' | 'rejected', note: string | null) => Promise<boolean>
+  onMarkSent: (id: number, companyId: number) => Promise<boolean>
 }) {
   const [rejecting, setRejecting] = useState(false)
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const decided = action.status === 'approved' || action.status === 'rejected'
+  const sent = action.status === 'done'
 
   return (
     <div className="rounded-lg bg-zinc-50 ring-zinc-200 dark:bg-zinc-800/30 dark:ring-zinc-800/60 p-3 ring-1">
@@ -96,14 +99,15 @@ function LinkedinCard({
 
       <div className="mt-3 flex items-center justify-between gap-2">
         <span className={`text-[11px] font-medium ${
-          action.status === 'approved' ? 'text-emerald-700 dark:text-emerald-300'
+          action.status === 'done' ? 'text-cyan-700 dark:text-cyan-300'
+          : action.status === 'approved' ? 'text-emerald-700 dark:text-emerald-300'
           : action.status === 'rejected' ? 'text-red-600 dark:text-red-400' : 'text-amber-700 dark:text-amber-300'
         }`}>
-          {action.status === 'queued' ? 'Awaiting your review' : action.status}
+          {action.status === 'queued' ? 'Awaiting your review' : action.status === 'done' ? 'Reached out' : action.status}
           {action.verification_note && ` — ${action.verification_note}`}
         </span>
 
-        {isAdmin && !decided && !rejecting && (
+        {isAdmin && !decided && !sent && !rejecting && (
           <div className="flex gap-1.5">
             <button
               disabled={busy}
@@ -125,6 +129,20 @@ function LinkedinCard({
               Reject
             </button>
           </div>
+        )}
+        {isAdmin && action.status === 'approved' && !sent && (
+          <button
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true); setError(null)
+              const ok = await onMarkSent(action.id, companyId)
+              setBusy(false)
+              if (!ok) setError('Could not save — try again.')
+            }}
+            className="rounded-md bg-cyan-600/80 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-cyan-600 disabled:opacity-50"
+          >
+            Mark as reached out
+          </button>
         )}
         {isAdmin && rejecting && (
           <div className="flex flex-1 items-center gap-1.5">
@@ -359,6 +377,19 @@ export default function CompanyPanel({
     return false
   }
 
+  async function handleMarkSent(actionId: number, companyId: number): Promise<boolean> {
+    const res = await fetch('/api/outreach/linkedin-mark-sent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: actionId, companyId }),
+    })
+    if (res.ok) {
+      refetch()
+      return true
+    }
+    return false
+  }
+
   async function handleEmailDecision(emailId: number, decision: 'approved' | 'qa_failed', note: string | null): Promise<boolean> {
     const res = await fetch('/api/outreach/email-decision', {
       method: 'POST',
@@ -520,7 +551,7 @@ export default function CompanyPanel({
                 <div className="space-y-3">
                   {data.linkedinActions.length === 0 && <p className="text-[12px] text-zinc-500 dark:text-zinc-600">No LinkedIn actions queued.</p>}
                   {data.linkedinActions.map(a => (
-                    <LinkedinCard key={a.id} action={a} isAdmin={isAdmin} onDecision={handleDecision} />
+                    <LinkedinCard key={a.id} action={a} isAdmin={isAdmin} companyId={id} onDecision={handleDecision} onMarkSent={handleMarkSent} />
                   ))}
                 </div>
               )}
