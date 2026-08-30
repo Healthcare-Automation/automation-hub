@@ -39,6 +39,8 @@ export interface OutreachCompanyRow {
   email_status_current: string | null   // status of most recent email row, if any
   linkedin_status: string | null        // status of most recent linkedin_action row, if any
   reply_classification: string | null   // most recent reply classification, if any
+  sequence_status: string | null        // draft | active | paused | stopped | completed
+  sequence_progress: string | null      // e.g. "1/3" — steps done vs total
 }
 
 export async function getOutreachSummary() {
@@ -72,7 +74,9 @@ export async function getOutreachCompanies(): Promise<OutreachCompanyRow[]> {
       pc.email as contact_email, pc.email_status as contact_email_status,
       le.status as email_status_current,
       la.status as linkedin_status,
-      lr.classification as reply_classification
+      lr.classification as reply_classification,
+      seq.status as sequence_status,
+      seq.progress as sequence_progress
     from outreach_companies c
     left join lateral (
       select full_name, title, email, email_status from outreach_contacts
@@ -91,6 +95,14 @@ export async function getOutreachCompanies(): Promise<OutreachCompanyRow[]> {
       select classification from outreach_replies where company_id = c.id
       order by received_at desc limit 1
     ) lr on true
+    left join lateral (
+      select s.status,
+        (select count(*)::int from outreach_sequence_steps where sequence_id = s.id
+          and status in ('sent', 'completed', 'cancelled')) || '/' ||
+        (select count(*)::int from outreach_sequence_steps where sequence_id = s.id) as progress
+      from outreach_sequences s where s.company_id = c.id
+      order by s.created_at desc limit 1
+    ) seq on true
     order by (c.lead_score is null), c.lead_score desc, c.name asc
   `
   return rows
@@ -248,4 +260,39 @@ export async function setLinkedinActionDecision(
     set status = ${status}, verification_note = ${note}
     where id = ${id}
   `
+}
+
+export interface SendingReadiness {
+  sendingAccounts: { id: number; email_address: string | null; domain: string | null;
+    purpose: string | null; daily_limit: number | null; status: string | null }[]
+  domainHealth: { domain: string | null; checked_at: string | null; spf_ok: boolean | null;
+    dkim_ok: boolean | null; dmarc_ok: boolean | null; mx_ok: boolean | null; notes: string | null }[]
+  suppressionCount: number
+  pendingVerification: number   // contacts with email_status in ('unknown', 'risky')
+}
+
+/**
+ * Global send-readiness snapshot (not per-company): are we actually allowed to send yet?
+ * Per uzu-deliverability-guardian, the hard gate is: primary mailbox never used for scaled
+ * cold outreach, a separate sending domain/mailbox must exist, be authenticated (SPF/DKIM/
+ * DMARC), and warmed before any cold send. Empty sendingAccounts/domainHealth means the whole
+ * system is correctly still in draft-only mode.
+ */
+export async function getSendingReadiness(): Promise<SendingReadiness> {
+  const sendingAccounts = await sql<SendingReadiness['sendingAccounts']>`
+    select id, email_address, domain, purpose, daily_limit, status
+    from outreach_sending_accounts order by created_at desc
+  `
+  const domainHealth = await sql<SendingReadiness['domainHealth']>`
+    select domain, checked_at::text as checked_at, spf_ok, dkim_ok, dmarc_ok, mx_ok, notes
+    from outreach_domain_health order by checked_at desc
+  `
+  const [{ count: suppressionCount }] = await sql<{ count: number }[]>`
+    select count(*)::int as count from outreach_suppression_list
+  `
+  const [{ count: pendingVerification }] = await sql<{ count: number }[]>`
+    select count(*)::int as count from outreach_contacts
+    where email_status in ('unknown', 'risky') and email is not null
+  `
+  return { sendingAccounts, domainHealth, suppressionCount, pendingVerification }
 }

@@ -1,8 +1,10 @@
 import { cookies } from 'next/headers'
 import { ADMIN_COOKIE_NAME, verifyAdminCookieValue } from '@/lib/adminAuth'
-import { getOutreachCompanies, getOutreachSummary, type OutreachCompanyRow } from '@/lib/outreachQueries'
+import { getOutreachCompanies, getOutreachSummary, getSendingReadiness,
+  type OutreachCompanyRow, type SendingReadiness } from '@/lib/outreachQueries'
 import { isOutreachConfigured } from '@/lib/outreachDb'
 import OutreachView from '@/components/outreach/OutreachView'
+import SendingReadinessPanel from '@/components/outreach/SendingReadinessPanel'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,9 +26,12 @@ export default async function OutreachPage() {
   }
 
   let companies: OutreachCompanyRow[], summary
+  let readiness: SendingReadiness | null = null
   let degraded = false
   try {
-    ;[companies, summary] = await Promise.all([getOutreachCompanies(), getOutreachSummary()])
+    ;[companies, summary, readiness] = await Promise.all([
+      getOutreachCompanies(), getOutreachSummary(), getSendingReadiness(),
+    ])
   } catch (err) {
     console.error('Failed to load outreach data:', err)
     degraded = true
@@ -57,7 +62,10 @@ export default async function OutreachPage() {
             Could not load outreach data — the database may be busy. Refresh in a few seconds.
           </p>
         ) : (
-          <OutreachView companies={companies} summary={summary} isAdmin={isAdmin} />
+          <>
+            {readiness && <SendingReadinessPanel readiness={readiness} />}
+            <OutreachView companies={companies} summary={summary} isAdmin={isAdmin} />
+          </>
         )}
       </div>
     </main>

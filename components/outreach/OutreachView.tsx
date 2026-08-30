@@ -121,6 +121,7 @@ export default function OutreachView({
               <th className="px-3 py-2.5 font-medium">Contact</th>
               <th className="px-3 py-2.5 font-medium">Email</th>
               <th className="px-3 py-2.5 font-medium">LinkedIn</th>
+              <th className="px-3 py-2.5 font-medium">Sequence</th>
               <th className="px-3 py-2.5 font-medium">Reply</th>
             </tr>
           </thead>
@@ -153,12 +154,23 @@ export default function OutreachView({
                 <td className="px-3 py-2.5 text-zinc-600 dark:text-zinc-400">{c.contact_name ?? '—'}</td>
                 <td className="px-3 py-2.5 text-zinc-500">{c.email_status_current ?? '—'}</td>
                 <td className="px-3 py-2.5 text-zinc-500">{c.linkedin_status ?? '—'}</td>
+                <td className="px-3 py-2.5">
+                  {c.sequence_status ? (
+                    <span className={`inline-flex items-center gap-1 text-[11px] ${
+                      c.sequence_status === 'paused' ? 'text-amber-600 dark:text-amber-400'
+                      : c.sequence_status === 'completed' ? 'text-emerald-600 dark:text-emerald-400'
+                      : 'text-zinc-600 dark:text-zinc-400'
+                    }`}>
+                      {c.sequence_progress ?? ''} {c.sequence_status}
+                    </span>
+                  ) : <span className="text-zinc-500">—</span>}
+                </td>
                 <td className="px-3 py-2.5 text-zinc-500">{c.reply_classification ?? '—'}</td>
               </tr>
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-10 text-center text-zinc-500 dark:text-zinc-600">Nothing matches.</td>
+                <td colSpan={8} className="px-4 py-10 text-center text-zinc-500 dark:text-zinc-600">Nothing matches.</td>
               </tr>
             )}
           </tbody>
