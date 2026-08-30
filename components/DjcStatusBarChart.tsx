@@ -14,7 +14,7 @@ function Row({ label, value, highlight }: { label: string; value: string; highli
   return (
     <div className="flex items-center justify-between gap-4">
       <span className="text-zinc-500">{label}</span>
-      <span className={cn('font-medium tabular-nums', highlight ? 'text-red-400' : 'text-zinc-300')}>
+      <span className={cn('font-medium tabular-nums', highlight ? 'text-red-600 dark:text-red-400' : 'text-zinc-700 dark:text-zinc-300')}>
         {value}
       </span>
     </div>
@@ -30,9 +30,9 @@ function ReasonLines({ day }: { day: DjcDayStatus }) {
     reasons.push({ text: `${day.errors} candidate error${day.errors === 1 ? '' : 's'} during processing`, tone: 'amber' })
   if (reasons.length === 0) return null
   return (
-    <div className="mt-2 pt-2 border-t border-zinc-700/60 space-y-1">
+    <div className="mt-2 pt-2 border-t border-zinc-200 dark:border-zinc-700/60 space-y-1">
       {reasons.map((r, i) => (
-        <div key={i} className={cn('flex items-start gap-1.5 leading-snug', r.tone === 'red' ? 'text-red-400' : 'text-amber-400')}>
+        <div key={i} className={cn('flex items-start gap-1.5 leading-snug', r.tone === 'red' ? 'text-red-600 dark:text-red-400' : 'text-amber-700 dark:text-amber-400')}>
           <span className={cn('mt-[5px] h-1 w-1 shrink-0 rounded-full', r.tone === 'red' ? 'bg-red-400' : 'bg-amber-400')} />
           {r.text}
         </div>
@@ -86,7 +86,7 @@ export default function DjcStatusBarChart({ days }: { days: DjcDayStatus[] }) {
         ))}
       </div>
 
-      <div className="flex justify-between text-[10px] text-zinc-600 select-none">
+      <div className="flex justify-between text-[10px] text-zinc-500 dark:text-zinc-600 select-none">
         <span>90 days ago</span>
         <span>Today</span>
       </div>
@@ -102,8 +102,8 @@ export default function DjcStatusBarChart({ days }: { days: DjcDayStatus[] }) {
             transform: 'translateX(-50%) translateY(-100%)',
           }}
         >
-          <div className="bg-zinc-800 border border-zinc-600/60 rounded-xl p-3.5 shadow-2xl w-60 text-xs">
-            <p className="font-medium text-white mb-2.5">{formatShortDate(tooltip.day.day)}</p>
+          <div className="bg-white border-zinc-200 dark:bg-zinc-800 dark:border-zinc-600/60 border rounded-xl p-3.5 shadow-2xl w-60 text-xs">
+            <p className="font-medium text-zinc-900 dark:text-white mb-2.5">{formatShortDate(tooltip.day.day)}</p>
             {tooltip.day.totalRuns === 0 ? (
               <p className="text-zinc-500">No runs</p>
             ) : (
@@ -124,10 +124,10 @@ export default function DjcStatusBarChart({ days }: { days: DjcDayStatus[] }) {
 
             {pinned && tooltip.day.errorRunDetails.length > 0 && (
               <div className="mt-2">
-                <p className="text-[10px] font-semibold uppercase tracking-wider mb-1 text-red-400/80">
+                <p className="text-[10px] font-semibold uppercase tracking-wider mb-1 text-red-600 dark:text-red-400/80">
                   Failed runs (UTC)
                 </p>
-                <div className="space-y-0.5 text-zinc-400">
+                <div className="space-y-0.5 text-zinc-600 dark:text-zinc-400">
                   {tooltip.day.errorRunDetails.slice(0, 8).map((d, i) => (
                     <div key={i}>{d}</div>
                   ))}
@@ -140,7 +140,7 @@ export default function DjcStatusBarChart({ days }: { days: DjcDayStatus[] }) {
 
             <div
               className={cn(
-                'mt-2.5 pt-2 border-t border-zinc-800 flex items-center justify-between text-[10px] font-semibold uppercase tracking-widest',
+                'mt-2.5 pt-2 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between text-[10px] font-semibold uppercase tracking-widest',
                 STATUS_COLORS[tooltip.day.status] ?? 'text-zinc-500',
               )}
             >

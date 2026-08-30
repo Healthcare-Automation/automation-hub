@@ -72,25 +72,25 @@ const STEPS: { n: string; title: string; body: string; cost: 'free' | 'paid' | '
 export default function DjcHowItWorks() {
   const [open, setOpen] = useState(false)
   return (
-    <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/20">
+    <div className="rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700/50 dark:bg-zinc-800/20 dark:shadow-none">
       <button
         onClick={() => setOpen(!open)}
         className="flex w-full items-center justify-between px-5 py-3 text-left"
       >
-        <span className="text-[13px] font-semibold text-zinc-200">
+        <span className="text-[13px] font-semibold text-zinc-800 dark:text-zinc-200">
           How a candidate is handled — and where the cost comes from
         </span>
         <span className="text-xs text-zinc-500">{open ? 'Hide' : 'Show'}</span>
       </button>
 
       {open && (
-        <div className="space-y-4 border-t border-zinc-700/50 px-5 py-4">
-          <p className="text-[12px] leading-relaxed text-zinc-400">
+        <div className="space-y-4 border-t border-zinc-200 dark:border-zinc-700/50 px-5 py-4">
+          <p className="text-[12px] leading-relaxed text-zinc-600 dark:text-zinc-400">
             Dentist Job Cafe charges per profile opened, from a monthly allowance. Five steps run
             before we open anything, so duplicates are removed at no cost and the remaining budget
             goes to the most promising candidates first. Only those who survive all five are paid
             for — and each costs{' '}
-            <span className="font-semibold text-zinc-300">exactly one view in total</span>, however
+            <span className="font-semibold text-zinc-700 dark:text-zinc-300">exactly one view in total</span>, however
             much we do once the profile is open.
           </p>
 
@@ -101,25 +101,25 @@ export default function DjcHowItWorks() {
                   className={
                     'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ' +
                     (s.cost === 'free'
-                      ? 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/25'
+                      ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-500/25'
                       : s.cost === 'paid'
-                        ? 'bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/25'
-                        : 'bg-zinc-600/20 text-zinc-400 ring-1 ring-zinc-500/25')
+                        ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 ring-1 ring-amber-500/25'
+                        : 'bg-zinc-600/20 text-zinc-700 dark:text-zinc-400 ring-1 ring-zinc-500/25')
                   }
                 >
                   {s.n}
                 </span>
                 <div className="min-w-0">
-                  <p className="text-[12px] font-medium text-zinc-200">
+                  <p className="text-[12px] font-medium text-zinc-800 dark:text-zinc-200">
                     {s.title}
                     <span
                       className={
                         'ml-2 rounded px-1.5 py-0.5 text-[9px] font-semibold tracking-wide ' +
                         (s.cost === 'free'
-                          ? 'bg-emerald-500/10 text-emerald-300'
+                          ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
                           : s.cost === 'paid'
-                            ? 'bg-amber-500/10 text-amber-300'
-                            : 'bg-zinc-600/15 text-zinc-400')
+                            ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                            : 'bg-zinc-600/15 text-zinc-700 dark:text-zinc-400')
                       }
                     >
                       {s.cost === 'free'
@@ -135,8 +135,8 @@ export default function DjcHowItWorks() {
             ))}
           </ol>
 
-          <p className="border-t border-zinc-700/40 pt-3 text-[11px] leading-relaxed text-zinc-500">
-            <span className="font-medium text-zinc-400">Why some views still find nothing:</span>{' '}
+          <p className="border-t border-zinc-200 dark:border-zinc-700/40 pt-3 text-[11px] leading-relaxed text-zinc-500">
+            <span className="font-medium text-zinc-700 dark:text-zinc-400">Why some views still find nothing:</span>{' '}
             whether a candidate is already on file, or has no reachable contact details at all, is
             hidden until the profile is opened. That is how the platform is built, not a gap in the
             process — so a share of views will always come back empty. Everything above exists to
