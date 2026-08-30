@@ -39,11 +39,12 @@ function LinkedinCard({
 }: {
   action: CompanyDetail['linkedinActions'][number]
   isAdmin: boolean
-  onDecision: (id: number, decision: 'approved' | 'rejected', note: string | null) => Promise<void>
+  onDecision: (id: number, decision: 'approved' | 'rejected', note: string | null) => Promise<boolean>
 }) {
   const [rejecting, setRejecting] = useState(false)
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const decided = action.status === 'approved' || action.status === 'rejected'
 
   return (
@@ -91,7 +92,12 @@ function LinkedinCard({
           <div className="flex gap-1.5">
             <button
               disabled={busy}
-              onClick={async () => { setBusy(true); await onDecision(action.id, 'approved', null); setBusy(false) }}
+              onClick={async () => {
+                setBusy(true); setError(null)
+                const ok = await onDecision(action.id, 'approved', null)
+                setBusy(false)
+                if (!ok) setError('Could not save — try again.')
+              }}
               className="rounded-md bg-emerald-600/80 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-emerald-600 disabled:opacity-50"
             >
               Approve profile match
@@ -115,7 +121,13 @@ function LinkedinCard({
             />
             <button
               disabled={busy || note.trim().length === 0}
-              onClick={async () => { setBusy(true); await onDecision(action.id, 'rejected', note.trim()); setBusy(false); setRejecting(false) }}
+              onClick={async () => {
+                setBusy(true); setError(null)
+                const ok = await onDecision(action.id, 'rejected', note.trim())
+                setBusy(false)
+                if (ok) setRejecting(false)
+                else setError('Could not save — try again.')
+              }}
               className="rounded-md bg-red-600/80 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-red-600 disabled:opacity-50"
             >
               Confirm reject
@@ -125,6 +137,7 @@ function LinkedinCard({
           </div>
         )}
       </div>
+      {error && <p className="mt-1.5 text-[11px] text-red-400">{error}</p>}
       {!isAdmin && !decided && (
         <p className="mt-2 text-[10.5px] text-zinc-600">Log in as admin on the hub to approve/reject this match.</p>
       )}
@@ -136,18 +149,22 @@ export default function CompanyPanel({
   id, isAdmin, onClose,
 }: { id: number; isAdmin: boolean; onClose: () => void }) {
   const [data, setData] = useState<CompanyDetail | null>(null)
-  const [failed, setFailed] = useState(false)
+  const [failReason, setFailReason] = useState<'none' | 'unauthorized' | 'error'>('none')
   const [tab, setTab] = useState<Tab>('score')
 
   useEffect(() => {
     let live = true
     setData(null)
-    setFailed(false)
+    setFailReason('none')
     setTab('score')
     fetch(`/api/outreach/company/${id}`)
-      .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then(r => {
+        if (r.status === 401) return Promise.reject(new Error('unauthorized'))
+        if (!r.ok) return Promise.reject(new Error(String(r.status)))
+        return r.json()
+      })
       .then(d => live && setData(d))
-      .catch(() => live && setFailed(true))
+      .catch(err => live && setFailReason(err?.message === 'unauthorized' ? 'unauthorized' : 'error'))
     return () => { live = false }
   }, [id])
 
@@ -157,7 +174,7 @@ export default function CompanyPanel({
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  async function handleDecision(actionId: number, decision: 'approved' | 'rejected', note: string | null) {
+  async function handleDecision(actionId: number, decision: 'approved' | 'rejected', note: string | null): Promise<boolean> {
     const res = await fetch('/api/outreach/linkedin-decision', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -169,7 +186,9 @@ export default function CompanyPanel({
         linkedinActions: data.linkedinActions.map(a =>
           a.id === actionId ? { ...a, status: decision, verification_note: note } : a),
       })
+      return true
     }
+    return false
   }
 
   const TABS: { key: Tab; label: string; count?: number }[] = data ? [
@@ -208,7 +227,11 @@ export default function CompanyPanel({
           </button>
         </div>
 
-        {failed ? (
+        {failReason === 'unauthorized' ? (
+          <p className="px-5 py-10 text-center text-[12px] text-amber-300/80">
+            Log in as admin on the hub to view this prospect's contact details and drafts.
+          </p>
+        ) : failReason === 'error' ? (
           <p className="px-5 py-10 text-center text-[12px] text-amber-300/80">
             The database was busy. Close and try again in a few seconds.
           </p>
