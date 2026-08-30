@@ -27,10 +27,10 @@ export default function CandidateOutcomesView({
   const [window, setWindow] = useState<'cycle' | 'all'>('cycle')
   const o = window === 'cycle' ? cycle : allTime
   const parts = [
-    { label: 'added to Salesforce', n: o.addedToSf, tone: CHART.good, text: 'text-teal-300' },
-    { label: 'already in Salesforce', n: o.alreadyInSf, tone: CHART.primary, text: 'text-cyan-300' },
-    { label: 'no contact found', n: o.noContact, tone: CHART.warn, text: 'text-orange-300' },
-    { label: 'other', n: o.other, tone: CHART.neutral, text: 'text-zinc-400' },
+    { label: 'added to Salesforce', n: o.addedToSf, tone: CHART.good, text: 'text-teal-700 dark:text-teal-300' },
+    { label: 'already in Salesforce', n: o.alreadyInSf, tone: CHART.primary, text: 'text-cyan-700 dark:text-cyan-300' },
+    { label: 'no contact found', n: o.noContact, tone: CHART.warn, text: 'text-orange-700 dark:text-orange-300' },
+    { label: 'other', n: o.other, tone: CHART.neutral, text: 'text-zinc-600 dark:text-zinc-400' },
   ].filter(p => p.n > 0)
 
   if (only === 'locations') return <LocationView rows={locations} />
@@ -41,23 +41,25 @@ export default function CandidateOutcomesView({
       <section>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h3 className="text-[13px] font-semibold text-zinc-100">Candidates seen</h3>
+            <h3 className="text-[13px] font-semibold text-zinc-900 dark:text-zinc-100">Candidates seen</h3>
             <p className="mt-0.5 text-[12px] text-zinc-500">
               Distinct people, not views — someone seen in three runs counts once.
             </p>
           </div>
-          <span className="inline-flex rounded-lg border border-zinc-700/60 bg-zinc-800/40 p-0.5">
+          <span className="inline-flex rounded-lg border border-zinc-200 dark:border-zinc-700/60 bg-zinc-100 dark:bg-zinc-800/40 p-0.5">
             {([['cycle', 'This cycle'], ['all', 'All time']] as const).map(([k, label]) => (
               <button key={k} onClick={() => setWindow(k)}
                       className={cn('rounded-md px-3 py-1 text-[11px] font-medium transition-colors',
-                        window === k ? 'bg-white/10 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300')}>
+                        window === k
+                          ? 'bg-white text-zinc-900 shadow-sm dark:bg-white/10 dark:text-zinc-100 dark:shadow-none'
+                          : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300')}>
                 {label}
               </button>
             ))}
           </span>
         </div>
 
-        <p className="mt-4 text-[30px] leading-none font-semibold tabular-nums text-zinc-100">
+        <p className="mt-4 text-[30px] leading-none font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
           {o.unique.toLocaleString()}
           <span className="ml-2 text-[13px] font-normal text-zinc-500">unique candidates</span>
         </p>
@@ -75,7 +77,7 @@ export default function CandidateOutcomesView({
             <span key={p.label} className="flex items-center gap-1.5">
               <span className={cn('h-2.5 w-3 rounded-sm', p.tone)} />
               <span className={p.text}>{p.n.toLocaleString()}</span> {p.label}
-              <span className="text-zinc-600">({Math.round((p.n / (o.unique || 1)) * 100)}%)</span>
+              <span className="text-zinc-500 dark:text-zinc-600">({Math.round((p.n / (o.unique || 1)) * 100)}%)</span>
             </span>
           ))}
         </div>
@@ -112,18 +114,18 @@ function LocationView({ rows }: { rows: LocationSupply[] }) {
 
   return (
     <section>
-      <h3 className="text-[13px] font-semibold text-zinc-100">Where supply is tightest</h3>
+      <h3 className="text-[13px] font-semibold text-zinc-900 dark:text-zinc-100">Where supply is tightest</h3>
       <p className="mt-0.5 text-[12px] leading-relaxed text-zinc-500">
         Candidates on the market for every open job in that state.
         {tight.length > 0 && (
-          <span className="text-amber-300">
+          <span className="text-amber-700 dark:text-amber-300">
             {' '}{tight.length} {tight.length === 1 ? 'state has' : 'states have'} fewer than two
             candidates per job.
           </span>
         )}
       </p>
 
-      <div className="mb-1.5 mt-4 flex items-center gap-3 text-[10px] uppercase tracking-wide text-zinc-600">
+      <div className="mb-1.5 mt-4 flex items-center gap-3 text-[10px] uppercase tracking-wide text-zinc-500 dark:text-zinc-600">
         <span className="w-32 shrink-0">State</span>
         <span className="grow">Candidates per open job</span>
         <span className="w-16 shrink-0 text-right">Jobs</span>
@@ -137,29 +139,29 @@ function LocationView({ rows }: { rows: LocationSupply[] }) {
           const tightRow = r.ratio < 2
           return (
             <div key={r.state} className="flex items-center gap-3">
-              <span className="w-32 shrink-0 truncate text-[12px] text-zinc-300" title={r.state}>
+              <span className="w-32 shrink-0 truncate text-[12px] text-zinc-700 dark:text-zinc-300" title={r.state}>
                 {r.state}
               </span>
-              <span className="relative h-5 grow rounded bg-zinc-800/40">
+              <span className="relative h-5 grow rounded bg-zinc-200/70 dark:bg-zinc-800/40">
                 <span className={cn('absolute inset-y-0 left-0 rounded',
                   tightRow ? CHART.warn : CHART.good)}
                       style={{ width: `${Math.min((r.ratio / CAP) * 100, 100)}%` }} />
                 <span className={cn('absolute inset-y-0 flex items-center px-2 text-[11px] font-medium tabular-nums',
-                  tightRow ? 'text-amber-200' : 'text-teal-100')}
+                  tightRow ? 'text-amber-800 dark:text-amber-200' : 'text-teal-800 dark:text-teal-100')}
                       style={{ left: `${Math.min((r.ratio / CAP) * 100, 100)}%` }}>
                   {r.ratio.toFixed(1)}×{over && '+'}
                 </span>
               </span>
-              <span className="w-16 shrink-0 text-right text-[12px] tabular-nums text-zinc-400">
+              <span className="w-16 shrink-0 text-right text-[12px] tabular-nums text-zinc-600 dark:text-zinc-400">
                 {r.openJobs}
               </span>
-              <span className="w-20 shrink-0 text-right text-[12px] tabular-nums text-zinc-400">
+              <span className="w-20 shrink-0 text-right text-[12px] tabular-nums text-zinc-600 dark:text-zinc-400">
                 {r.candidates}
               </span>
               {/* Whether we have ever filled a role here — the same ratio reads very differently in
                   a state with a track record than in one we have never cracked. */}
               <span className={cn('w-24 shrink-0 text-right text-[12px] tabular-nums',
-                r.everPlaced > 0 ? 'text-teal-300' : 'text-orange-300')}>
+                r.everPlaced > 0 ? 'text-teal-700 dark:text-teal-300' : 'text-orange-700 dark:text-orange-300')}>
                 {r.everPlaced > 0 ? r.everPlaced : 'never'}
               </span>
             </div>
@@ -167,7 +169,7 @@ function LocationView({ rows }: { rows: LocationSupply[] }) {
         })}
       </div>
 
-      <p className="mt-3 text-[11px] leading-relaxed text-zinc-600">
+      <p className="mt-3 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-600">
         Bars are capped at {CAP}× — past that the exact figure stops mattering. Amber marks under two
         candidates per job, where a single person turning the work down leaves it unfilled.
         &ldquo;Placed here&rdquo; is our all-time track record in that state; a state we have never
@@ -221,7 +223,7 @@ function OutreachView({ months, detail }: { months: OutreachMonth[]; detail: Out
 
   return (
     <section>
-      <h3 className="text-[13px] font-semibold text-zinc-100">Where the pipeline loses them</h3>
+      <h3 className="text-[13px] font-semibold text-zinc-900 dark:text-zinc-100">Where the pipeline loses them</h3>
       <p className="mt-0.5 text-[12px] text-zinc-500">
         Everyone the automation has created, and where they stop.
       </p>
@@ -238,11 +240,11 @@ function OutreachView({ months, detail }: { months: OutreachMonth[]; detail: Out
                 <div className="flex items-center gap-3 py-1">
                   <span className="w-36 shrink-0" />
                   <span className="flex grow items-center gap-2">
-                    <span className="text-[10px] tabular-nums text-amber-300/60">
+                    <span className="text-[10px] tabular-nums text-amber-700 dark:text-amber-300/60">
                       −{lost.toLocaleString()}
                     </span>
-                    <span className="h-px grow bg-zinc-800" />
-                    <span className="shrink-0 text-[10px] tabular-nums text-zinc-600">
+                    <span className="h-px grow bg-zinc-200 dark:bg-zinc-800" />
+                    <span className="shrink-0 text-[10px] tabular-nums text-zinc-500 dark:text-zinc-600">
                       {kept}% continue
                     </span>
                   </span>
@@ -253,15 +255,15 @@ function OutreachView({ months, detail }: { months: OutreachMonth[]; detail: Out
               {/* Row shape matches the activity and outcome charts above: same label width, same
                   bar height, same number columns. */}
               <div className="flex items-center gap-3">
-                <span className="w-36 shrink-0 text-[12px] leading-tight text-zinc-300">
+                <span className="w-36 shrink-0 text-[12px] leading-tight text-zinc-700 dark:text-zinc-300">
                   {s.label}
-                  <span className="block text-[10px] text-zinc-600">{s.note}</span>
+                  <span className="block text-[10px] text-zinc-500 dark:text-zinc-600">{s.note}</span>
                 </span>
-                <span className="relative h-5 grow rounded bg-zinc-800/40">
+                <span className="relative h-5 grow rounded bg-zinc-200/70 dark:bg-zinc-800/40">
                   <span className={cn('absolute inset-y-0 left-0 rounded', s.tone)}
                         style={{ width: `${Math.max((s.n / base) * 100, 0.8)}%` }} />
                 </span>
-                <span className="w-16 shrink-0 text-right text-[12px] font-semibold tabular-nums text-zinc-100">
+                <span className="w-16 shrink-0 text-right text-[12px] font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
                   {s.n.toLocaleString()}
                 </span>
                 <span className="w-12 shrink-0 text-right text-[12px] tabular-nums text-zinc-500">
@@ -274,7 +276,7 @@ function OutreachView({ months, detail }: { months: OutreachMonth[]; detail: Out
       </div>
 
       {/* Detail lives in its own section; this only carries the shape of the drop. */}
-      <p className="mt-4 max-w-3xl text-[12px] leading-relaxed text-amber-200/85">
+      <p className="mt-4 max-w-3xl text-[12px] leading-relaxed text-amber-800 dark:text-amber-200/85">
         <span className="font-semibold">
           The biggest single loss is at outreach — {detail.neverContacted} of {tot.sourced} were
           never called at all.
@@ -284,25 +286,25 @@ function OutreachView({ months, detail }: { months: OutreachMonth[]; detail: Out
       </p>
 
       {months.length > 1 && (
-        <div className="mt-6 border-t border-zinc-800 pt-4">
-          <p className="mb-2.5 text-[11px] uppercase tracking-wide text-zinc-600">By month added</p>
+        <div className="mt-6 border-t border-zinc-200 dark:border-zinc-800 pt-4">
+          <p className="mb-2.5 text-[11px] uppercase tracking-wide text-zinc-500 dark:text-zinc-600">By month added</p>
           <div className="space-y-2">
             {months.map(m => {
               const pct = m.sourced ? (m.putForward / m.sourced) * 100 : 0
               return (
                 <div key={m.month} className="flex items-center gap-3">
-                  <span className="w-36 shrink-0 text-[12px] text-zinc-400">
+                  <span className="w-36 shrink-0 text-[12px] text-zinc-600 dark:text-zinc-400">
                     {new Date(m.month + '-02').toLocaleDateString('en-US',
                       { month: 'short', year: 'numeric', timeZone: 'UTC' })}
                   </span>
-                  <span className="relative h-4 grow rounded bg-zinc-800/40">
+                  <span className="relative h-4 grow rounded bg-zinc-200/70 dark:bg-zinc-800/40">
                     <span className="absolute inset-y-0 left-0 rounded bg-cyan-500/25"
                           style={{ width: '100%' }} />
                     <span className="absolute inset-y-0 left-0 rounded bg-cyan-400/60"
                           style={{ width: `${Math.max(pct, 0.6)}%` }} />
                   </span>
                   <span className="w-32 shrink-0 text-right text-[11px] tabular-nums text-zinc-500">
-                    <span className="text-cyan-300">{m.putForward}</span> of {m.sourced} worked
+                    <span className="text-cyan-700 dark:text-cyan-300">{m.putForward}</span> of {m.sourced} worked
                   </span>
                 </div>
               )

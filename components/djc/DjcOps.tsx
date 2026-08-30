@@ -45,7 +45,7 @@ function CycleUsage({ cycles, projection }: { cycles: ViewCycle[]; projection: C
 
   return (
     <section>
-      <h3 className="text-[13px] font-semibold text-zinc-100">Profile Views per cycle</h3>
+      <h3 className="text-[13px] font-semibold text-zinc-900 dark:text-zinc-100">Profile Views per cycle</h3>
       <p className="mt-0.5 max-w-3xl text-[12px] leading-relaxed text-zinc-500">
         Read from DJC&rsquo;s own counter, not from what the automation did — the counter also moves for
         manual logins and backfills. Cycles run 15th to 14th, when the allowance refills. History
@@ -56,15 +56,15 @@ function CycleUsage({ cycles, projection }: { cycles: ViewCycle[]; projection: C
         <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Stat value={live.views.toLocaleString()} label="used this cycle"
                 detail={`DJC's own counter · cap ${live.cap}`}
-                tone={overNow > 0 ? 'text-orange-300' : 'text-cyan-300'} />
+                tone={overNow > 0 ? 'text-orange-700 dark:text-orange-300' : 'text-cyan-700 dark:text-cyan-300'} />
           <Stat value={overNow > 0 ? `+${overNow}` : `${live.cap - live.views}`}
                 label={overNow > 0 ? 'over the cap' : 'still available'}
                 detail={overNow > 0 ? 'add-on views were bought' : 'at the current counter reading'}
-                tone={overNow > 0 ? 'text-orange-300' : 'text-teal-300'} />
+                tone={overNow > 0 ? 'text-orange-700 dark:text-orange-300' : 'text-teal-700 dark:text-teal-300'} />
           <Stat value={live.addedToSf.toLocaleString()} label="became new contacts"
-                detail="what the automation got for its share" tone="text-teal-300" />
+                detail="what the automation got for its share" tone="text-teal-700 dark:text-teal-300" />
           <Stat value={live.other.toLocaleString()} label="manual or unattributed"
-                detail="counter movement the automation did not cause" tone="text-zinc-200" />
+                detail="counter movement the automation did not cause" tone="text-zinc-800 dark:text-zinc-200" />
         </div>
       )}
 
@@ -74,26 +74,26 @@ function CycleUsage({ cycles, projection }: { cycles: ViewCycle[]; projection: C
             { n: c.addedToSf, tone: 'bg-emerald-500/80', label: 'added to Salesforce' },
             { n: c.alreadyInSf, tone: 'bg-cyan-500/60', label: 'already in Salesforce' },
             { n: c.noContact, tone: 'bg-amber-500/60', label: 'no contact found' },
-            { n: c.other, tone: 'bg-zinc-600/70', label: 'other' },
+            { n: c.other, tone: 'bg-zinc-400 dark:bg-zinc-600/70', label: 'other' },
           ].filter(s => s.n > 0)
           return (
             <div key={c.cycleStart} className="flex items-center gap-3">
-              <span className="w-28 shrink-0 text-[12px] text-zinc-300">
+              <span className="w-28 shrink-0 text-[12px] text-zinc-700 dark:text-zinc-300">
                 {fmtCycle(c.cycleStart)}
-                {c.isCurrent && <span className="ml-1 text-[10px] text-zinc-600">now</span>}
+                {c.isCurrent && <span className="ml-1 text-[10px] text-zinc-500 dark:text-zinc-600">now</span>}
               </span>
-              <span className="relative flex h-6 grow overflow-hidden rounded bg-zinc-800/50">
+              <span className="relative flex h-6 grow overflow-hidden rounded bg-zinc-200/70 dark:bg-zinc-800/50">
                 {seg.map(s => (
                   <span key={s.label} className={s.tone} style={{ width: `${(s.n / max) * 100}%` }}
                         title={`${s.n} ${s.label}`} />
                 ))}
                 {/* The cap, drawn on the same scale — the point of the whole chart. */}
-                <span className="absolute inset-y-0 w-px bg-zinc-300/60" style={{ left: `${(c.cap / max) * 100}%` }} />
+                <span className="absolute inset-y-0 w-px bg-zinc-500/70 dark:bg-zinc-300/60" style={{ left: `${(c.cap / max) * 100}%` }} />
               </span>
               <span className={cn('w-28 shrink-0 text-right text-[12px] font-semibold tabular-nums',
-                c.views > c.cap ? 'text-orange-300' : 'text-zinc-200')}>
+                c.views > c.cap ? 'text-orange-700 dark:text-orange-300' : 'text-zinc-800 dark:text-zinc-200')}>
                 {c.views.toLocaleString()}
-                <span className="ml-1 text-[10px] font-normal text-zinc-600">of {c.cap}</span>
+                <span className="ml-1 text-[10px] font-normal text-zinc-500 dark:text-zinc-600">of {c.cap}</span>
               </span>
             </div>
           )
@@ -104,24 +104,24 @@ function CycleUsage({ cycles, projection }: { cycles: ViewCycle[]; projection: C
         <Key tone="bg-emerald-500/80" label="added to Salesforce" />
         <Key tone="bg-cyan-500/60" label="already in Salesforce" />
         <Key tone="bg-amber-500/60" label="no contact found" />
-        <Key tone="bg-zinc-600/70" label="manual or unattributed" />
-        <span className="text-zinc-600">| vertical line = that cycle&rsquo;s cap</span>
+        <Key tone="bg-zinc-400 dark:bg-zinc-600/70" label="manual or unattributed" />
+        <span className="text-zinc-500 dark:text-zinc-600">| vertical line = that cycle&rsquo;s cap</span>
       </div>
 
       {projection && projection.byWeekday.length > 0 && (
         <div className="mt-4">
-          <p className="mb-1.5 text-[11px] uppercase tracking-wide text-zinc-600">Views by weekday</p>
+          <p className="mb-1.5 text-[11px] uppercase tracking-wide text-zinc-500 dark:text-zinc-600">Views by weekday</p>
           <div className="flex gap-1.5">
             {projection.byWeekday.map(d => {
               const wmax = Math.max(...projection.byWeekday.map(x => x.views), 1)
               return (
                 <div key={d.day} className="flex flex-1 flex-col items-center gap-1">
-                  <span className="text-[10px] tabular-nums text-zinc-400">{d.views}</span>
+                  <span className="text-[10px] tabular-nums text-zinc-600 dark:text-zinc-400">{d.views}</span>
                   <div className="flex h-12 w-full items-end">
-                    <div className="w-full rounded-t bg-cyan-400/50"
+                    <div className="w-full rounded-t bg-cyan-500/70 dark:bg-cyan-400/50"
                          style={{ height: `${Math.max((d.views / wmax) * 100, 3)}%` }} />
                   </div>
-                  <span className="text-[10px] text-zinc-600">{d.day}</span>
+                  <span className="text-[10px] text-zinc-500 dark:text-zinc-600">{d.day}</span>
                 </div>
               )
             })}
@@ -152,19 +152,19 @@ function Sourcing({ months }: { months: SourcingMonth[] }) {
     <section>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 className="text-[13px] font-semibold text-zinc-100">New candidates added to Salesforce</h3>
+          <h3 className="text-[13px] font-semibold text-zinc-900 dark:text-zinc-100">New candidates added to Salesforce</h3>
           <p className="mt-0.5 text-[12px] text-zinc-500">Created by the automation, by month.</p>
         </div>
-        <span className="inline-flex rounded-lg border border-zinc-700/60 bg-zinc-800/40 p-0.5">
+        <span className="inline-flex rounded-lg border border-zinc-200 bg-zinc-900/[0.04] dark:border-zinc-700/60 dark:bg-zinc-800/40 p-0.5">
           <button onClick={() => setOnly(null)}
                   className={cn('rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors',
-                    !only ? 'bg-white/10 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300')}>
+                    !only ? 'bg-white text-zinc-900 shadow-sm dark:bg-white/10 dark:text-zinc-100 dark:shadow-none' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300')}>
             All
           </button>
           {ROLES.map(r => (
             <button key={r.key} onClick={() => setOnly(r.key)}
                     className={cn('rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors',
-                      only === r.key ? 'bg-white/10 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300')}>
+                      only === r.key ? 'bg-white text-zinc-900 shadow-sm dark:bg-white/10 dark:text-zinc-100 dark:shadow-none' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300')}>
               {r.label}
             </button>
           ))}
@@ -174,14 +174,14 @@ function Sourcing({ months }: { months: SourcingMonth[] }) {
       <div className="mt-4 space-y-2">
         {months.map((m, i) => (
           <div key={m.month} className="flex items-center gap-3">
-            <span className="w-20 shrink-0 text-[12px] text-zinc-400">{fmtMonth(m.month)}</span>
-            <span className="flex h-6 grow overflow-hidden rounded bg-zinc-800/50">
+            <span className="w-20 shrink-0 text-[12px] text-zinc-600 dark:text-zinc-400">{fmtMonth(m.month)}</span>
+            <span className="flex h-6 grow overflow-hidden rounded bg-zinc-200/70 dark:bg-zinc-800/50">
               {shown.map(r => m[r.key] > 0 && (
                 <span key={r.key} className={r.tone} style={{ width: `${(m[r.key] / max) * 100}%` }}
                       title={`${m[r.key]} ${r.label.toLowerCase()}`} />
               ))}
             </span>
-            <span className="w-14 shrink-0 text-right text-[12px] font-semibold tabular-nums text-zinc-200">
+            <span className="w-14 shrink-0 text-right text-[12px] font-semibold tabular-nums text-zinc-800 dark:text-zinc-200">
               {totals[i]}
             </span>
           </div>
@@ -207,25 +207,25 @@ function Funnel({ f }: { f: AutomationFunnel }) {
   const pct = f.sourced ? Math.round((f.applied / f.sourced) * 100) : 0
   return (
     <section>
-      <h3 className="text-[13px] font-semibold text-zinc-100">What happened to them</h3>
+      <h3 className="text-[13px] font-semibold text-zinc-900 dark:text-zinc-100">What happened to them</h3>
       <p className="mt-0.5 text-[12px] text-zinc-500">
         Every candidate the automation created, and how far each one got.
       </p>
       <div className="mt-4 space-y-1.5">
         {steps.map(s => (
           <div key={s.label} className="flex items-center gap-3">
-            <span className="w-44 shrink-0 text-[12px] text-zinc-300">{s.label}</span>
-            <span className="relative h-5 grow rounded bg-zinc-800/50">
+            <span className="w-44 shrink-0 text-[12px] text-zinc-700 dark:text-zinc-300">{s.label}</span>
+            <span className="relative h-5 grow rounded bg-zinc-200/70 dark:bg-zinc-800/50">
               <span className={cn('absolute inset-y-0 left-0 rounded', s.tone)}
                     style={{ width: `${Math.max((s.n / (f.sourced || 1)) * 100, 0.6)}%` }} />
             </span>
-            <span className="w-20 shrink-0 text-right text-[12px] font-semibold tabular-nums text-zinc-200">
+            <span className="w-20 shrink-0 text-right text-[12px] font-semibold tabular-nums text-zinc-800 dark:text-zinc-200">
               {s.n.toLocaleString()}
             </span>
           </div>
         ))}
       </div>
-      <p className="mt-3 text-[12px] leading-relaxed text-amber-200/90">
+      <p className="mt-3 text-[12px] leading-relaxed text-amber-800 dark:text-amber-200/90">
         Only <span className="font-semibold">{pct}%</span> of what the automation sources is ever put
         forward for a job. That step — not sourcing — is what caps the automation&rsquo;s contribution
         to placements.
@@ -253,10 +253,10 @@ function Key({ tone, label }: { tone: string; label: string }) {
 
 function Stat({ value, label, detail, tone }: { value: string; label: string; detail: string; tone: string }) {
   return (
-    <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5">
+    <div className="rounded-lg border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900/50 dark:shadow-none px-3 py-2.5">
       <p className={cn('text-[22px] leading-none font-semibold tabular-nums', tone)}>{value}</p>
-      <p className="mt-1.5 text-[11px] text-zinc-300">{label}</p>
-      <p className="mt-0.5 text-[10px] text-zinc-600">{detail}</p>
+      <p className="mt-1.5 text-[11px] text-zinc-700 dark:text-zinc-300">{label}</p>
+      <p className="mt-0.5 text-[10px] text-zinc-500 dark:text-zinc-600">{detail}</p>
     </div>
   )
 }
