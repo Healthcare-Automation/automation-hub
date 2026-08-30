@@ -116,7 +116,7 @@ export default function DjcInsightsPanel({ data, view, viewEfficiency = [] }: { 
           Hidden on Acquisition — that page opens with its own numbered narrative, so a second
           pill-nav appears halfway down the page and reads as a different app starting. */}
       {!showAcq && (
-      <nav className="sticky top-0 z-30 -mx-4 border-b border-zinc-800/70 bg-zinc-950/85 px-4 py-2 backdrop-blur sm:-mx-8 sm:px-8">
+      <nav className="sticky top-0 z-30 -mx-4 border-b border-zinc-200 bg-white/85 dark:border-zinc-800/70 dark:bg-zinc-950/85 px-4 py-2 backdrop-blur sm:-mx-8 sm:px-8">
         <div className="flex items-center gap-3">
           <div className="flex grow gap-1 overflow-x-auto">
             {NAV_BY_VIEW[view].filter(i => i.id !== 'conserve' || conserveActive || data.conserveSkips.total > 0).map(i => (
@@ -126,8 +126,8 @@ export default function DjcInsightsPanel({ data, view, viewEfficiency = [] }: { 
                 className={cn(
                   'shrink-0 rounded-full px-3 py-1 text-[11px] font-medium transition-colors',
                   activeSection === i.id
-                    ? 'bg-cyan-600/20 text-cyan-200'
-                    : 'text-zinc-500 hover:bg-zinc-800/60 hover:text-zinc-200',
+                    ? 'bg-cyan-600/20 text-cyan-800 dark:text-cyan-200'
+                    : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 dark:hover:bg-zinc-800/60 dark:hover:text-zinc-200',
                 )}
               >
                 {i.label}
@@ -146,7 +146,7 @@ export default function DjcInsightsPanel({ data, view, viewEfficiency = [] }: { 
               value={query}
               onChange={e => setQuery(e.target.value)}
               placeholder="Find a candidate…"
-              className="w-40 rounded-full border border-zinc-700/60 bg-zinc-900 px-3 py-1 text-[11px] text-zinc-200 placeholder-zinc-600 outline-none transition-all focus:w-56 focus:border-cyan-700"
+              className="w-40 rounded-full border border-zinc-200 bg-white text-zinc-800 placeholder-zinc-400 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-200 dark:placeholder-zinc-600 px-3 py-1 text-[11px] outline-none transition-all focus:w-56 focus:border-cyan-700"
             />
           </form>
         </div>
@@ -155,8 +155,8 @@ export default function DjcInsightsPanel({ data, view, viewEfficiency = [] }: { 
 
       {!showAcq && (
         <header id="who-header" className="max-w-3xl">
-          <h1 className="text-[20px] font-semibold text-zinc-100">Who these candidates are</h1>
-          <p className="mt-2 text-[13px] leading-relaxed text-zinc-400">
+          <h1 className="text-[20px] font-semibold text-zinc-900 dark:text-zinc-100">Who these candidates are</h1>
+          <p className="mt-2 text-[13px] leading-relaxed text-zinc-600 dark:text-zinc-400">
             The make-up of the pool we have built — specialty, location, experience, and how likely
             each person is to be worked. Overview covers the business outcome; this is the raw
             material behind it.
@@ -190,21 +190,21 @@ export default function DjcInsightsPanel({ data, view, viewEfficiency = [] }: { 
                 value={L.outcomes.netNew}
                 label="net-new candidates"
                 detail={`${perView(L.outcomes.netNew, L.used)} — the win`}
-                accent="text-cyan-300"
+                accent="text-cyan-700 dark:text-cyan-300"
                 onClick={() => setDrill({ dim: 'opened_outcome', value: 'net_new', label: 'Net-new candidates from this cycle’s views' })}
               />
               <BigStat
                 value={L.outcomes.duplicates}
                 label="already in Salesforce"
                 detail="only detectable after opening"
-                accent="text-violet-300"
+                accent="text-violet-700 dark:text-violet-300"
                 onClick={() => setDrill({ dim: 'opened_outcome', value: 'duplicates', label: 'Opened this cycle — turned out to already be in Salesforce' })}
               />
               <BigStat
                 value={L.outcomes.uncontactable}
                 label="no contact found"
                 detail="nothing on profile or resume"
-                accent="text-amber-300"
+                accent="text-amber-700 dark:text-amber-300"
                 onClick={() => setDrill({ dim: 'opened_outcome', value: 'uncontactable', label: 'Opened this cycle — no contact info anywhere' })}
               />
               <BigStat
@@ -233,14 +233,14 @@ export default function DjcInsightsPanel({ data, view, viewEfficiency = [] }: { 
               <Card title="Day-by-day ledger" sub="Click a day to see exactly which profiles were opened.">
                 <div className="max-h-64 overflow-y-auto">
                   <table className="w-full text-xs">
-                    <thead className="sticky top-0 bg-zinc-900">
+                    <thead className="sticky top-0 bg-white dark:bg-zinc-900">
                       <tr className="text-left text-[10px] uppercase tracking-wide text-zinc-500">
                         <th className="py-1.5 font-medium">Day</th>
                         <th className="py-1.5 pr-3 text-right font-medium">Views</th>
                         <th className="py-1.5 pr-3 text-right font-medium">Opened</th>
-                        <th className="py-1.5 pr-3 text-right font-medium text-cyan-400">Net new</th>
-                        <th className="py-1.5 pr-3 text-right font-medium text-violet-400">In SF</th>
-                        <th className="py-1.5 text-right font-medium text-amber-400">No contact</th>
+                        <th className="py-1.5 pr-3 text-right font-medium text-cyan-700 dark:text-cyan-400">Net new</th>
+                        <th className="py-1.5 pr-3 text-right font-medium text-violet-700 dark:text-violet-400">In SF</th>
+                        <th className="py-1.5 text-right font-medium text-amber-700 dark:text-amber-400">No contact</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -248,14 +248,14 @@ export default function DjcInsightsPanel({ data, view, viewEfficiency = [] }: { 
                         <tr
                           key={d.day}
                           onClick={() => setDrill({ dim: 'opened_day', value: d.day, label: `Profiles opened on ${fmtDay(d.day)}` })}
-                          className="cursor-pointer border-t border-zinc-800 text-zinc-300 hover:bg-zinc-800/50"
+                          className="cursor-pointer border-t border-zinc-200 text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-800/50"
                         >
-                          <td className="py-2 tabular-nums text-zinc-400">{fmtDay(d.day)}</td>
+                          <td className="py-2 tabular-nums text-zinc-600 dark:text-zinc-400">{fmtDay(d.day)}</td>
                           <td className="py-2 pr-3 text-right tabular-nums font-medium">{d.viewsUsed}</td>
-                          <td className="py-2 pr-3 text-right tabular-nums text-zinc-400">{d.opens}</td>
-                          <td className="py-2 pr-3 text-right tabular-nums text-cyan-300">{d.netNew}</td>
-                          <td className="py-2 pr-3 text-right tabular-nums text-violet-300">{d.duplicates}</td>
-                          <td className="py-2 text-right tabular-nums text-amber-300">{d.uncontactable}</td>
+                          <td className="py-2 pr-3 text-right tabular-nums text-zinc-600 dark:text-zinc-400">{d.opens}</td>
+                          <td className="py-2 pr-3 text-right tabular-nums text-cyan-700 dark:text-cyan-300">{d.netNew}</td>
+                          <td className="py-2 pr-3 text-right tabular-nums text-violet-700 dark:text-violet-300">{d.duplicates}</td>
+                          <td className="py-2 text-right tabular-nums text-amber-700 dark:text-amber-300">{d.uncontactable}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -275,7 +275,7 @@ export default function DjcInsightsPanel({ data, view, viewEfficiency = [] }: { 
             title="Conserve mode — skipped before spending a view"
             tag={
               conserveActive ? (
-                <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wide text-cyan-300">
+                <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wide text-cyan-700 dark:text-cyan-300">
                   active · reverts Aug 15
                 </span>
               ) : undefined
@@ -287,7 +287,7 @@ export default function DjcInsightsPanel({ data, view, viewEfficiency = [] }: { 
             ) : (
               <div className="max-h-72 overflow-y-auto">
                 <table className="w-full text-xs">
-                  <thead className="sticky top-0 bg-zinc-900">
+                  <thead className="sticky top-0 bg-white dark:bg-zinc-900">
                     <tr className="text-left text-[10px] uppercase tracking-wide text-zinc-500">
                       <th className="py-1.5 pr-3 font-medium">Candidate (DJC)</th>
                       <th className="py-1.5 pr-3 font-medium">Specialty</th>
@@ -299,19 +299,19 @@ export default function DjcInsightsPanel({ data, view, viewEfficiency = [] }: { 
                   </thead>
                   <tbody>
                     {data.conserveSkips.rows.map(r => (
-                      <tr key={r.candidateId} className="border-t border-zinc-800/70 text-zinc-300">
+                      <tr key={r.candidateId} className="border-t border-zinc-200 text-zinc-700 dark:border-zinc-800/70 dark:text-zinc-300">
                         <td className="max-w-40 truncate py-2 pr-3">
-                          <a href={`https://www.dentistjobcafe.com/company/candidate/${r.candidateId}`} target="_blank" rel="noreferrer" className="text-cyan-300 hover:underline">
+                          <a href={`https://www.dentistjobcafe.com/company/candidate/${r.candidateId}`} target="_blank" rel="noreferrer" className="text-cyan-700 dark:text-cyan-300 hover:underline">
                             {r.name ?? r.candidateId}
                           </a>
                         </td>
-                        <td className="max-w-32 truncate py-2 pr-3 text-zinc-400">{r.target ?? '—'}</td>
-                        <td className="max-w-32 truncate py-2 pr-3 text-zinc-400">{r.location ?? '—'}</td>
+                        <td className="max-w-32 truncate py-2 pr-3 text-zinc-600 dark:text-zinc-400">{r.target ?? '—'}</td>
+                        <td className="max-w-32 truncate py-2 pr-3 text-zinc-600 dark:text-zinc-400">{r.location ?? '—'}</td>
                         <td className="whitespace-nowrap py-2 pr-3 text-right tabular-nums">{r.registeredOn ?? '—'}</td>
                         <td className="whitespace-nowrap py-2 pr-3 text-right tabular-nums">{r.skippedOn ?? '—'}</td>
                         <td className="py-2">
                           {r.sfContactId ? (
-                            <a href={sfContactUrl(r.sfContactId)} target="_blank" rel="noreferrer" className="whitespace-nowrap text-emerald-400 hover:underline">
+                            <a href={sfContactUrl(r.sfContactId)} target="_blank" rel="noreferrer" className="whitespace-nowrap text-emerald-700 dark:text-emerald-400 hover:underline">
                               open in Salesforce ↗
                             </a>
                           ) : '—'}
@@ -339,13 +339,13 @@ export default function DjcInsightsPanel({ data, view, viewEfficiency = [] }: { 
             {data.funnel.map((s, i) => (
               <button key={s.key} onClick={() => setDrill(funnelDrill(s.key, s.label, data.periodStart))} className="group block w-full text-left">
                 <div className="flex items-baseline justify-between">
-                  <span className="text-[13px] font-medium text-zinc-200 group-hover:text-white">{s.label}</span>
-                  <span className="text-[13px] tabular-nums text-zinc-300">
+                  <span className="text-[13px] font-medium text-zinc-800 group-hover:text-zinc-950 dark:text-zinc-200 dark:group-hover:text-white">{s.label}</span>
+                  <span className="text-[13px] tabular-nums text-zinc-700 dark:text-zinc-300">
                     {s.count.toLocaleString()}
-                    <span className="ml-2 text-zinc-600">{pct(s.count, data.funnel[0].count)}%</span>
+                    <span className="ml-2 text-zinc-500 dark:text-zinc-600">{pct(s.count, data.funnel[0].count)}%</span>
                   </span>
                 </div>
-                <div className="mt-1.5 h-3 rounded-sm bg-zinc-800">
+                <div className="mt-1.5 h-3 rounded-sm bg-zinc-200 dark:bg-zinc-800">
                   <div
                     className="h-3 rounded-sm transition-all group-hover:brightness-125"
                     style={{
@@ -391,8 +391,8 @@ export default function DjcInsightsPanel({ data, view, viewEfficiency = [] }: { 
                   .reduce((a, c) => a + c.total, 0)
                 return (
                   <div>
-                    <p className="mb-3 text-xs text-zinc-300">
-                      <span className="font-semibold tabular-nums text-cyan-300">{Math.round((recent / Math.max(total, 1)) * 100)}%</span>{' '}
+                    <p className="mb-3 text-xs text-zinc-700 dark:text-zinc-300">
+                      <span className="font-semibold tabular-nums text-cyan-700 dark:text-cyan-300">{Math.round((recent / Math.max(total, 1)) * 100)}%</span>{' '}
                       of the candidate pool signed up in {thisYear - 1}–{thisYear} — the rest is older inventory
                       resurfacing in searches.
                     </p>
@@ -482,14 +482,14 @@ export default function DjcInsightsPanel({ data, view, viewEfficiency = [] }: { 
                 value={data.totals.newGrads}
                 label="new grads"
                 detail="graduated 2025 or later"
-                accent="text-emerald-300"
+                accent="text-emerald-700 dark:text-emerald-300"
                 onClick={() => setDrill({ dim: 'new_grads', value: 'yes', label: 'New grads (graduated 2025+)' })}
               />
               <BigStat
                 value={data.talent.residencyTrained}
                 label="residency / specialty trained"
                 detail="GPR, AEGD, or specialty programs"
-                accent="text-cyan-300"
+                accent="text-cyan-700 dark:text-cyan-300"
                 onClick={() => setDrill({ dim: 'residency', value: 'yes', label: 'Residency / specialty-trained candidates' })}
               />
               <BigStat
@@ -502,7 +502,7 @@ export default function DjcInsightsPanel({ data, view, viewEfficiency = [] }: { 
                 value={data.talent.trainingOrigin.foreign}
                 label="foreign-trained"
                 detail="often need state licensure paths"
-                accent="text-violet-300"
+                accent="text-violet-700 dark:text-violet-300"
                 onClick={() => setDrill({ dim: 'training_origin', value: 'foreign-trained', label: 'Foreign-trained candidates' })}
               />
             </div>
@@ -514,7 +514,7 @@ export default function DjcInsightsPanel({ data, view, viewEfficiency = [] }: { 
               <SegmentBar
                 segments={data.talent.careerStages.map(b => ({
                   key: b.key, label: b.label, count: b.count,
-                  color: b.key === 'new_grad' ? C.emerald : b.key === 'unknown' ? '#3f3f46'
+                  color: b.key === 'new_grad' ? C.emerald : b.key === 'unknown' ? '#a1a1aa'
                     : b.key === 'early' ? '#22d3ee' : b.key === 'established' ? C.cyan : '#155e75',
                 }))}
                 onClick={k => {
@@ -593,7 +593,7 @@ export default function DjcInsightsPanel({ data, view, viewEfficiency = [] }: { 
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="text-left text-[10px] uppercase tracking-wide text-zinc-500">
+                  <tr className="text-left text-[10px] uppercase tracking-wide text-zinc-500 dark:text-zinc-500">
                     <th className="pb-2 font-medium">Specialty</th>
                     <th className="pb-2 pr-4 text-right font-medium">Total</th>
                     <th className="pb-2 pr-4 text-right font-medium">Net new</th>
@@ -607,12 +607,12 @@ export default function DjcInsightsPanel({ data, view, viewEfficiency = [] }: { 
                     <tr
                       key={s.target}
                       onClick={() => setDrill({ dim: 'specialty', value: s.target, label: s.target })}
-                      className="cursor-pointer border-t border-zinc-800 text-zinc-300 hover:bg-zinc-800/50"
+                      className="cursor-pointer border-t border-zinc-200 text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-800/50"
                     >
                       <td className="py-2.5 pr-3">
                         <div className="flex items-center gap-3">
                           <span className="w-40 shrink-0 truncate sm:w-56">{s.target}</span>
-                          <div className="hidden h-2 w-full max-w-52 rounded-sm bg-zinc-800 sm:block">
+                          <div className="hidden h-2 w-full max-w-52 rounded-sm bg-zinc-200 dark:bg-zinc-800 sm:block">
                             <div
                               className="h-2 rounded-sm"
                               style={{ width: `${pct(s.total, data.specialties[0]?.total || 1)}%`, background: C.cyan }}
@@ -621,7 +621,7 @@ export default function DjcInsightsPanel({ data, view, viewEfficiency = [] }: { 
                         </div>
                       </td>
                       <td className="py-2.5 pr-4 text-right tabular-nums">{s.total.toLocaleString()}</td>
-                      <td className="py-2.5 pr-4 text-right tabular-nums text-cyan-300">{s.netNew}</td>
+                      <td className="py-2.5 pr-4 text-right tabular-nums text-cyan-700 dark:text-cyan-300">{s.netNew}</td>
                       <td className="py-2.5 pr-4 text-right tabular-nums">{pct(s.contactable, s.total)}%</td>
                       <td className="py-2.5 pr-4 text-right tabular-nums">{s.avgExperience ?? '—'}</td>
                       <td className="py-2.5 text-right tabular-nums">{s.avgRating ?? '—'}</td>
@@ -647,7 +647,7 @@ export default function DjcInsightsPanel({ data, view, viewEfficiency = [] }: { 
                 return unknown ? (
                   <button
                     onClick={() => setDrill({ dim: 'state', value: 'Unknown', label: 'Candidates without a state on file' })}
-                    className="mt-3 text-[11px] text-zinc-500 hover:text-zinc-300"
+                    className="mt-3 text-[11px] text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300"
                   >
                     + {unknown.total.toLocaleString()} without a state on file (mostly never-opened profiles)
                   </button>
@@ -665,8 +665,8 @@ export default function DjcInsightsPanel({ data, view, viewEfficiency = [] }: { 
                 onClick={() => setDrill({ dim: 'new_grads', value: 'yes', label: 'New grads (graduated 2025 or later)' })}
                 className="mb-4 block rounded-lg border border-emerald-600/30 bg-emerald-600/10 px-3 py-2 text-left transition-colors hover:bg-emerald-600/20"
               >
-                <span className="text-lg font-semibold tabular-nums text-emerald-300">{data.totals.newGrads}</span>{' '}
-                <span className="text-xs text-zinc-300">known new grads</span>
+                <span className="text-lg font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">{data.totals.newGrads}</span>{' '}
+                <span className="text-xs text-zinc-700 dark:text-zinc-300">known new grads</span>
                 <span className="ml-1.5 text-[10px] text-zinc-500">graduated 2025–2027 · click for the list</span>
               </button>
               <div className="space-y-5">
@@ -704,7 +704,7 @@ export default function DjcInsightsPanel({ data, view, viewEfficiency = [] }: { 
             <Card
               id="rating"
               title="Who a recruiter is likely to work"
-              tag={<span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-emerald-300">AUC {RATING_MODEL.auc}</span>}
+              tag={<span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-emerald-700 dark:text-emerald-300">AUC {RATING_MODEL.auc}</span>}
               sub="A 0-100 score fitted to whether recruiters actually worked past candidates — not a checklist of profile fields. This is about the PERSON; the “chance of placing” column on the Pipeline tab is about a single application and its stage."
             >
               <RatingModel avg={data.rating.avg} distribution={data.rating.distribution}
@@ -735,7 +735,7 @@ export default function DjcInsightsPanel({ data, view, viewEfficiency = [] }: { 
       {showTop && (
         <button
           onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          className="fixed bottom-5 right-5 z-30 rounded-full border border-zinc-700 bg-zinc-900/90 px-3 py-2 text-[11px] text-zinc-300 shadow-lg backdrop-blur transition-colors hover:text-white"
+          className="fixed bottom-5 right-5 z-30 rounded-full border border-zinc-200 bg-white/90 text-zinc-700 hover:text-zinc-950 dark:border-zinc-700 dark:bg-zinc-900/90 dark:text-zinc-300 dark:hover:text-white px-3 py-2 text-[11px] shadow-lg backdrop-blur transition-colors"
           aria-label="Back to top"
         >
           ↑ Top
@@ -824,11 +824,11 @@ function DrillPanel({ drill, onClose }: { drill: Drill | null; onClose: () => vo
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-[1px]" onClick={onClose} />
-      <aside className="fixed inset-y-0 right-0 z-50 flex w-full max-w-2xl flex-col border-l border-zinc-700/60 bg-zinc-900 shadow-2xl">
-        <div className="flex items-start justify-between gap-4 border-b border-zinc-800 px-5 py-4">
+      <div className="fixed inset-0 z-40 bg-zinc-900/40 dark:bg-black/60 backdrop-blur-[1px]" onClick={onClose} />
+      <aside className="fixed inset-y-0 right-0 z-50 flex w-full max-w-2xl flex-col border-l border-zinc-200 bg-white dark:border-zinc-700/60 dark:bg-zinc-900 shadow-2xl">
+        <div className="flex items-start justify-between gap-4 border-b border-zinc-200 dark:border-zinc-800 px-5 py-4">
           <div>
-            <h3 className="text-sm font-semibold text-zinc-100">{drill.label}</h3>
+            <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{drill.label}</h3>
             <p className="mt-0.5 text-[11px] text-zinc-500">
               {loading
                 ? 'Loading candidates…'
@@ -842,7 +842,7 @@ function DrillPanel({ drill, onClose }: { drill: Drill | null; onClose: () => vo
                   {Object.entries(reasonCounts)
                     .sort((a, b) => b[1] - a[1])
                     .map(([reason, count]) => (
-                      <span key={reason} className="rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-200">
+                      <span key={reason} className="rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-700 dark:text-violet-200">
                         {count} × {REASON_LABELS[reason] ?? reason}
                       </span>
                     ))}
@@ -857,7 +857,7 @@ function DrillPanel({ drill, onClose }: { drill: Drill | null; onClose: () => vo
           </div>
           <button
             onClick={onClose}
-            className="rounded-md p-1.5 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-200"
+            className="rounded-md p-1.5 text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-800 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
             aria-label="Close"
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
@@ -869,7 +869,7 @@ function DrillPanel({ drill, onClose }: { drill: Drill | null; onClose: () => vo
           {rows && rows.length === 0 && !loading && <p className="py-6 text-xs text-zinc-500">No candidates match.</p>}
           {rows && rows.length > 0 && (
             <table className="w-full text-xs">
-              <thead className="sticky top-0 z-10 bg-zinc-900">
+              <thead className="sticky top-0 z-10 bg-white dark:bg-zinc-900">
                 <tr className="text-left text-[10px] uppercase tracking-wide text-zinc-500">
                   <th className="py-2 pr-3 font-medium">Name</th>
                   <th className="py-2 pr-3 font-medium">Specialty</th>
@@ -903,23 +903,23 @@ function DrillRowItem({ row: r, showReason }: { row: DrillRow; showReason: boole
     <>
       <tr
         onClick={() => setOpen(!open)}
-        className={cn('cursor-pointer border-t border-zinc-800/70 text-zinc-300 hover:bg-zinc-800/40', open && 'bg-zinc-800/40')}
+        className={cn('cursor-pointer border-t border-zinc-200 text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800/70 dark:text-zinc-300 dark:hover:bg-zinc-800/40', open && 'bg-zinc-50 dark:bg-zinc-800/40')}
       >
         <td className="max-w-40 truncate py-2 pr-3">
-          <span className={cn('mr-1.5 inline-block text-[9px] text-zinc-600 transition-transform', open && 'rotate-90')}>▶</span>
+          <span className={cn('mr-1.5 inline-block text-[9px] text-zinc-400 dark:text-zinc-600 transition-transform', open && 'rotate-90')}>▶</span>
           {r.profileUrl ? (
-            <a href={r.profileUrl} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="text-cyan-300 hover:underline">
+            <a href={r.profileUrl} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="text-cyan-700 dark:text-cyan-300 hover:underline">
               {r.name ?? r.candidateId}
             </a>
           ) : (
             r.name ?? r.candidateId
           )}
         </td>
-        <td className="max-w-32 truncate py-2 pr-3 text-zinc-400">{r.target ?? '—'}</td>
+        <td className="max-w-32 truncate py-2 pr-3 text-zinc-600 dark:text-zinc-400">{r.target ?? '—'}</td>
         {showReason ? (
-          <td className="py-2 pr-3 text-violet-300">{r.dedupReason ? (REASON_LABELS[r.dedupReason] ?? r.dedupReason) : '—'}</td>
+          <td className="py-2 pr-3 text-violet-700 dark:text-violet-300">{r.dedupReason ? (REASON_LABELS[r.dedupReason] ?? r.dedupReason) : '—'}</td>
         ) : (
-          <td className="max-w-32 truncate py-2 pr-3 text-zinc-400">{[r.city, r.state].filter(Boolean).join(', ') || '—'}</td>
+          <td className="max-w-32 truncate py-2 pr-3 text-zinc-600 dark:text-zinc-400">{[r.city, r.state].filter(Boolean).join(', ') || '—'}</td>
         )}
         <td className="whitespace-nowrap py-2 pr-3 text-right tabular-nums">{r.registeredOn ?? '—'}</td>
         <td className="whitespace-nowrap py-2 pr-3 text-right tabular-nums">{r.lastActivity ?? '—'}</td>
@@ -931,17 +931,17 @@ function DrillRowItem({ row: r, showReason }: { row: DrillRow; showReason: boole
               target="_blank"
               rel="noreferrer"
               onClick={e => e.stopPropagation()}
-              className="whitespace-nowrap text-emerald-400 hover:underline"
+              className="whitespace-nowrap text-emerald-700 dark:text-emerald-400 hover:underline"
             >
               open ↗
             </a>
           ) : (
-            <span className="text-zinc-600">no</span>
+            <span className="text-zinc-400 dark:text-zinc-600">no</span>
           )}
         </td>
       </tr>
       {open && (
-        <tr className="border-t border-zinc-800/40 bg-zinc-950/50">
+        <tr className="border-t border-zinc-200 bg-zinc-50 dark:border-zinc-800/40 dark:bg-zinc-950/50">
           <td colSpan={7} className="px-2 py-3">
             <CandidateTrail candidateId={r.candidateId} />
           </td>
@@ -1013,18 +1013,18 @@ function CandidateTrail({ candidateId }: { candidateId: string }) {
                   : ''
         return (
           <li key={i} className="flex items-baseline gap-2.5 text-[11px]">
-            <span className="shrink-0 tabular-nums text-zinc-600">{e.at.slice(5)}</span>
+            <span className="shrink-0 tabular-nums text-zinc-400 dark:text-zinc-600">{e.at.slice(5)}</span>
             <span
               className={cn(
                 'h-1.5 w-1.5 shrink-0 translate-y-[-1px] rounded-full',
                 e.level === 'error' ? 'bg-red-400' : e.level === 'warn' ? 'bg-amber-400' : 'bg-cyan-600',
               )}
             />
-            <span className="text-zinc-300">
+            <span className="text-zinc-700 dark:text-zinc-300">
               {EVENT_LABELS[e.type] ?? e.type.replaceAll('_', ' ')}
               {detail && <span className="text-zinc-500"> — {detail}</span>}
               {e.type === 'dedup_match' && typeof p.sf_contact_id === 'string' && p.sf_contact_id && (
-                <a href={sfContactUrl(p.sf_contact_id)} target="_blank" rel="noreferrer" className="text-emerald-400 hover:underline">
+                <a href={sfContactUrl(p.sf_contact_id)} target="_blank" rel="noreferrer" className="text-emerald-700 dark:text-emerald-400 hover:underline">
                   the matched contact ↗
                 </a>
               )}
@@ -1043,8 +1043,8 @@ function SectionHeader({ title, sub }: { title: string; sub?: string }) {
   return (
     <div className="pt-2">
       <div className="flex items-center gap-3">
-        <h3 className="min-w-0 text-[13px] font-semibold uppercase tracking-wide text-zinc-300">{title}</h3>
-        <div className="h-px min-w-6 grow bg-zinc-800" />
+        <h3 className="min-w-0 text-[13px] font-semibold uppercase tracking-wide text-zinc-700 dark:text-zinc-300">{title}</h3>
+        <div className="h-px min-w-6 grow bg-zinc-200 dark:bg-zinc-800" />
       </div>
       {sub && <p className="mt-1 text-[11px] text-zinc-500">{sub}</p>}
     </div>
@@ -1065,12 +1065,12 @@ function ZoneHeader({
     <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
       <div className="flex max-w-3xl items-start gap-3">
         {step !== undefined && (
-          <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-zinc-700 text-[11px] font-semibold tabular-nums text-zinc-400">
+          <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-zinc-300 text-zinc-600 dark:border-zinc-700 dark:text-zinc-400 text-[11px] font-semibold tabular-nums">
             {step}
           </span>
         )}
         <div>
-          <h2 className="text-[16px] font-semibold text-zinc-100">{title}</h2>
+          <h2 className="text-[16px] font-semibold text-zinc-900 dark:text-zinc-100">{title}</h2>
           {description && <p className="mt-1 text-xs leading-relaxed text-zinc-500">{description}</p>}
         </div>
       </div>
@@ -1083,10 +1083,12 @@ function PeriodFilter({ period }: { period: DjcInsights['period'] }) {
   const opt = (active: boolean) =>
     cn(
       'rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
-      active ? 'bg-zinc-700 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300',
+      active
+        ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-white'
+        : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300',
     )
   return (
-    <div className="inline-flex shrink-0 rounded-lg border border-zinc-700/50 bg-zinc-800/40 p-0.5">
+    <div className="inline-flex shrink-0 rounded-lg border border-zinc-200 bg-zinc-900/[0.04] dark:border-zinc-700/50 dark:bg-zinc-800/40 p-0.5">
       {/* scroll={false}: this filter sits deep in the page, and the default route-change scroll
           threw the reader back to the top every time they switched period. */}
       <Link href="/djc/acquisition?period=quarter" scroll={false} className={opt(period === 'quarter')}>
@@ -1113,12 +1115,12 @@ export function Card({
   children: React.ReactNode
 }) {
   return (
-    <section id={id} className={cn('min-w-0 scroll-mt-16 rounded-xl border border-zinc-700/50 bg-zinc-800/30 p-6', className)}>
+    <section id={id} className={cn('min-w-0 scroll-mt-16 rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700/50 dark:bg-zinc-800/30 dark:shadow-none p-6', className)}>
       {(title || action) && (
         <div className="mb-4 flex items-start justify-between gap-4">
           <div className="min-w-0">
             {title && (
-              <h3 className="flex flex-wrap items-center gap-2 text-[13px] font-semibold text-zinc-100">
+              <h3 className="flex flex-wrap items-center gap-2 text-[13px] font-semibold text-zinc-900 dark:text-zinc-100">
                 {title}
                 {tag}
               </h3>
@@ -1138,7 +1140,7 @@ export function Card({
 export function GrowingTag({ children }: { children: React.ReactNode }) {
   return (
     <span
-      className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wide text-amber-300/90"
+      className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wide text-amber-700 dark:text-amber-300/90"
       title="This metric is still filling in — numbers will grow as more data is collected. Nothing is wrong; coverage just isn't complete yet."
     >
       <svg width="8" height="8" viewBox="0 0 8 8" aria-hidden>
@@ -1161,16 +1163,16 @@ export function BigStat({
 }) {
   const inner = (
     <>
-      <div className={cn('text-2xl font-semibold leading-none tabular-nums', accent ?? 'text-zinc-100')}>
+      <div className={cn('text-2xl font-semibold leading-none tabular-nums', accent ?? 'text-zinc-900 dark:text-zinc-100')}>
         {value.toLocaleString()}
       </div>
-      <div className="mt-1.5 text-[11px] font-medium text-zinc-300">{label}</div>
+      <div className="mt-1.5 text-[11px] font-medium text-zinc-700 dark:text-zinc-300">{label}</div>
       {detail && <div className="mt-0.5 text-[10px] leading-snug text-zinc-500">{detail}</div>}
     </>
   )
-  const base = 'rounded-xl border border-zinc-700/50 bg-zinc-800/30 p-4 text-left'
+  const base = 'rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700/50 dark:bg-zinc-800/30 dark:shadow-none p-4 text-left'
   return onClick ? (
-    <button onClick={onClick} className={cn(base, 'transition-colors hover:border-zinc-600 hover:bg-zinc-800/60')}>
+    <button onClick={onClick} className={cn(base, 'transition-colors hover:border-zinc-300 hover:bg-zinc-50 dark:hover:border-zinc-600 dark:hover:bg-zinc-800/60')}>
       {inner}
     </button>
   ) : (
@@ -1215,14 +1217,14 @@ export function BarList({
           disabled={!onClick}
           className={cn('group flex w-full items-center gap-3 text-left', onClick && 'cursor-pointer')}
         >
-          <span className="w-44 shrink-0 truncate text-xs text-zinc-400 group-hover:text-zinc-200">{b.label}</span>
-          <div className="h-2.5 grow rounded-sm bg-zinc-800">
+          <span className="w-44 shrink-0 truncate text-xs text-zinc-600 group-hover:text-zinc-900 dark:text-zinc-400 dark:group-hover:text-zinc-200">{b.label}</span>
+          <div className="h-2.5 grow rounded-sm bg-zinc-200 dark:bg-zinc-800">
             <div
               className="h-2.5 rounded-sm transition-all group-hover:brightness-125"
               style={{ width: `${Math.max((b.count / denom) * 100, b.count > 0 ? 1.5 : 0)}%`, background: b.color }}
             />
           </div>
-          <span className="w-14 shrink-0 text-right text-xs tabular-nums text-zinc-300">
+          <span className="w-14 shrink-0 text-right text-xs tabular-nums text-zinc-700 dark:text-zinc-300">
             {b.count.toLocaleString()}
           </span>
           {extra && <span className="w-14 shrink-0 text-right text-[10px] tabular-nums text-zinc-500">{extra[i]}</span>}
@@ -1231,7 +1233,7 @@ export function BarList({
       {maxVisible && items.length > maxVisible && (
         <button
           onClick={() => setExpanded(!expanded)}
-          className="text-[11px] text-zinc-500 transition-colors hover:text-zinc-300"
+          className="text-[11px] text-zinc-500 transition-colors hover:text-zinc-800 dark:hover:text-zinc-300"
         >
           {expanded ? '▴ show top ' + maxVisible : `▾ show all ${items.length}`}
         </button>
@@ -1267,7 +1269,7 @@ export function SegmentBar({
           <button
             key={s.key}
             onClick={onClick ? () => onClick(s.key) : undefined}
-            className="inline-flex items-center gap-1.5 text-[11px] text-zinc-400 transition-colors hover:text-zinc-200"
+            className="inline-flex items-center gap-1.5 text-[11px] text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors"
           >
             <span className="h-2 w-2 rounded-[2px]" style={{ background: s.color }} />
             {s.label} <span className="tabular-nums text-zinc-500">{s.count.toLocaleString()} · {Math.round((s.count / total) * 100)}%</span>
@@ -1308,7 +1310,7 @@ export function YearBars({
           <span
             className={cn(
               'mb-1 block text-center text-[9px] tabular-nums leading-none',
-              c.total === 0 ? 'text-transparent' : 'text-zinc-400 group-hover:text-zinc-200',
+              c.total === 0 ? 'text-transparent' : 'text-zinc-600 group-hover:text-zinc-900 dark:text-zinc-400 dark:group-hover:text-zinc-200',
             )}
           >
             {c.total || '·'}
@@ -1325,7 +1327,7 @@ export function YearBars({
               style={{ height: `${c.total ? (c.activeLast90 / c.total) * 100 : 0}%`, background: C.cyan }}
             />
           </div>
-          <span className="mt-1.5 block text-center text-[9px] leading-tight text-zinc-500 group-hover:text-zinc-300">
+          <span className="mt-1.5 block text-center text-[9px] leading-tight text-zinc-500 group-hover:text-zinc-800 dark:group-hover:text-zinc-300">
             {Number(c.cohort) % 2 === 0 || years.length <= 12 ? c.cohort : ''}
           </span>
         </button>
@@ -1353,17 +1355,17 @@ function ViewsChart({ days }: { days: { day: string; used: number; total: number
 
   return (
     <div>
-      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-xs text-zinc-400">
+      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-xs text-zinc-600 dark:text-zinc-400">
         {/* An add-on pack pushes `used` past the base allowance (DJC counts on rather than raising
             the total), so total - used goes negative and rendered as "-53 views left". */}
         {latest.used > latest.total ? (
           <span className="flex items-baseline gap-2">
-            <span className="whitespace-nowrap text-lg font-semibold text-emerald-300">add-on pack active</span>
+            <span className="whitespace-nowrap text-lg font-semibold text-emerald-700 dark:text-emerald-300">add-on pack active</span>
             <span className="whitespace-nowrap text-zinc-500">extra views in play</span>
           </span>
         ) : (
           <span>
-            <span className="text-lg font-semibold tabular-nums text-cyan-300">{(latest.total - latest.used).toLocaleString()}</span>{' '}
+            <span className="text-lg font-semibold tabular-nums text-cyan-700 dark:text-cyan-300">{(latest.total - latest.used).toLocaleString()}</span>{' '}
             views left
           </span>
         )}
@@ -1382,7 +1384,8 @@ function ViewsChart({ days }: { days: { day: string; used: number; total: number
         onMouseLeave={() => setHover(null)}
       >
         {/* The allowance line now sits where the allowance actually is, not pinned to the top. */}
-        <line x1={0} y1={y(allowance)} x2={W} y2={y(allowance)} stroke="#3f3f46" strokeWidth={1}
+        <line x1={0} y1={y(allowance)} x2={W} y2={y(allowance)} strokeWidth={1}
+              className="stroke-zinc-300 dark:stroke-zinc-700"
               strokeDasharray="3 4" vectorEffect="non-scaling-stroke" />
         <polygon points={`0,${H} ${line} ${W},${H}`} fill={`${C.cyan}22`} />
         <polyline points={line} fill="none" stroke={C.cyan} strokeWidth={2} vectorEffect="non-scaling-stroke" />
@@ -1397,7 +1400,7 @@ function ViewsChart({ days }: { days: { day: string; used: number; total: number
             onMouseEnter={() => setHover(i)}
           />
         ))}
-        {h && <circle cx={x(hover!)} cy={y(h.used)} r={4} fill={C.cyan} stroke="#0e0e12" strokeWidth={2} />}
+        {h && <circle cx={x(hover!)} cy={y(h.used)} r={4} fill={C.cyan} strokeWidth={2} className="stroke-white dark:stroke-[#0e0e12]" />}
       </svg>
       <div className="mt-1 flex justify-between text-[10px] text-zinc-500">
         <span>{fmtDay(days[0].day)}</span>
@@ -1429,11 +1432,11 @@ function RatingModel({
 
   return (
     <div>
-      <p className="mb-3 text-[12px] leading-relaxed text-zinc-400">
+      <p className="mb-3 text-[12px] leading-relaxed text-zinc-600 dark:text-zinc-400">
         Sorted by this score, the top band gets worked{' '}
-        <span className="font-semibold text-emerald-300">{M.bands[4].rate}%</span> of the time versus{' '}
-        <span className="font-semibold text-zinc-300">{M.bands[0].rate}%</span> at the bottom —{' '}
-        <span className="text-zinc-200">{Math.round(M.bands[4].rate / M.bands[1].rate)}x</span> the hit rate.
+        <span className="font-semibold text-emerald-700 dark:text-emerald-300">{M.bands[4].rate}%</span> of the time versus{' '}
+        <span className="font-semibold text-zinc-700 dark:text-zinc-300">{M.bands[0].rate}%</span> at the bottom —{' '}
+        <span className="text-zinc-800 dark:text-zinc-200">{Math.round(M.bands[4].rate / M.bands[1].rate)}x</span> the hit rate.
       </p>
 
       <div className="space-y-1.5">
@@ -1442,14 +1445,14 @@ function RatingModel({
           const good = (ev?.lift ?? 0) >= 1
           return (
             <button key={b.key} onClick={() => onDrill(b.key, `Score ${b.label}`)}
-                    className="flex w-full items-center gap-3 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-zinc-800/40">
-              <span className="w-14 shrink-0 text-[11px] tabular-nums text-zinc-400">{b.label}</span>
-              <span className="relative h-5 grow rounded bg-zinc-800/40">
-                <span className={`absolute inset-y-0 left-0 rounded ${good ? 'bg-emerald-500/60' : 'bg-zinc-600/50'}`}
+                    className="flex w-full items-center gap-3 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800/40">
+              <span className="w-14 shrink-0 text-[11px] tabular-nums text-zinc-600 dark:text-zinc-400">{b.label}</span>
+              <span className="relative h-5 grow rounded bg-zinc-200/70 dark:bg-zinc-800/40">
+                <span className={`absolute inset-y-0 left-0 rounded ${good ? 'bg-emerald-500/60' : 'bg-zinc-500/50 dark:bg-zinc-600/50'}`}
                       style={{ width: `${(b.count / maxCount) * 100}%` }} />
               </span>
               <span className="w-12 shrink-0 text-right text-[11px] tabular-nums text-zinc-500">{b.count}</span>
-              <span className={`w-24 shrink-0 text-right text-[11px] tabular-nums ${good ? 'text-emerald-300' : 'text-zinc-600'}`}>
+              <span className={`w-24 shrink-0 text-right text-[11px] tabular-nums ${good ? 'text-emerald-700 dark:text-emerald-300' : 'text-zinc-400 dark:text-zinc-600'}`}>
                 {ev ? `${ev.rate}% worked` : '—'}
               </span>
             </button>
@@ -1458,16 +1461,16 @@ function RatingModel({
       </div>
 
       <button onClick={() => setOpen(v => !v)}
-              className="mt-3 text-[11px] font-medium text-cyan-400/80 transition-colors hover:text-cyan-300">
+              className="mt-3 text-[11px] font-medium text-cyan-700 hover:text-cyan-800 dark:text-cyan-400/80 dark:hover:text-cyan-300 transition-colors">
         {open ? 'Hide' : 'How this was built and how well it works'} {open ? '▲' : '▼'}
       </button>
 
       {open && (
-        <div className="mt-3 space-y-4 border-t border-zinc-800 pt-3 text-[11px] leading-relaxed text-zinc-400">
+        <div className="mt-3 space-y-4 border-t border-zinc-200 dark:border-zinc-800 pt-3 text-[11px] leading-relaxed text-zinc-600 dark:text-zinc-400">
           <div>
             <SmallLabel>How accurate is it</SmallLabel>
             <p className="mt-1">
-              <span className="text-zinc-200">AUC {M.auc}</span> (95% CI {M.ciLow}-{M.ciHigh}).
+              <span className="text-zinc-800 dark:text-zinc-200">AUC {M.auc}</span> (95% CI {M.ciLow}-{M.ciHigh}).
               Pick one candidate a recruiter worked and one they didn&rsquo;t: the score ranks the
               worked one higher {Math.round(M.auc * 100)}% of the time. 0.50 would be a coin flip.
               Measured on data the model never saw during fitting — five-fold cross-validation on{' '}
@@ -1481,11 +1484,11 @@ function RatingModel({
               {M.calibration.map(c => (
                 <div key={c.pred} className="flex items-center gap-2">
                   <span className="w-24 shrink-0 tabular-nums text-zinc-500">says {c.pred}%</span>
-                  <span className="relative h-3 grow rounded-sm bg-zinc-800/40">
-                    <span className="absolute inset-y-0 left-0 rounded-sm bg-cyan-500/30" style={{ width: `${c.pred * 2}%` }} />
-                    <span className="absolute inset-y-0 w-0.5 bg-emerald-400" style={{ left: `${c.actual * 2}%` }} />
+                  <span className="relative h-3 grow rounded-sm bg-zinc-200/70 dark:bg-zinc-800/40">
+                    <span className="absolute inset-y-0 left-0 rounded-sm bg-cyan-500/40 dark:bg-cyan-500/30" style={{ width: `${c.pred * 2}%` }} />
+                    <span className="absolute inset-y-0 w-0.5 bg-emerald-500 dark:bg-emerald-400" style={{ left: `${c.actual * 2}%` }} />
                   </span>
-                  <span className="w-20 shrink-0 text-right tabular-nums text-emerald-300">was {c.actual}%</span>
+                  <span className="w-20 shrink-0 text-right tabular-nums text-emerald-700 dark:text-emerald-300">was {c.actual}%</span>
                 </div>
               ))}
             </div>
@@ -1500,14 +1503,14 @@ function RatingModel({
             <div className="mt-1.5 space-y-0.5">
               {M.weights.map(w => (
                 <div key={w.label} className="flex items-center gap-2">
-                  <span className={`w-9 shrink-0 text-right tabular-nums font-medium ${w.pts > 0 ? 'text-emerald-300' : 'text-amber-400'}`}>
+                  <span className={`w-9 shrink-0 text-right tabular-nums font-medium ${w.pts > 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-amber-700 dark:text-amber-400'}`}>
                     {w.pts > 0 ? `+${w.pts}` : w.pts}
                   </span>
-                  <span className="text-zinc-400">{w.label}</span>
+                  <span className="text-zinc-600 dark:text-zinc-400">{w.label}</span>
                 </div>
               ))}
             </div>
-            <p className="mt-2 text-amber-300/80">
+            <p className="mt-2 text-amber-700 dark:text-amber-300/80">
               Two of these run against intuition: listing a dental school (-11) and stating an
               experience figure (+8 when it is <em>missing</em>) both mean a fuller profile scores
               lower. Profile completeness does not predict getting worked — which is precisely what
@@ -1567,15 +1570,15 @@ function ActivityRecency({
 
   return (
     <div>
-      <p className="mb-4 text-[12px] leading-relaxed text-zinc-400">
-        Someone active <span className="text-zinc-200">this week</span> gets worked{' '}
-        <span className="font-semibold text-zinc-100">15%</span> of the time. Someone who last logged
-        in <span className="text-zinc-200">one to three months ago</span> gets worked{' '}
-        <span className="font-semibold text-emerald-300">20%</span>. Recency is not the signal it
+      <p className="mb-4 text-[12px] leading-relaxed text-zinc-600 dark:text-zinc-400">
+        Someone active <span className="text-zinc-800 dark:text-zinc-200">this week</span> gets worked{' '}
+        <span className="font-semibold text-zinc-900 dark:text-zinc-100">15%</span> of the time. Someone who last logged
+        in <span className="text-zinc-800 dark:text-zinc-200">one to three months ago</span> gets worked{' '}
+        <span className="font-semibold text-emerald-700 dark:text-emerald-300">20%</span>. Recency is not the signal it
         looks like — don&rsquo;t prioritise on it.
       </p>
 
-      <div className="mb-1.5 flex items-center gap-3 text-[10px] uppercase tracking-wide text-zinc-600">
+      <div className="mb-1.5 flex items-center gap-3 text-[10px] uppercase tracking-wide text-zinc-500 dark:text-zinc-600">
         <span className="w-24 shrink-0">Last active</span>
         <span className="grow">How many of our candidates</span>
         <span className="w-28 shrink-0 text-right">Share worked</span>
@@ -1588,23 +1591,23 @@ function ActivityRecency({
           const better = known && worked > ACTIVITY_BASE
           return (
             <button key={b.key} onClick={() => onDrill(b.key, b.label)}
-                    className="flex w-full items-center gap-3 rounded-md px-1.5 py-1.5 text-left transition-colors hover:bg-zinc-800/40">
-              <span className="w-24 shrink-0 text-[11px] text-zinc-400">{b.label}</span>
-              <span className="relative h-5 grow rounded bg-zinc-800/40">
+                    className="flex w-full items-center gap-3 rounded-md px-1.5 py-1.5 text-left transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800/40">
+              <span className="w-24 shrink-0 text-[11px] text-zinc-600 dark:text-zinc-400">{b.label}</span>
+              <span className="relative h-5 grow rounded bg-zinc-200/70 dark:bg-zinc-800/40">
                 <span className="absolute inset-y-0 left-0 rounded bg-cyan-500/45"
                       style={{ width: `${(b.count / maxCount) * 100}%` }} />
-                <span className="absolute inset-y-0 left-2 flex items-center text-[10px] font-medium tabular-nums text-cyan-50/90">
+                <span className="absolute inset-y-0 left-2 flex items-center text-[10px] font-medium tabular-nums text-cyan-950 dark:text-cyan-50/90">
                   {b.count.toLocaleString()}
-                  <span className="ml-1 text-cyan-200/50">({Math.round((b.count / total) * 100)}%)</span>
+                  <span className="ml-1 text-cyan-800/60 dark:text-cyan-200/50">({Math.round((b.count / total) * 100)}%)</span>
                 </span>
               </span>
               <span className="w-28 shrink-0 text-right text-[11px] tabular-nums">
                 {known ? (
-                  <span className={better ? 'text-emerald-300' : 'text-zinc-400'}>
-                    {worked}%{better && <span className="ml-1 text-emerald-500/70">▲</span>}
+                  <span className={better ? 'text-emerald-700 dark:text-emerald-300' : 'text-zinc-600 dark:text-zinc-400'}>
+                    {worked}%{better && <span className="ml-1 text-emerald-600 dark:text-emerald-500/70">▲</span>}
                   </span>
                 ) : (
-                  <span className="text-zinc-600">too few</span>
+                  <span className="text-zinc-400 dark:text-zinc-600">too few</span>
                 )}
               </span>
             </button>
@@ -1612,10 +1615,10 @@ function ActivityRecency({
         })}
       </div>
 
-      <p className="mt-3 border-t border-zinc-800 pt-2.5 text-[11px] leading-relaxed text-zinc-500">
-        Average across everyone is <span className="text-zinc-300">{ACTIVITY_BASE}%</span>; green marks
+      <p className="mt-3 border-t border-zinc-200 dark:border-zinc-800 pt-2.5 text-[11px] leading-relaxed text-zinc-500">
+        Average across everyone is <span className="text-zinc-700 dark:text-zinc-300">{ACTIVITY_BASE}%</span>; green marks
         a group beating it. The fitted candidate score reaches the same conclusion independently —
-        being active in the last 30 days is worth <span className="text-amber-400">-3 points</span>.
+        being active in the last 30 days is worth <span className="text-amber-700 dark:text-amber-400">-3 points</span>.
       </p>
     </div>
   )
@@ -1635,15 +1638,15 @@ function MiniColumns({ items }: { items: { key: string; label: string; count: nu
       {items.map(i => (
         <div key={i.key} className="flex min-w-0 flex-1 flex-col items-center" title={`${i.count} signups`}>
           <div className="relative w-full" style={{ height: 72 }}>
-            <div className="absolute inset-x-0 bottom-0 h-px bg-zinc-800" />
+            <div className="absolute inset-x-0 bottom-0 h-px bg-zinc-200 dark:bg-zinc-800" />
             <div className={cn('absolute inset-x-0.5 bottom-0 rounded-t-[2px]', CHART.primary)}
                  style={{ height: Math.max((i.count / max) * 72, 2) }} />
-            <span className="absolute inset-x-0 text-center text-[10px] font-medium tabular-nums text-zinc-300"
+            <span className="absolute inset-x-0 text-center text-[10px] font-medium tabular-nums text-zinc-700 dark:text-zinc-300"
                   style={{ bottom: Math.max((i.count / max) * 72, 2) + 3 }}>
               {i.count}
             </span>
           </div>
-          <span className="mt-1.5 truncate text-[10px] text-zinc-600">{i.label}</span>
+          <span className="mt-1.5 truncate text-[10px] text-zinc-500 dark:text-zinc-600">{i.label}</span>
         </div>
       ))}
     </div>
@@ -1663,7 +1666,7 @@ function LifespanStrip({
   total: number
   onClick: (b: InsightBucket) => void
 }) {
-  const tone = [CHART.warn, 'bg-orange-300/35', CHART.neutral, 'bg-teal-300/45', CHART.good]
+  const tone = [CHART.warn, 'bg-orange-300/70 dark:bg-orange-300/35', CHART.neutral, 'bg-teal-300/70 dark:bg-teal-300/45', CHART.good]
   return (
     <div className="mt-2">
       <div className="flex h-8 w-full overflow-hidden rounded-lg">
@@ -1683,7 +1686,7 @@ function LifespanStrip({
           <span key={b.key} className="flex items-center gap-1.5">
             <span className={cn('h-2.5 w-3 rounded-sm', tone[i] ?? tone[4])} />
             {b.label}
-            <span className="tabular-nums text-zinc-400">{b.count.toLocaleString()}</span>
+            <span className="tabular-nums text-zinc-600 dark:text-zinc-400">{b.count.toLocaleString()}</span>
           </span>
         ))}
       </div>
