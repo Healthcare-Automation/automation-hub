@@ -31,13 +31,20 @@ export interface OutreachCompanyRow {
   historical_pipeline_stage: string | null
   is_locked_historical: boolean
   updated_at: string | null
+  open_roles_count: number | null
+  open_roles_titles: string | null       // JSON array, most recent job-signal scan
+  open_roles_last_checked: string | null
+  referral_note: string | null
+  referral_strength: string | null       // warm_intro | mutual_connection | cold
   // joined
   contact_name: string | null
   contact_title: string | null
   contact_email: string | null
   contact_email_status: string | null
   email_status_current: string | null   // status of most recent email row, if any
+  email_draft_count: number             // total email drafts on file (0 = no email draft yet)
   linkedin_status: string | null        // status of most recent linkedin_action row, if any
+  linkedin_draft_count: number          // total LinkedIn actions on file (0 = no LinkedIn draft yet)
   reply_classification: string | null   // most recent reply classification, if any
   sequence_status: string | null        // draft | active | paused | stopped | completed
   sequence_progress: string | null      // e.g. "1/3" — steps done vs total
@@ -70,10 +77,12 @@ export async function getOutreachCompanies(): Promise<OutreachCompanyRow[]> {
       c.historical_priority, c.historical_pipeline_stage,
       (c.is_locked_historical = 1) as is_locked_historical,
       c.updated_at::text as updated_at,
+      c.open_roles_count, c.open_roles_titles, c.open_roles_last_checked,
+      c.referral_note, c.referral_strength,
       pc.full_name as contact_name, pc.title as contact_title,
       pc.email as contact_email, pc.email_status as contact_email_status,
-      le.status as email_status_current,
-      la.status as linkedin_status,
+      le.status as email_status_current, le.n as email_draft_count,
+      la.status as linkedin_status, la.n as linkedin_draft_count,
       lr.classification as reply_classification,
       seq.status as sequence_status,
       seq.progress as sequence_progress
@@ -84,11 +93,11 @@ export async function getOutreachCompanies(): Promise<OutreachCompanyRow[]> {
       order by id desc limit 1
     ) pc on true
     left join lateral (
-      select status from outreach_emails where company_id = c.id
+      select status, count(*) over ()::int as n from outreach_emails where company_id = c.id
       order by created_at desc limit 1
     ) le on true
     left join lateral (
-      select status from outreach_linkedin_actions where company_id = c.id
+      select status, count(*) over ()::int as n from outreach_linkedin_actions where company_id = c.id
       order by created_at desc limit 1
     ) la on true
     left join lateral (
@@ -105,7 +114,8 @@ export async function getOutreachCompanies(): Promise<OutreachCompanyRow[]> {
     ) seq on true
     order by (c.lead_score is null), c.lead_score desc, c.name asc
   `
-  return rows
+  return rows.map(r => ({ ...r, email_draft_count: r.email_draft_count ?? 0,
+    linkedin_draft_count: r.linkedin_draft_count ?? 0 }))
 }
 
 export interface CompanyDetail {
@@ -134,6 +144,7 @@ export interface CompanyDetail {
   replies: { id: number; channel: string | null; body: string | null; classification: string | null;
     recommended_response: string | null; next_action: string | null; received_at: string | null }[]
   findings: { category: string | null; finding: string; evidence_label: string }[]
+  pendingDraftRequests: { id: number; channel: string; status: string; created_at: string | null }[]
 }
 
 export async function getCompanyDetail(id: number): Promise<CompanyDetail | null> {
@@ -146,9 +157,12 @@ export async function getCompanyDetail(id: number): Promise<CompanyDetail | null
       c.historical_priority, c.historical_pipeline_stage,
       (c.is_locked_historical = 1) as is_locked_historical,
       c.updated_at::text as updated_at, c.business_model_notes, c.operational_hypothesis,
+      c.open_roles_count, c.open_roles_titles, c.open_roles_last_checked,
+      c.referral_note, c.referral_strength,
       pc.full_name as contact_name, pc.title as contact_title,
       pc.email as contact_email, pc.email_status as contact_email_status,
-      null as email_status_current, null as linkedin_status, null as reply_classification
+      null as email_status_current, 0 as email_draft_count,
+      null as linkedin_status, 0 as linkedin_draft_count, null as reply_classification
     from outreach_companies c
     left join lateral (
       select full_name, title, email, email_status from outreach_contacts
@@ -209,8 +223,36 @@ export async function getCompanyDetail(id: number): Promise<CompanyDetail | null
     select category, finding, evidence_label
     from outreach_research_findings where company_id = ${id} order by created_at desc
   `
+  const pendingDraftRequests = await sql<CompanyDetail['pendingDraftRequests']>`
+    select id, channel, status, created_at::text as created_at
+    from outreach_draft_requests where company_id = ${id} and status in ('pending','in_progress')
+    order by created_at desc
+  `
   return { company, scoreBreakdown: scoreBreakdown ?? null, hypothesis: hypothesis ?? null,
-    emails, linkedinActions, sequence, replies, findings }
+    emails, linkedinActions, sequence, replies, findings, pendingDraftRequests }
+}
+
+/** Andy clicking "Generate draft" / "Generate LinkedIn draft" on a company with no draft yet.
+ * Just queues the request -- see draft_requests table comment in db/schema.sql for why this
+ * can't happen synchronously (drafting needs the real research + copywriting skill chain, not
+ * a raw LLM call the hub could make itself). A Hermes cron job drains this queue. */
+export async function createDraftRequest(companyId: number, channel: 'email' | 'linkedin' | 'both') {
+  await sql`
+    insert into outreach_draft_requests (company_id, channel, status, requested_by, created_at)
+    values (${companyId}, ${channel}, 'pending', 'andy', now())
+  `
+}
+
+/** Andy manually noting a warm intro / mutual connection on a prospect -- this is
+ * relationship intel only Andy has, not something research can discover. Shown as a badge
+ * on the main pipeline table and a highlighted note in the Score & fit tab. */
+export async function setReferralNote(
+  companyId: number, note: string | null, strength: 'warm_intro' | 'mutual_connection' | 'cold' | null
+) {
+  await sql`
+    update outreach_companies set referral_note = ${note}, referral_strength = ${strength}
+    where id = ${companyId}
+  `
 }
 
 export async function setEmailDecision(
@@ -219,6 +261,16 @@ export async function setEmailDecision(
   await sql`
     update outreach_emails
     set status = ${status}, qa_notes = ${note}
+    where id = ${id}
+  `
+}
+
+/** Andy hand-editing a draft in the hub before sending. Resets status to qa_pending
+ * so an edited draft always gets a fresh look before Approve is valid again. */
+export async function updateEmailDraft(id: number, subject: string, body: string) {
+  await sql`
+    update outreach_emails
+    set subject = ${subject}, body = ${body}, status = 'qa_pending', qa_notes = null
     where id = ${id}
   `
 }

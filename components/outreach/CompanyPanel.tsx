@@ -184,21 +184,31 @@ const EMAIL_STATUS_LABEL: Record<string, string> = {
 }
 
 function EmailCard({
-  email, isAdmin, onDecision,
+  email, isAdmin, onDecision, onSaveEdit,
 }: {
   email: CompanyDetail['emails'][number]
   isAdmin: boolean
   onDecision: (id: number, decision: 'approved' | 'qa_failed', note: string | null) => Promise<boolean>
+  onSaveEdit: (id: number, subject: string, body: string) => Promise<boolean>
 }) {
   const [failing, setFailing] = useState(false)
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [draftSubject, setDraftSubject] = useState(email.subject ?? '')
+  const [draftBody, setDraftBody] = useState(email.body ?? '')
   const decided = email.status === 'approved' || email.status === 'qa_failed'
 
   const mailtoHref = `mailto:${encodeURIComponent(email.to_email ?? '')}` +
-    `?subject=${encodeURIComponent(email.subject ?? '')}&body=${encodeURIComponent(email.body ?? '')}`
+    `?subject=${encodeURIComponent(email.subject ?? '')}&body=${encodeURIComponent((email.body ?? '').replace(/\n/g, '\r\n'))}`
+
+  function startEditing() {
+    setDraftSubject(email.subject ?? '')
+    setDraftBody(email.body ?? '')
+    setEditing(true)
+  }
 
   return (
     <div className="rounded-lg bg-zinc-50 ring-zinc-200 dark:bg-zinc-800/30 dark:ring-zinc-800/60 p-3.5 ring-1">
@@ -214,45 +224,112 @@ function EmailCard({
         }`}>{EMAIL_STATUS_LABEL[email.status] ?? email.status}</span>
       </div>
 
-      {/* Rendered exactly as it will land in an inbox: To / Subject / Body, nothing else. */}
-      <div className="mt-2.5 overflow-hidden rounded-md border border-zinc-200 bg-white dark:border-zinc-700/60 dark:bg-zinc-900/70">
-        <div className="border-b border-zinc-200 dark:border-zinc-800 px-3 py-2 text-[11.5px]">
-          <p className="text-zinc-500">
-            To: <span className="text-zinc-800 dark:text-zinc-200">
-              {email.to_name ?? 'Unknown contact'}{email.to_email ? ` <${email.to_email}>` : ' (no email on file)'}
-            </span>
-          </p>
-          <p className="mt-0.5 text-zinc-500">
-            Subject: <span className="font-medium text-zinc-800 dark:text-zinc-200">{email.subject}</span>
-          </p>
+      {/* Rendered like a real mail client compose window: From/To/Subject header block,
+          divider, serif body with paragraph spacing — not a raw text blob. */}
+      {!editing ? (
+        <div className="mt-2.5 overflow-hidden rounded-md border border-zinc-300 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-950">
+          <table className="w-full border-collapse text-[12px]">
+            <tbody>
+              <tr className="border-b border-zinc-100 dark:border-zinc-800">
+                <td className="w-16 px-3 py-1.5 align-top text-zinc-400 dark:text-zinc-600">From</td>
+                <td className="px-3 py-1.5 text-zinc-800 dark:text-zinc-200">Andy Lee &lt;andy@uzu.studio&gt;</td>
+              </tr>
+              <tr className="border-b border-zinc-100 dark:border-zinc-800">
+                <td className="px-3 py-1.5 align-top text-zinc-400 dark:text-zinc-600">To</td>
+                <td className="px-3 py-1.5 text-zinc-800 dark:text-zinc-200">
+                  {email.to_name ?? 'Unknown contact'}
+                  {email.to_email ? ` <${email.to_email}>` : ' — no email on file'}
+                </td>
+              </tr>
+              <tr className="border-b border-zinc-200 dark:border-zinc-800">
+                <td className="px-3 py-1.5 align-top text-zinc-400 dark:text-zinc-600">Subject</td>
+                <td className="px-3 py-1.5 font-medium text-zinc-900 dark:text-zinc-100">{email.subject}</td>
+              </tr>
+            </tbody>
+          </table>
+          <div className="px-4 py-4">
+            {(email.body ?? '').split(/\n{2,}/).map((para, i) => (
+              <p key={i} className="mb-3 whitespace-pre-wrap font-serif text-[13.5px] leading-[1.7] text-zinc-800 last:mb-0 dark:text-zinc-200">
+                {para}
+              </p>
+            ))}
+          </div>
         </div>
-        <p className="whitespace-pre-wrap px-3 py-3 text-[12px] leading-relaxed text-zinc-800 dark:text-zinc-200 font-[system-ui]">
-          {email.body}
-        </p>
-      </div>
+      ) : (
+        <div className="mt-2.5 overflow-hidden rounded-md border border-cyan-400 bg-white shadow-sm dark:border-cyan-700 dark:bg-zinc-950">
+          <div className="flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-800 px-3 py-1.5">
+            <span className="w-16 shrink-0 text-[12px] text-zinc-400 dark:text-zinc-600">Subject</span>
+            <input
+              value={draftSubject}
+              onChange={e => setDraftSubject(e.target.value)}
+              className="flex-1 bg-transparent text-[12px] font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none"
+            />
+          </div>
+          <textarea
+            value={draftBody}
+            onChange={e => setDraftBody(e.target.value)}
+            rows={10}
+            className="w-full resize-y bg-transparent px-4 py-4 font-serif text-[13.5px] leading-[1.7] text-zinc-800 dark:text-zinc-200 focus:outline-none"
+          />
+        </div>
+      )}
 
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
-        <a
-          href={email.to_email ? mailtoHref : undefined}
-          aria-disabled={!email.to_email}
-          onClick={e => { if (!email.to_email) e.preventDefault() }}
-          className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-medium ${
-            email.to_email
-              ? 'bg-cyan-600/80 text-white hover:bg-cyan-600'
-              : 'bg-zinc-200 text-zinc-400 cursor-not-allowed dark:bg-zinc-800 dark:text-zinc-600'
-          }`}
-        >
-          Open in mail app
-        </a>
-        <button
-          onClick={async () => {
-            await navigator.clipboard.writeText(email.body ?? '')
-            setCopied(true); setTimeout(() => setCopied(false), 1500)
-          }}
-          className="rounded-md bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-700/60 dark:hover:bg-zinc-700 px-2.5 py-1 text-[11px] font-medium text-zinc-800 dark:text-zinc-200"
-        >
-          {copied ? 'Copied' : 'Copy body'}
-        </button>
+        {!editing ? (
+          <>
+            <a
+              href={email.to_email ? mailtoHref : undefined}
+              aria-disabled={!email.to_email}
+              onClick={e => { if (!email.to_email) e.preventDefault() }}
+              className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-medium ${
+                email.to_email
+                  ? 'bg-cyan-600/80 text-white hover:bg-cyan-600'
+                  : 'bg-zinc-200 text-zinc-400 cursor-not-allowed dark:bg-zinc-800 dark:text-zinc-600'
+              }`}
+            >
+              Open in mail app
+            </a>
+            <button
+              onClick={async () => {
+                await navigator.clipboard.writeText(email.body ?? '')
+                setCopied(true); setTimeout(() => setCopied(false), 1500)
+              }}
+              className="rounded-md bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-700/60 dark:hover:bg-zinc-700 px-2.5 py-1 text-[11px] font-medium text-zinc-800 dark:text-zinc-200"
+            >
+              {copied ? 'Copied' : 'Copy body'}
+            </button>
+            {isAdmin && (
+              <button
+                onClick={startEditing}
+                className="rounded-md bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-700/60 dark:hover:bg-zinc-700 px-2.5 py-1 text-[11px] font-medium text-zinc-800 dark:text-zinc-200"
+              >
+                Edit
+              </button>
+            )}
+          </>
+        ) : (
+          <>
+            <button
+              disabled={busy || draftSubject.trim().length === 0 || draftBody.trim().length === 0}
+              onClick={async () => {
+                setBusy(true); setError(null)
+                const ok = await onSaveEdit(email.id, draftSubject.trim(), draftBody)
+                setBusy(false)
+                if (ok) setEditing(false)
+                else setError('Could not save — try again.')
+              }}
+              className="rounded-md bg-emerald-600/80 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-emerald-600 disabled:opacity-50"
+            >
+              Save draft
+            </button>
+            <button
+              onClick={() => setEditing(false)}
+              className="rounded-md px-2.5 py-1 text-[11px] text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300"
+            >
+              Cancel
+            </button>
+          </>
+        )}
       </div>
 
       <p className="mt-2 text-[10.5px] text-zinc-500 dark:text-zinc-600">
@@ -260,7 +337,7 @@ function EmailCard({
         {email.qa_notes ? ` — ${email.qa_notes}` : ''}
       </p>
 
-      {isAdmin && !decided && !failing && (
+      {isAdmin && !editing && !decided && !failing && (
         <div className="mt-2.5 flex gap-1.5">
           <button
             disabled={busy}
@@ -380,6 +457,133 @@ function LogReplyForm({ companyId, onLogged }: { companyId: number; onLogged: ()
   )
 }
 
+function GenerateDraftButton({
+  companyId, channel, label, alreadyQueued, onQueued,
+}: {
+  companyId: number
+  channel: 'email' | 'linkedin'
+  label: string
+  alreadyQueued: boolean
+  onQueued: () => void
+}) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  if (alreadyQueued) {
+    return (
+      <p className="rounded-lg bg-amber-500/10 ring-1 ring-amber-500/25 px-3 py-2.5 text-[12px] text-amber-700 dark:text-amber-300">
+        Generating — Hermes picks up queued requests roughly every 20 minutes. Check back shortly.
+      </p>
+    )
+  }
+
+  return (
+    <div className="rounded-lg bg-zinc-50 ring-zinc-200 dark:bg-zinc-800/30 dark:ring-zinc-800/60 p-3.5 ring-1 text-center">
+      <p className="mb-2 text-[12px] text-zinc-500 dark:text-zinc-600">No draft yet.</p>
+      <button
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true); setError(null)
+          const res = await fetch('/api/outreach/generate-draft', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ companyId, channel }),
+          })
+          setBusy(false)
+          if (res.ok) onQueued()
+          else setError('Could not queue — try again.')
+        }}
+        className="rounded-md bg-cyan-600/80 px-3 py-1.5 text-[12px] font-medium text-white hover:bg-cyan-600 disabled:opacity-50"
+      >
+        {busy ? 'Queuing…' : label}
+      </button>
+      {error && <p className="mt-1.5 text-[11px] text-red-600 dark:text-red-400">{error}</p>}
+    </div>
+  )
+}
+
+function ReferralNoteEditor({
+  companyId, note, strength, isAdmin, onSaved,
+}: {
+  companyId: number
+  note: string | null
+  strength: string | null
+  isAdmin: boolean
+  onSaved: (note: string | null, strength: string | null) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [text, setText] = useState(note ?? '')
+  const [level, setLevel] = useState(strength ?? 'mutual_connection')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  if (!isAdmin && !note) return null
+
+  if (!editing) {
+    return note ? (
+      <Section title="Referral / mutual connection">
+        <div className={`rounded-lg p-3 ring-1 ${
+          strength === 'warm_intro' ? 'bg-emerald-500/5 ring-emerald-500/20'
+          : strength === 'mutual_connection' ? 'bg-cyan-500/5 ring-cyan-500/20'
+          : 'bg-zinc-100 ring-zinc-200 dark:bg-zinc-800/40 dark:ring-zinc-800/60'
+        }`}>
+          <p className="text-[11.5px] text-zinc-700 dark:text-zinc-300">{note}</p>
+          {isAdmin && (
+            <button onClick={() => setEditing(true)}
+              className="mt-1.5 text-[10.5px] text-cyan-600 dark:text-cyan-400 hover:underline">Edit</button>
+          )}
+        </div>
+      </Section>
+    ) : isAdmin ? (
+      <button onClick={() => setEditing(true)}
+        className="rounded-md bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-700/60 dark:hover:bg-zinc-700 px-2.5 py-1 text-[11px] font-medium text-zinc-800 dark:text-zinc-200">
+        + Add referral / mutual connection
+      </button>
+    ) : null
+  }
+
+  return (
+    <Section title="Referral / mutual connection">
+      <div className="space-y-1.5">
+        <select value={level} onChange={e => setLevel(e.target.value)}
+          className="rounded-md border border-zinc-200 bg-white dark:border-zinc-700/60 dark:bg-zinc-900/60 px-2 py-1 text-[11px] text-zinc-800 dark:text-zinc-200">
+          <option value="warm_intro">Warm intro (someone will introduce us)</option>
+          <option value="mutual_connection">Mutual connection (we both know someone)</option>
+          <option value="cold">No connection</option>
+        </select>
+        <textarea
+          value={text}
+          onChange={e => setText(e.target.value)}
+          placeholder="e.g. Sean knows the CFO from college"
+          rows={2}
+          className="w-full rounded-md border border-zinc-200 bg-white placeholder:text-zinc-400 dark:border-zinc-700/60 dark:bg-zinc-900/60 dark:placeholder:text-zinc-600 px-2 py-1.5 text-[11.5px] text-zinc-800 dark:text-zinc-200"
+        />
+        <div className="flex items-center gap-1.5">
+          <button
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true); setError(null)
+              const res = await fetch('/api/outreach/referral-note', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ companyId, note: text.trim() || null, strength: text.trim() ? level : null }),
+              })
+              setBusy(false)
+              if (res.ok) { onSaved(text.trim() || null, text.trim() ? level : null); setEditing(false) }
+              else setError('Could not save — try again.')
+            }}
+            className="rounded-md bg-emerald-600/80 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-emerald-600 disabled:opacity-50"
+          >
+            Save
+          </button>
+          <button onClick={() => setEditing(false)}
+            className="rounded-md px-2 py-1 text-[11px] text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300">Cancel</button>
+          {error && <p className="text-[11px] text-red-600 dark:text-red-400">{error}</p>}
+        </div>
+      </div>
+    </Section>
+  )
+}
+
 export default function CompanyPanel({
   id, isAdmin, onClose,
 }: { id: number; isAdmin: boolean; onClose: () => void }) {
@@ -457,6 +661,23 @@ export default function CompanyPanel({
         ...data,
         emails: data.emails.map(e =>
           e.id === emailId ? { ...e, status: decision, qa_notes: note } : e),
+      })
+      return true
+    }
+    return false
+  }
+
+  async function handleSaveEmailEdit(emailId: number, subject: string, body: string): Promise<boolean> {
+    const res = await fetch('/api/outreach/email-edit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: emailId, subject, text: body }),
+    })
+    if (res.ok && data) {
+      setData({
+        ...data,
+        emails: data.emails.map(e =>
+          e.id === emailId ? { ...e, subject, body, status: 'qa_pending', qa_notes: null } : e),
       })
       return true
     }
@@ -558,6 +779,35 @@ export default function CompanyPanel({
                     </Section>
                   )}
 
+                  {(data.company.open_roles_count ?? 0) > 0 && (
+                    <Section title="Live hiring signal">
+                      <div className="rounded-lg bg-emerald-500/5 ring-1 ring-emerald-500/20 p-3">
+                        <p className="text-[11.5px] text-zinc-700 dark:text-zinc-300">
+                          <span className="font-semibold text-emerald-700 dark:text-emerald-300">
+                            {data.company.open_roles_count} open role{data.company.open_roles_count === 1 ? '' : 's'}
+                          </span> found on the company's own careers page
+                          {data.company.open_roles_last_checked && (
+                            <span className="text-zinc-500"> — checked {data.company.open_roles_last_checked}</span>
+                          )}
+                        </p>
+                        {data.company.open_roles_titles && (
+                          <p className="mt-1 text-[11px] text-zinc-600 dark:text-zinc-400">
+                            {(() => {
+                              try { return (JSON.parse(data.company.open_roles_titles) as string[]).join(' · ') }
+                              catch { return data.company.open_roles_titles }
+                            })()}
+                          </p>
+                        )}
+                      </div>
+                    </Section>
+                  )}
+
+                  <ReferralNoteEditor
+                    companyId={id} note={data.company.referral_note} strength={data.company.referral_strength}
+                    isAdmin={isAdmin}
+                    onSaved={(note, strength) => setData({ ...data, company: { ...data.company, referral_note: note, referral_strength: strength } })}
+                  />
+
                   {data.hypothesis && (
                     <Section title="Opportunity hypothesis">
                       <div className="space-y-2 text-[11.5px] leading-relaxed text-zinc-700 dark:text-zinc-300">
@@ -602,9 +852,15 @@ export default function CompanyPanel({
                       )}
                     </div>
                   )}
-                  {data.emails.length === 0 && <p className="text-[12px] text-zinc-500 dark:text-zinc-600">No drafts yet.</p>}
+                  {data.emails.length === 0 && (
+                    <GenerateDraftButton
+                      companyId={id} channel="email" label="Generate draft"
+                      alreadyQueued={data.pendingDraftRequests.some(r => r.channel === 'email' || r.channel === 'both')}
+                      onQueued={refetch}
+                    />
+                  )}
                   {data.emails.map(e => (
-                    <EmailCard key={e.id} email={e} isAdmin={isAdmin} onDecision={handleEmailDecision} />
+                    <EmailCard key={e.id} email={e} isAdmin={isAdmin} onDecision={handleEmailDecision} onSaveEdit={handleSaveEmailEdit} />
                   ))}
                 </div>
               )}
@@ -617,7 +873,13 @@ export default function CompanyPanel({
                     send manually from his own LinkedIn. Approve the profile match first, send it yourself,
                     then mark it reached out so the pipeline stays accurate.
                   </p>
-                  {data.linkedinActions.length === 0 && <p className="text-[12px] text-zinc-500 dark:text-zinc-600">No LinkedIn actions queued.</p>}
+                  {data.linkedinActions.length === 0 && (
+                    <GenerateDraftButton
+                      companyId={id} channel="linkedin" label="Generate LinkedIn draft"
+                      alreadyQueued={data.pendingDraftRequests.some(r => r.channel === 'linkedin' || r.channel === 'both')}
+                      onQueued={refetch}
+                    />
+                  )}
                   {data.linkedinActions.map(a => (
                     <LinkedinCard key={a.id} action={a} isAdmin={isAdmin} companyId={id} onDecision={handleDecision} onMarkSent={handleMarkSent} />
                   ))}

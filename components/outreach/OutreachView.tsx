@@ -54,6 +54,26 @@ function scoreColor(score: number | null) {
   return 'text-zinc-500'
 }
 
+/** Single glance at what's actually ready to send, per channel, on the main table --
+ * replaces two separate ambiguous "Email"/"LinkedIn" status-string columns that didn't
+ * say whether a draft existed at all. */
+function ReadyBadge({ label, hasDraft, status }: { label: string; hasDraft: boolean; status: string | null }) {
+  if (!hasDraft) {
+    return <span className="inline-flex items-center gap-1 text-[10.5px] text-zinc-400 dark:text-zinc-600">{label}: no draft</span>
+  }
+  const sent = status === 'sent' || status === 'done'
+  const approved = status === 'approved'
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-medium ring-1 ${
+      sent ? 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 ring-cyan-500/30'
+      : approved ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 ring-emerald-500/30'
+      : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 ring-amber-500/30'
+    }`}>
+      {label}: {sent ? 'sent' : approved ? 'approved' : 'draft ready'}
+    </span>
+  )
+}
+
 export default function OutreachView({
   companies, summary, isAdmin,
 }: { companies: OutreachCompanyRow[]; summary: Summary; isAdmin: boolean }) {
@@ -139,8 +159,8 @@ export default function OutreachView({
               <th className="px-3 py-2.5 font-medium">Score</th>
               <th className="px-3 py-2.5 font-medium">Stage</th>
               <th className="px-3 py-2.5 font-medium">Contact</th>
-              <th className="px-3 py-2.5 font-medium">Email</th>
-              <th className="px-3 py-2.5 font-medium">LinkedIn</th>
+              <th className="px-3 py-2.5 font-medium">Ready</th>
+              <th className="px-3 py-2.5 font-medium">Signals</th>
               <th className="px-3 py-2.5 font-medium">Sequence</th>
               <th className="px-3 py-2.5 font-medium">Reply</th>
             </tr>
@@ -174,8 +194,30 @@ export default function OutreachView({
                   </div>
                 </td>
                 <td className="px-3 py-2.5 text-zinc-600 dark:text-zinc-400">{c.contact_name ?? '—'}</td>
-                <td className="px-3 py-2.5 text-zinc-500">{c.email_status_current ?? '—'}</td>
-                <td className="px-3 py-2.5 text-zinc-500">{c.linkedin_status ?? '—'}</td>
+                <td className="px-3 py-2.5">
+                  <div className="flex flex-col gap-1">
+                    <ReadyBadge label="Email" hasDraft={c.email_draft_count > 0} status={c.email_status_current} />
+                    <ReadyBadge label="LinkedIn" hasDraft={c.linkedin_draft_count > 0} status={c.linkedin_status} />
+                  </div>
+                </td>
+                <td className="px-3 py-2.5">
+                  <div className="flex flex-wrap gap-1">
+                    {(c.open_roles_count ?? 0) > 0 && (
+                      <span className="inline-flex whitespace-nowrap items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10.5px] font-medium text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-500/30">
+                        {c.open_roles_count} hiring
+                      </span>
+                    )}
+                    {c.referral_note && (
+                      <span className={`inline-flex whitespace-nowrap items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-medium ring-1 ${
+                        c.referral_strength === 'warm_intro' ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 ring-emerald-500/30'
+                        : 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 ring-cyan-500/30'
+                      }`}>
+                        {c.referral_strength === 'warm_intro' ? 'warm intro' : 'mutual'}
+                      </span>
+                    )}
+                    {(c.open_roles_count ?? 0) === 0 && !c.referral_note && <span className="text-zinc-400 dark:text-zinc-600">—</span>}
+                  </div>
+                </td>
                 <td className="px-3 py-2.5">
                   {c.sequence_status ? (
                     <span className={`inline-flex items-center gap-1 text-[11px] ${
