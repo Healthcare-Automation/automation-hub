@@ -123,7 +123,8 @@ export interface CompanyDetail {
   } | null
   emails: { id: number; subject: string | null; body: string | null; status: string;
     sent_at: string | null; created_at: string | null; step_number: number | null;
-    channel: string | null; qa_notes: string | null }[]
+    channel: string | null; qa_notes: string | null;
+    to_name: string | null; to_email: string | null }[]
   linkedinActions: { id: number; recommended_action: string | null; connection_note: string | null;
     dm_draft: string | null; urgency: string | null; profile_confidence: string | null;
     profile_summary: string | null; site_evidence: string | null;
@@ -171,9 +172,17 @@ export async function getCompanyDetail(id: number): Promise<CompanyDetail | null
   const hypothesis = hypRows[0] ?? null
   const emails = await sql<CompanyDetail['emails']>`
     select e.id, e.subject, e.body, e.status, e.sent_at, e.created_at::text as created_at,
-           ss.step_number, ss.channel, e.qa_notes
+           ss.step_number, ss.channel, e.qa_notes,
+           coalesce(ct.full_name, pc.full_name) as to_name,
+           coalesce(ct.email, pc.email) as to_email
     from outreach_emails e
     left join outreach_sequence_steps ss on ss.id = e.sequence_step_id
+    left join outreach_contacts ct on ct.id = e.contact_id
+    left join lateral (
+      select full_name, email from outreach_contacts
+      where company_id = e.company_id and is_primary_decision_maker = 1
+      order by id desc limit 1
+    ) pc on true
     where e.company_id = ${id} order by coalesce(ss.step_number, 0) asc, e.created_at desc
   `
   const linkedinActions = await sql<CompanyDetail['linkedinActions']>`

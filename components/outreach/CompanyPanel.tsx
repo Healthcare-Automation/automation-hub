@@ -178,6 +178,11 @@ function LinkedinCard({
   )
 }
 
+const EMAIL_STATUS_LABEL: Record<string, string> = {
+  draft: 'Draft', qa_pending: 'Awaiting your review', approved: 'Approved — ready to send',
+  qa_failed: 'Needs rewrite', sent: 'Sent',
+}
+
 function EmailCard({
   email, isAdmin, onDecision,
 }: {
@@ -189,17 +194,67 @@ function EmailCard({
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
   const decided = email.status === 'approved' || email.status === 'qa_failed'
+
+  const mailtoHref = `mailto:${encodeURIComponent(email.to_email ?? '')}` +
+    `?subject=${encodeURIComponent(email.subject ?? '')}&body=${encodeURIComponent(email.body ?? '')}`
 
   return (
     <div className="rounded-lg bg-zinc-50 ring-zinc-200 dark:bg-zinc-800/30 dark:ring-zinc-800/60 p-3.5 ring-1">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-[12.5px] font-medium text-zinc-800 dark:text-zinc-200">
-          {email.step_number ? `Touch ${email.step_number} — ` : ''}{email.subject}
+        <p className="text-[12px] font-medium text-zinc-500">
+          {email.step_number ? `Touch ${email.step_number}` : 'Touch'} · {email.channel === 'email' ? 'Email' : email.channel ?? 'Email'}
         </p>
-        <span className="rounded-full bg-zinc-200/70 dark:bg-zinc-700/40 px-2 py-0.5 text-[10.5px] text-zinc-600 dark:text-zinc-400">{email.status}</span>
+        <span className={`rounded-full px-2 py-0.5 text-[10.5px] font-medium ${
+          email.status === 'approved' ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+          : email.status === 'qa_failed' ? 'bg-red-500/10 text-red-600 dark:text-red-400'
+          : email.status === 'sent' ? 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300'
+          : 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+        }`}>{EMAIL_STATUS_LABEL[email.status] ?? email.status}</span>
       </div>
-      <p className="mt-2 whitespace-pre-wrap text-[11.5px] leading-relaxed text-zinc-700 dark:text-zinc-300">{email.body}</p>
+
+      {/* Rendered exactly as it will land in an inbox: To / Subject / Body, nothing else. */}
+      <div className="mt-2.5 overflow-hidden rounded-md border border-zinc-200 bg-white dark:border-zinc-700/60 dark:bg-zinc-900/70">
+        <div className="border-b border-zinc-200 dark:border-zinc-800 px-3 py-2 text-[11.5px]">
+          <p className="text-zinc-500">
+            To: <span className="text-zinc-800 dark:text-zinc-200">
+              {email.to_name ?? 'Unknown contact'}{email.to_email ? ` <${email.to_email}>` : ' (no email on file)'}
+            </span>
+          </p>
+          <p className="mt-0.5 text-zinc-500">
+            Subject: <span className="font-medium text-zinc-800 dark:text-zinc-200">{email.subject}</span>
+          </p>
+        </div>
+        <p className="whitespace-pre-wrap px-3 py-3 text-[12px] leading-relaxed text-zinc-800 dark:text-zinc-200 font-[system-ui]">
+          {email.body}
+        </p>
+      </div>
+
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        <a
+          href={email.to_email ? mailtoHref : undefined}
+          aria-disabled={!email.to_email}
+          onClick={e => { if (!email.to_email) e.preventDefault() }}
+          className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-medium ${
+            email.to_email
+              ? 'bg-cyan-600/80 text-white hover:bg-cyan-600'
+              : 'bg-zinc-200 text-zinc-400 cursor-not-allowed dark:bg-zinc-800 dark:text-zinc-600'
+          }`}
+        >
+          Open in mail app
+        </a>
+        <button
+          onClick={async () => {
+            await navigator.clipboard.writeText(email.body ?? '')
+            setCopied(true); setTimeout(() => setCopied(false), 1500)
+          }}
+          className="rounded-md bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-700/60 dark:hover:bg-zinc-700 px-2.5 py-1 text-[11px] font-medium text-zinc-800 dark:text-zinc-200"
+        >
+          {copied ? 'Copied' : 'Copy body'}
+        </button>
+      </div>
+
       <p className="mt-2 text-[10.5px] text-zinc-500 dark:text-zinc-600">
         {email.sent_at ? `sent ${email.sent_at}` : `drafted ${email.created_at ?? ''}`}
         {email.qa_notes ? ` — ${email.qa_notes}` : ''}
@@ -254,10 +309,11 @@ function EmailCard({
         </div>
       )}
       {error && <p className="mt-1.5 text-[11px] text-red-600 dark:text-red-400">{error}</p>}
-      <p className="mt-2 text-[10px] text-zinc-500 dark:text-zinc-600">
-        Approving here only marks the copy send-ready — no email actually sends until sending
-        infrastructure is provisioned and approved separately.
-      </p>
+      {!email.to_email && (
+        <p className="mt-2 text-[10px] text-amber-700 dark:text-amber-400">
+          No verified email on file for this contact yet — Open in mail app is disabled until one's added.
+        </p>
+      )}
     </div>
   )
 }
@@ -529,6 +585,12 @@ export default function CompanyPanel({
 
               {tab === 'emails' && (
                 <div className="space-y-3">
+                  <p className="rounded-lg bg-cyan-500/5 ring-1 ring-cyan-500/20 px-3 py-2 text-[11px] leading-relaxed text-zinc-600 dark:text-zinc-400">
+                    AI-drafted from the research on this tab, written to sound like Andy, not a template.
+                    Each card below is the exact email as it will land in an inbox. Approve it, then hit
+                    <span className="font-medium text-zinc-800 dark:text-zinc-200"> Open in mail app</span> to
+                    send it yourself from your own inbox with the recipient already filled in — nothing sends automatically.
+                  </p>
                   {data.sequence && (
                     <div className="rounded-lg bg-zinc-50 ring-zinc-200 dark:bg-zinc-800/30 dark:ring-zinc-800/60 p-3 ring-1 flex items-center justify-between">
                       <p className="text-[11px] text-zinc-600 dark:text-zinc-400">
@@ -549,6 +611,12 @@ export default function CompanyPanel({
 
               {tab === 'linkedin' && (
                 <div className="space-y-3">
+                  <p className="rounded-lg bg-cyan-500/5 ring-1 ring-cyan-500/20 px-3 py-2 text-[11px] leading-relaxed text-zinc-600 dark:text-zinc-400">
+                    LinkedIn has no send API here on purpose — sending automatically is what gets accounts
+                    flagged. This tab stages a connection note (and DM once connected) for Andy to copy and
+                    send manually from his own LinkedIn. Approve the profile match first, send it yourself,
+                    then mark it reached out so the pipeline stays accurate.
+                  </p>
                   {data.linkedinActions.length === 0 && <p className="text-[12px] text-zinc-500 dark:text-zinc-600">No LinkedIn actions queued.</p>}
                   {data.linkedinActions.map(a => (
                     <LinkedinCard key={a.id} action={a} isAdmin={isAdmin} companyId={id} onDecision={handleDecision} onMarkSent={handleMarkSent} />

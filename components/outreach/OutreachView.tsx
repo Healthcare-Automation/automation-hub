@@ -11,12 +11,12 @@ type Summary = {
 } | null
 
 const STAGE_LABEL: Record<string, string> = {
-  discovered: 'Discovered', researching: 'Researching', qualified: 'Qualified',
-  needs_contact_data: 'Needs contact data', ready_for_review: 'Ready for review',
-  approved: 'Approved', scheduled: 'Scheduled', contacted: 'Contacted',
-  following_up: 'Following up', replied: 'Replied',
-  qualified_conversation: 'Qualified conversation', meeting: 'Meeting',
-  opportunity: 'Opportunity', nurture: 'Nurture', closed_won: 'Closed won',
+  discovered: 'Found by Hermes', researching: 'Researching', qualified: 'Qualified fit',
+  needs_contact_data: 'Missing contact info', ready_for_review: 'Draft ready for you',
+  approved: 'Approved to send', scheduled: 'Scheduled', contacted: 'Reached out',
+  following_up: 'Following up', replied: 'They replied',
+  qualified_conversation: 'Qualified conversation', meeting: 'Meeting booked',
+  opportunity: 'Active opportunity', nurture: 'Nurture', closed_won: 'Won',
   closed_lost: 'Closed lost', not_fit: 'Not a fit', suppressed: 'Suppressed',
   blocked_deliverability: 'Blocked (deliverability)',
 }
@@ -81,12 +81,32 @@ export default function OutreachView({
 
   return (
     <div className="space-y-5">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="rounded-xl bg-white ring-zinc-200 shadow-sm dark:bg-zinc-900/40 dark:ring-zinc-800/60 p-4 ring-1">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-cyan-700 dark:text-cyan-300">Email</p>
+          <p className="mt-1 text-[12px] leading-relaxed text-zinc-600 dark:text-zinc-400">
+            Hermes finds the company, researches it, and drafts a plain-text email addressed to a real
+            contact. Every draft needs your approval on the Drafts tab of a prospect. Once approved, click
+            <span className="font-medium text-zinc-800 dark:text-zinc-200"> Open in mail app</span> to send it
+            yourself, recipient and subject pre-filled — nothing sends automatically.
+          </p>
+        </div>
+        <div className="rounded-xl bg-white ring-zinc-200 shadow-sm dark:bg-zinc-900/40 dark:ring-zinc-800/60 p-4 ring-1">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-cyan-700 dark:text-cyan-300">LinkedIn</p>
+          <p className="mt-1 text-[12px] leading-relaxed text-zinc-600 dark:text-zinc-400">
+            Hermes matches the decision-maker's LinkedIn profile to the company and drafts a connection
+            note. You approve the profile match on the LinkedIn tab, send the request yourself from your own
+            LinkedIn (there's no auto-send — that's what gets accounts flagged), then mark it reached out.
+          </p>
+        </div>
+      </div>
+
       {summary && (
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
-          <Tile label="total prospects" value={summary.total} tone="text-zinc-800 dark:text-zinc-200" />
+          <Tile label="found by Hermes" value={summary.total} tone="text-zinc-800 dark:text-zinc-200" />
           <Tile label="safe to contact" value={summary.contactable} tone="text-cyan-700 dark:text-cyan-300" />
-          <Tile label="ready for review" value={summary.needs_review} tone="text-amber-700 dark:text-amber-300" />
-          <Tile label="contacted" value={summary.contacted} tone="text-cyan-700 dark:text-cyan-300" />
+          <Tile label="drafts ready for you" value={summary.needs_review} tone="text-amber-700 dark:text-amber-300" />
+          <Tile label="reached out" value={summary.contacted} tone="text-cyan-700 dark:text-cyan-300" />
           <Tile label="replied" value={summary.replied} tone="text-emerald-700 dark:text-emerald-300" />
           <Tile label="do-not-contact" value={summary.do_not_contact} tone="text-red-600 dark:text-red-400" />
         </div>
