@@ -65,6 +65,30 @@ function stageSummaries(events: RunEvent[]): StageSummary[] {
   })
 }
 
+
+/** Failed events not superseded by that same claim later reaching review.
+ *  Mirrors RunLedger.unrecovered_failures() on the VPS: a per-claim blip the
+ *  continuation retry recovered from is history, not outcome. Run-level
+ *  failures (no claim_ref) are never "recovered". */
+export function unrecoveredFailures<T extends { status: string; step: string; claim_ref: string | null }>(events: T[]): T[] {
+  const reached = new Set(events.filter(e => e.step === 'reached_review' && e.status === 'ok' && e.claim_ref).map(e => e.claim_ref as string))
+  return events.filter(e => e.status === 'failed' && !(e.claim_ref && reached.has(e.claim_ref)))
+}
+
+/** The status a run SHOULD carry given its events. The stored column is a
+ *  write-time snapshot; older ledgers (before 2026-09-03) wrote 'failed' for
+ *  any failed event, including ones the run recovered from. Derive here so
+ *  the hub never shows "Run stopped before it finished" over a run whose
+ *  every claim reached review (live 2026-09-03, run 90a10026, 57/57). */
+export function effectiveRunStatus(stored: RunLedgerSnapshot['status'], events: { status: string; step: string; claim_ref: string | null }[]): RunLedgerSnapshot['status'] {
+  if (stored !== 'failed') return stored
+  if (unrecoveredFailures(events).length > 0) return 'failed'
+  // No real failure left: fall back to the same blocked/review_ready split the VPS uses.
+  const reachedReview = events.some(e => e.step === 'reached_review' && e.status === 'ok')
+  const anyBlocked = events.some(e => e.status === 'blocked')
+  return reachedReview ? 'review_ready' : anyBlocked ? 'blocked' : 'review_ready'
+}
+
 /** Pure: rebuild the Python `RunLedger.to_dict()` shape from DB rows. */
 export function buildSnapshot(run: RunRow, rows: EventRow[]): RunLedgerSnapshot {
   const events: RunEvent[] = [...rows]
@@ -91,9 +115,9 @@ export function buildSnapshot(run: RunRow, rows: EventRow[]): RunLedgerSnapshot 
     period_end: day(run.period_end),
     started_at: iso(run.started_at),
     finished_at: run.finished_at ? iso(run.finished_at) : null,
-    status: run.status,
+    status: effectiveRunStatus(run.status, events),
     stages: stageSummaries(events),
-    first_failure: events.find(event => event.status === 'failed') ?? null,
+    first_failure: unrecoveredFailures(events)[0] ?? null,
     events,
   }
 }
@@ -120,10 +144,13 @@ export function attachRunOutcomes(items: RunHistoryItem[], signals: OutcomeSigna
     bucket.push(signal)
     byRun.set(signal.run_id, bucket)
   }
-  return items.map(item => ({
-    ...item,
-    outcome: computeRunOutcome(item.status, byRun.get(item.runId) ?? []),
-  }))
+  return items.map(item => {
+    const signals = byRun.get(item.runId) ?? []
+    // The projection carries every failed event and every reached_review, which
+    // is exactly what effectiveRunStatus needs.
+    const status = effectiveRunStatus(item.status, signals)
+    return { ...item, status, outcome: computeRunOutcome(status, signals) }
+  })
 }
 
 export async function getMohamedRunHistory(limit = 20): Promise<RunHistoryItem[]> {

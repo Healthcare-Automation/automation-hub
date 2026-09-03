@@ -76,6 +76,21 @@ test('a failed run explains itself in plain English rather than showing the code
   assert.doesNotMatch(outcome.subline ?? '', /hcpf_reauthentication_required/)
 })
 
+test('a failure on a claim that later reached review is not the run failure', () => {
+  // Live 2026-09-03 (run 90a10026): transient hcpfnavigationerror on one
+  // claim, continuation retry succeeded, 57/57 reached review. The VPS
+  // ledger now reports review_ready; the hub must not resurrect the
+  // recovered blip as the explanation of anything.
+  const outcome = computeRunOutcome('review_ready', [
+    signal({ step: 'portal_action', status: 'failed', code: 'hcpfnavigationerror', claim_ref: 'aaaa' }),
+    signal({ step: 'claim_drafted', claim_ref: 'aaaa' }),
+    signal({ step: 'reached_review', claim_ref: 'aaaa' }),
+  ])
+  assert.equal(outcome.tone, 'ready')
+  assert.equal(outcome.claimsReady, 1)
+  assert.equal(outcome.claimsFailed, 0)
+})
+
 test('drafted claims that never reached review are counted as unfinished', () => {
   const outcome = computeRunOutcome('review_ready', [
     signal({ step: 'claim_drafted', claim_ref: 'aaaa' }),

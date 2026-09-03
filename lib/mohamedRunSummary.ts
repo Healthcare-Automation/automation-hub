@@ -182,7 +182,7 @@ export function computeRunOutcome(status: RunLedgerSnapshot['status'], events: O
   let visitsIn: number | null = null
   let visitsBlocked = 0
   let coverageGapVisits = 0
-  let failureCode: string | null = null
+  const failedEvents: OutcomeSignal[] = []
   const reasonCounts = new Map<string, number>()
   const drafted = new Set<string>()
   const reachedReview = new Set<string>()
@@ -211,10 +211,18 @@ export function computeRunOutcome(status: RunLedgerSnapshot['status'], events: O
         if (event.status === 'ok' && event.claim_ref) reachedReview.add(event.claim_ref)
         break
     }
-    if (event.status === 'failed' && !failureCode) failureCode = event.code
+    if (event.status === 'failed') failedEvents.push(event)
   }
 
   for (const ref of reachedReview) drafted.add(ref)
+  // A per-claim failure that the same claim later recovered from (the
+  // continuation retry drove it to reached_review/ok) is history, not the
+  // outcome — mirrors RunLedger.unrecovered_failures() on the VPS. Live
+  // 2026-09-03: 57/57 claims reached review yet the card said "Run stopped
+  // before it finished" because the first failed event was a transient
+  // navigation error on a claim that succeeded 33 minutes later.
+  const firstUnrecovered = failedEvents.find(e => !(e.claim_ref && reachedReview.has(e.claim_ref)))
+  const failureCode = firstUnrecovered?.code ?? null
   const claimsReady = reachedReview.size
   const claimsFailed = Math.max(0, drafted.size - claimsReady)
   const reasons: BlockReason[] = [...reasonCounts.entries()]

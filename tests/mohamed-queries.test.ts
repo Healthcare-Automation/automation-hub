@@ -40,11 +40,18 @@ test('buildSnapshot reproduces the Python ledger shape from DB rows (any order)'
 })
 
 test('buildSnapshot derives first_failure and tolerates null detail', () => {
-  const rows: EventRow[] = ledger.events.map((event, index) =>
-    index === 10
-      ? { ...event, status: 'failed', code: 'runtimeerror', action: 'fill', field: 'units', detail: null }
-      : { ...event, detail: event.detail },
-  )
+  // The demo claim at event 10 later reaches review, so a failure there is
+  // "recovered" and must NOT be the first_failure (see the recovered-claim
+  // tests below). Make it a real, unrecovered failure by also dropping that
+  // claim's later reached_review row.
+  const target = ledger.events[10]
+  const rows: EventRow[] = ledger.events
+    .filter(event => !(event.step === 'reached_review' && event.claim_ref === target.claim_ref))
+    .map((event, index) =>
+      index === 10
+        ? { ...event, status: 'failed', code: 'runtimeerror', action: 'fill', field: 'units', detail: null }
+        : { ...event, detail: event.detail },
+    )
   const snapshot = buildSnapshot(runRow(), rows)
   assert.equal(snapshot.first_failure?.seq, 11)
   assert.deepEqual(snapshot.first_failure?.detail, {})
@@ -76,4 +83,32 @@ test('a flat multi-run signal projection folds into one outcome per run', () => 
   assert.match(b.outcome?.headline ?? '', /No claims built — 3 visits blocked: visit has no billable hours/)
   // A run with no signal rows still gets an honest outcome, not a crash.
   assert.equal(c.outcome?.tone, 'idle')
+})
+
+test('a stored "failed" run whose only failures were later recovered reads as review_ready', () => {
+  // Live 2026-09-03, run 90a10026: 57/57 reached review; the ledger was
+  // written 'failed' by the pre-fix VPS code because of one transient,
+  // retried navigation error. The hub must derive the honest status from
+  // the events rather than trusting that snapshot.
+  const item = { ...toHistoryItem(runRow()), runId: 'r1', status: 'failed' as const }
+  const signals: OutcomeSignalRow[] = [
+    { run_id: 'r1', step: 'portal_action', status: 'failed', claim_ref: 'aaaa', code: 'hcpfnavigationerror', detail: {} },
+    { run_id: 'r1', step: 'reached_review', status: 'ok', claim_ref: 'aaaa', code: 'continuation_retry', detail: {} },
+    { run_id: 'r1', step: 'reached_review', status: 'ok', claim_ref: 'bbbb', code: null, detail: {} },
+  ]
+  const [out] = attachRunOutcomes([item], signals)
+  assert.equal(out.status, 'review_ready')
+  assert.equal(out.outcome?.tone, 'ready')
+  assert.doesNotMatch(out.outcome?.headline ?? '', /stopped before it finished/)
+})
+
+test('a stored "failed" run with a run-level failure stays failed', () => {
+  const item = { ...toHistoryItem(runRow()), runId: 'r2', status: 'failed' as const }
+  const signals: OutcomeSignalRow[] = [
+    { run_id: 'r2', step: 'reached_review', status: 'ok', claim_ref: 'aaaa', code: null, detail: {} },
+    { run_id: 'r2', step: 'run_stopped', status: 'failed', claim_ref: null, code: 'hcpf_session_died', detail: {} },
+  ]
+  const [out] = attachRunOutcomes([item], signals)
+  assert.equal(out.status, 'failed')
+  assert.equal(out.outcome?.headline, 'Run stopped before it finished')
 })
