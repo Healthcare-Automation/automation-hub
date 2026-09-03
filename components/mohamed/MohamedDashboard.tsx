@@ -9,6 +9,7 @@ import { describeRunProgress } from '@/lib/mohamedRunProgress'
 import { formatDuration } from '@/lib/mohamedRunSummary'
 import { RunHistory } from './RunHistory'
 import { CsvUploadCard } from './CsvUploadCard'
+import { PortalBrowserCard } from './PortalBrowserCard'
 import { ClientQuestionsCard } from './ClientQuestionsCard'
 import { CoverageGapAlertCard } from './CoverageGapAlertCard'
 import { RunTrace } from './RunTrace'
@@ -196,6 +197,11 @@ export function MohamedDashboard({
           Reconnecting to the run database… the page refreshes automatically, your data is safe.
         </p>
       )}
+
+      {/* Portal browser on/off — Chrome on the VPS runs only while billing
+          needs it (Andy 2026-09-03). Fetches its own state client-side so
+          the page's 4-way parallel query budget (mohamedDb max:4) is untouched. */}
+      {(isAdmin || isMohamed) && <PortalBrowserCard canControl={isAdmin} initial={null} />}
 
       {(isAdmin || isMohamed) && <CsvUploadCard hasFile={Boolean(ledger)} />}
 
