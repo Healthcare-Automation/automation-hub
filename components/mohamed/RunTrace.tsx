@@ -95,7 +95,7 @@ export function RunTrace({ ledger }: { ledger: RunLedgerSnapshot }) {
           <table className="w-full text-left text-xs">
             <thead className="bg-zinc-50 dark:bg-zinc-900/50 text-zinc-500">
               <tr>
-                {['Claim ref', 'Procedure', 'Modifiers', 'Units', 'Charge', 'Portal actions', 'Result', 'Stopped at', 'Review'].map(label => (
+                {['Claim ref', 'Procedure', 'Modifiers', 'Units', 'Charge', 'Portal actions', 'Result', 'Stopped at', 'HCPF status', 'Review'].map(label => (
                   <th key={label} className="px-4 py-2 font-medium">{label}</th>
                 ))}
               </tr>
@@ -116,6 +116,17 @@ export function RunTrace({ ledger }: { ledger: RunLedgerSnapshot }) {
                   </td>
                   <td className="px-4 py-2 font-mono text-zinc-600 dark:text-zinc-400">
                     {claim.failureCode ? [claim.failureField, claim.failureCode].filter(Boolean).join(' · ') : '—'}
+                  </td>
+                  <td className="px-4 py-2 font-mono text-zinc-600 dark:text-zinc-400">
+                    {claim.hcpfClaimId ? (
+                      <span title={claim.hcpfClaimId}>
+                        {claim.hcpfStatus ?? '?'}
+                        {claim.validation?.status === 'mismatch' && ' ⚠'}
+                        {claim.validation?.status === 'not_found' && ' ⚠'}
+                      </span>
+                    ) : (
+                      '—'
+                    )}
                   </td>
                   <td className="px-4 py-2">
                     {claim.reachedReview ? (

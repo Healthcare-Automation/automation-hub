@@ -20,6 +20,22 @@ function money(cents: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100)
 }
 
+/** HCPF's own status word (lowercased at the source, see mohamedLedger.ts)
+ * shown as a colored pill, plain-language first -- Andy, 2026-09-05: "for
+ * the real claims, we need to show on automation hub if they actually
+ * went through or not". Falls back to a neutral style for any status word
+ * not seen live yet, so a new one never renders unreadable. */
+function hcpfStatusPillClasses(status: string): string {
+  if (status === 'paid') return 'bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/30'
+  if (status === 'denied') return 'bg-red-50 text-red-700 ring-red-200 dark:bg-red-500/10 dark:text-red-300 dark:ring-red-500/30'
+  if (status === 'suspended') return 'bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/30'
+  return 'bg-zinc-100 text-zinc-700 ring-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:ring-zinc-700'
+}
+
+function capitalize(word: string): string {
+  return word.charAt(0).toUpperCase() + word.slice(1)
+}
+
 type ReviewState = 'idle' | 'loading' | 'missing' | 'error' | 'ready'
 type Decision = 'approved' | 'rejected' | null
 
@@ -220,6 +236,20 @@ export function ClaimReviewCard({
               {(unitsLabel || amountLabel) && (
                 <span className="text-[11px] text-zinc-500">{[unitsLabel, amountLabel].filter(Boolean).join(' · ')}</span>
               )}
+              {claim.hcpfStatus && (
+                <span
+                  title={claim.hcpfClaimId ? `HCPF Claim ID ${claim.hcpfClaimId}` : undefined}
+                  className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${hcpfStatusPillClasses(claim.hcpfStatus)}`}
+                >
+                  {capitalize(claim.hcpfStatus)}
+                  {claim.validation?.status === 'mismatch' && (
+                    <span title="HCPF's own record disagrees with this status now — re-check before trusting it" className="text-amber-600 dark:text-amber-400">⚠</span>
+                  )}
+                  {claim.validation?.status === 'not_found' && (
+                    <span title="Not found in a later HCPF Search Claims check — worth a manual look" className="text-red-600 dark:text-red-400">⚠</span>
+                  )}
+                </span>
+              )}
               {!claim.reachedReview && <span className="text-[11px] font-medium text-red-600 dark:text-red-400">did not reach review</span>}
             </div>
           </div>
@@ -296,6 +326,31 @@ export function ClaimReviewCard({
           {state === 'loading' && <p className="text-sm text-zinc-500">Loading…</p>}
           {state === 'missing' && <p className="text-sm text-zinc-500">No capture exists for this claim yet.</p>}
           {state === 'error' && <p className="text-sm text-red-700 dark:text-red-400">Could not load the capture. Try again.</p>}
+          {claim.hcpfClaimId && (
+            <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 px-3 py-2 text-xs">
+              <span className="font-medium text-zinc-500">HCPF Claim ID</span>
+              <span className="font-mono font-semibold text-zinc-900 dark:text-zinc-100">{claim.hcpfClaimId}</span>
+              {claim.hcpfStatus && (
+                <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${hcpfStatusPillClasses(claim.hcpfStatus)}`}>
+                  {capitalize(claim.hcpfStatus)}
+                </span>
+              )}
+              {claim.validation?.status === 'match' && (
+                <span className="ml-auto text-[11px] font-medium text-emerald-700 dark:text-emerald-400">✓ Confirmed against HCPF&apos;s own records</span>
+              )}
+              {claim.validation?.status === 'mismatch' && (
+                <span className="ml-auto text-[11px] font-medium text-amber-700 dark:text-amber-400">
+                  ⚠ HCPF now shows {claim.validation.hcpfStatus ? capitalize(claim.validation.hcpfStatus) : 'a different status'} — worth a re-check
+                </span>
+              )}
+              {claim.validation?.status === 'not_found' && (
+                <span className="ml-auto text-[11px] font-medium text-red-700 dark:text-red-400">⚠ Not found in a later HCPF Search Claims check</span>
+              )}
+              {claim.validation?.status === 'error' && (
+                <span className="ml-auto text-[11px] font-medium text-zinc-500">Validation check couldn&apos;t run — not a billing problem</span>
+              )}
+            </div>
+          )}
           {state === 'ready' && (
             <div className="grid gap-4 sm:grid-cols-2">
               <div>

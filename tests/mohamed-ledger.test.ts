@@ -39,6 +39,75 @@ test('claims are summarised from the event stream alone, including non-identifyi
     unitsX100: 200,
     chargeCents: 5_000,
   })
+  // Demo ledger never submitted anything -- new fields must default cleanly.
+  assert.ok(claims.every(claim => claim.hcpfClaimId === null && claim.hcpfStatus === null && claim.validation === null))
+})
+
+test('a submitted claim surfaces HCPF\'s own receipt claim ID and status', () => {
+  const submitted: RunLedgerSnapshot = {
+    ...ledger,
+    events: [
+      ...ledger.events,
+      {
+        run_id: ledger.run_id,
+        seq: 9001,
+        at: '2026-09-05T00:00:00Z',
+        stage: 'submission',
+        step: 'hcpf_receipt',
+        status: 'ok',
+        claim_ref: '0123456789abcdef',
+        action: null,
+        field: null,
+        code: null,
+        detail: { claim_id: '2226247007206', hcpf_status: 'paid' },
+        duration_ms: null,
+      },
+    ],
+  }
+  const claims = summariseClaims(submitted)
+  const claim = claims.find(c => c.claimRef === '0123456789abcdef')
+  assert.ok(claim)
+  assert.equal(claim!.hcpfClaimId, '2226247007206')
+  assert.equal(claim!.hcpfStatus, 'paid')
+})
+
+test('a validated claim surfaces match/mismatch/not_found from submission_validated', () => {
+  const baseEvent = {
+    run_id: ledger.run_id,
+    at: '2026-09-05T00:00:00Z',
+    stage: 'submission' as const,
+    claim_ref: '0123456789abcdef',
+    action: null,
+    field: null,
+    duration_ms: null,
+  }
+  const cases: Array<[string, 'ok' | 'failed' | 'skipped', string | null, 'match' | 'mismatch' | 'not_found' | 'error' | 'skipped']> = [
+    ['match', 'ok', 'match', 'match'],
+    ['status_mismatch', 'failed', 'status_mismatch', 'mismatch'],
+    ['not_found_in_hcpf_search', 'failed', 'not_found_in_hcpf_search', 'not_found'],
+    ['runtimeerror', 'failed', 'runtimeerror', 'error'],
+    ['no_claim_id_to_validate', 'skipped', 'no_claim_id_to_validate', 'skipped'],
+  ]
+  for (const [code, status, _rawCode, expected] of cases) {
+    const withValidation: RunLedgerSnapshot = {
+      ...ledger,
+      events: [
+        ...ledger.events,
+        {
+          ...baseEvent,
+          seq: 9002,
+          step: 'submission_validated',
+          status,
+          code,
+          detail: { hcpf_status: 'paid' },
+        },
+      ],
+    }
+    const claims = summariseClaims(withValidation)
+    const claim = claims.find(c => c.claimRef === '0123456789abcdef')
+    assert.ok(claim, `case ${code}`)
+    assert.equal(claim!.validation?.status, expected, `case ${code}`)
+  }
 })
 
 test('a failure is described down to stage, step, action, field and claim', () => {

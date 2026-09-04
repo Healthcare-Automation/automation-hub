@@ -76,6 +76,24 @@ export type ClaimTrace = {
   modifiers: string | null
   unitsX100: number | null
   chargeCents: number | null
+  /** HCPF's own receipt detail (Andy, 2026-09-05: "for the real claims,
+   * we need to show on automation hub if they actually went through or
+   * not") -- null unless this run actually submitted the claim and the
+   * receipt scrape succeeded. hcpfStatus is HCPF's own status word
+   * verbatim ("paid", "denied", "suspended") -- lowercased at the source
+   * (audit.py's ledger detail validator requires it), never re-cased or
+   * re-interpreted here. */
+  hcpfClaimId: string | null
+  hcpfStatus: string | null
+  /** The mandatory post-submission validation result (Andy, 2026-09-05:
+   * "we should make this validation layer a mandatory after each real
+   * submission runs") -- an independent HCPF Search Claims re-check, run
+   * after submission, comparing against hcpfStatus above. null when this
+   * claim was never submitted, or the validation pass hasn't run yet. */
+  validation: {
+    status: 'match' | 'mismatch' | 'not_found' | 'error' | 'skipped'
+    hcpfStatus: string | null
+  } | null
 }
 
 /** One row per claim, derived purely from the event stream. */
@@ -94,6 +112,9 @@ export function summariseClaims(ledger: RunLedgerSnapshot): ClaimTrace[] {
       modifiers: null,
       unitsX100: null,
       chargeCents: null,
+      hcpfClaimId: null,
+      hcpfStatus: null,
+      validation: null,
     }
     if (event.step === 'claim_drafted') {
       trace.procedureCode = typeof event.detail.procedure_code === 'string' ? event.detail.procedure_code : null
@@ -106,6 +127,27 @@ export function summariseClaims(ledger: RunLedgerSnapshot): ClaimTrace[] {
       if (event.status === 'failed') trace.failedActions += 1
     }
     if (event.step === 'reached_review' && event.status === 'ok') trace.reachedReview = true
+    if (event.step === 'hcpf_receipt' && event.status === 'ok') {
+      trace.hcpfClaimId = typeof event.detail.claim_id === 'string' ? event.detail.claim_id : null
+      trace.hcpfStatus = typeof event.detail.hcpf_status === 'string' ? event.detail.hcpf_status : null
+    }
+    if (event.step === 'submission_validated') {
+      const code = event.code ?? ''
+      const status: 'match' | 'mismatch' | 'not_found' | 'error' | 'skipped' =
+        event.status === 'skipped'
+          ? 'skipped'
+          : code === 'match'
+            ? 'match'
+            : code === 'status_mismatch'
+              ? 'mismatch'
+              : code === 'not_found_in_hcpf_search'
+                ? 'not_found'
+                : 'error'
+      trace.validation = {
+        status,
+        hcpfStatus: typeof event.detail.hcpf_status === 'string' ? event.detail.hcpf_status : null,
+      }
+    }
     if (event.status === 'failed' && !trace.failureCode) {
       trace.failureCode = event.code
       trace.failureField = event.field
