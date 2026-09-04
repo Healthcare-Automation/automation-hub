@@ -197,6 +197,7 @@ const STEP_DISPLAY_NAMES: Record<string, string> = {
   '02-diagnosis': 'Diagnosis',
   '99-review': 'Review',
   '99-failure': 'Failure',
+  '99-submitted': 'Submitted',
 }
 
 /** Maps a wizard step label (see the mohamed repo's live_hcpf.py) to a

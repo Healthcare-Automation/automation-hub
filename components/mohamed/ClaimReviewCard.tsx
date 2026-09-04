@@ -33,10 +33,12 @@ type Decision = 'approved' | 'rejected' | null
  * touches the Supabase ledger, console logs, or analytics; this surface
  * is already authenticated and shows full PHI screenshots on expand.
  *
- * Deciding here only records intent (mohamed_claim_approvals) — there is
- * no live submission path yet, so nothing is sent to HCPF when this is
- * clicked. Rejections require a reason (Andy's ask) that feeds back to
- * the automation so it can learn from the errors.
+ * Deciding here only records intent (mohamed_claim_approvals) for review-
+ * queue triage — separate from whether a run actually submitted the claim
+ * to HCPF (see the run's `mode` and, for submitted claims, the
+ * '99-submitted' step this card renders alongside '99-review'). Rejections
+ * require a reason (Andy's ask) that feeds back to the automation so it
+ * can learn from the errors.
  */
 export function ClaimReviewCard({
   runId,
