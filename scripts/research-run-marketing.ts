@@ -1,3 +1,6 @@
+import { config } from 'dotenv'
+config({ path: '.env.local' })
+
 import { marketingSql as sql } from '../lib/marketingDb'
 import { getDemoOrgAndUser } from '../lib/marketingDemoActor'
 import { manualUrlAdapter } from '../lib/marketing/adapters/manualUrl'

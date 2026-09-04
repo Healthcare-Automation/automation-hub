@@ -1,3 +1,6 @@
+import { config } from 'dotenv'
+config({ path: '.env.local' })
+
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import sql from '../lib/db'

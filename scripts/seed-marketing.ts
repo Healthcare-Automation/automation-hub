@@ -1,10 +1,14 @@
+import { config } from 'dotenv'
+config({ path: '.env.local' })
+
+import type postgres from 'postgres'
 import { marketingSql as sql } from '../lib/marketingDb'
 import { getDemoOrgAndUser } from '../lib/marketingDemoActor'
 import { demoGoogleTrendsAdapter } from '../lib/marketing/adapters/demoGoogleTrends'
 import { computeTrendScore } from '../lib/marketing/scoring'
-import { generateAngles, type GeneratedAngle } from '../lib/marketing/storyGenerator'
+import { generateAngles } from '../lib/marketing/storyGenerator'
 import { generateContent } from '../lib/marketing/contentGenerator'
-import type { RawItem } from '../lib/marketing/types'
+import type { GeneratedAngle, RawItem } from '../lib/marketing/types'
 
 /** Ported from marketing_content/scripts/seed.ts (raw SQL instead of Drizzle). Inserts
  * clearly-labeled demo data (is_demo_data: true throughout) so the Marketing tab isn't
@@ -137,7 +141,7 @@ async function main() {
     for (const angle of generated.angles) {
       await sql`
         insert into marketing_story_angles (org_id, opportunity_id, angle_type, structure, applied_preference_notes)
-        values (${orgId}, ${opportunity.id}, ${angle.angleType}, ${sql.json(angle.structure)}, ${sql.json(angle.appliedPreferenceNotes)})
+        values (${orgId}, ${opportunity.id}, ${angle.angleType}, ${sql.json(angle.structure as unknown as postgres.JSONValue)}, ${sql.json(angle.appliedPreferenceNotes)})
       `
       if (!firstPracticalAngleForContent && angle.angleType === 'practical') {
         firstPracticalAngleForContent = angle

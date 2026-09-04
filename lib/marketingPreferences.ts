@@ -1,3 +1,4 @@
+import type postgres from 'postgres'
 import { marketingSql as sql } from './marketingDb'
 import type { FeedbackTargetType, PreferenceStatus } from './marketing/types'
 
@@ -21,7 +22,7 @@ export async function recordFeedback(input: RecordFeedbackInput) {
     values (
       ${input.orgId}, ${input.targetType}, ${input.targetId},
       ${sql.json(input.tags)}, ${input.freeText ?? null},
-      ${input.capturedEdits ? sql.json(input.capturedEdits) : null}
+      ${input.capturedEdits ? sql.json(input.capturedEdits as unknown as postgres.JSONValue) : null}
     )
     returning *
   `
