@@ -133,6 +133,14 @@ export function RunDetailPanel({
 
               <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
                 <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${badge.classes}`}>{badge.label}</span>
+                {ledger.mode === 'submit' && (
+                  <span
+                    className="rounded-full bg-red-600 px-2.5 py-0.5 text-[11px] font-semibold text-white"
+                    title="This run submitted claims to HCPF, not just a dry run"
+                  >
+                    Submitted
+                  </span>
+                )}
                 <span>{ledger.period_start} → {ledger.period_end}</span>
               </div>
               <div className="text-xs text-zinc-500">

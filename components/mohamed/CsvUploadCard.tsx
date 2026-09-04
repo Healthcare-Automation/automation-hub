@@ -11,12 +11,22 @@ type Phase = 'idle' | 'requesting' | 'uploading' | 'queued' | 'error'
  *      (2 min) signed token + the VPS upload URL. No file involved yet.
  *   2. PUT/POST the raw file straight to that VPS URL with the token as
  *      a bearer credential. This request goes browser -> VPS directly.
+ *
+ * Andy, 2026-09-04: "there should be a button for testing and
+ * submissions. Just in case I want to do dry runs before actually
+ * submitting things." Admin-only toggle (isAdmin) — Mohamed's own uploads
+ * always run as a dry run regardless of this component's local state, so
+ * a client session can never accidentally trigger a real submission.
  */
-export function CsvUploadCard({ hasFile }: { hasFile: boolean }) {
+export function CsvUploadCard({ hasFile, isAdmin }: { hasFile: boolean; isAdmin: boolean }) {
   const [phase, setPhase] = useState<Phase>('idle')
   const [message, setMessage] = useState<string | null>(null)
   const [fileName, setFileName] = useState<string | null>(null)
   const [waitingForPortalSession, setWaitingForPortalSession] = useState(false)
+  // Defaults to dry-run/testing (false) even for admin -- the client asked
+  // for the SAFE default with an explicit opt-in to real submission, never
+  // the reverse.
+  const [submitMode, setSubmitMode] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -52,11 +62,17 @@ export function CsvUploadCard({ hasFile }: { hasFile: boolean }) {
       }
 
       setPhase('uploading')
+      // isAdmin gates the toggle's very existence in the UI below, but the
+      // header itself is only ever sent true when BOTH isAdmin AND the
+      // toggle are on — a non-admin session has no way to flip submitMode
+      // to true in the first place (the toggle isn't rendered), so this is
+      // belt-and-braces, not the only guard.
       const uploadRes = await fetch(`${tokenData.uploadUrl}/upload`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${tokenData.token}`,
           'Content-Type': file.type || 'text/csv',
+          'X-Submit-Mode': isAdmin && submitMode ? 'true' : 'false',
         },
         body: file,
       })
@@ -71,7 +87,11 @@ export function CsvUploadCard({ hasFile }: { hasFile: boolean }) {
         return
       }
       setPhase('queued')
-      setMessage('Queued — the runner picks this up within a minute.')
+      setMessage(
+        uploadData.submitMode
+          ? 'Queued — this run will SUBMIT claims. The runner picks this up within a minute.'
+          : 'Queued — the runner picks this up within a minute.',
+      )
     } catch {
       setPhase('error')
       setMessage('Network error reaching the VPS. Try again.')
@@ -101,6 +121,36 @@ export function CsvUploadCard({ hasFile }: { hasFile: boolean }) {
         </p>
       </div>
       <div className="p-5">
+        {isAdmin && (
+          <div className="mb-4 flex items-center justify-between rounded-xl border border-zinc-200 bg-zinc-50/60 px-3.5 py-3 dark:border-zinc-800 dark:bg-zinc-900/40">
+            <div>
+              <p className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
+                {submitMode ? 'Submission mode' : 'Testing mode'}
+              </p>
+              <p className="mt-0.5 text-[11px] text-zinc-500">
+                {submitMode
+                  ? 'Claims that reach review will be SUBMITTED to HCPF.'
+                  : 'Dry run — claims reach review, nothing is submitted.'}
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={submitMode}
+              disabled={busy}
+              onClick={() => setSubmitMode(v => !v)}
+              className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                submitMode ? 'bg-red-600' : 'bg-zinc-300 dark:bg-zinc-700'
+              } ${busy ? 'opacity-50' : ''}`}
+            >
+              <span
+                className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                  submitMode ? 'translate-x-5' : 'translate-x-0.5'
+                }`}
+              />
+            </button>
+          </div>
+        )}
         {waitingForPortalSession && (
           <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50/70 dark:border-amber-500/30 dark:bg-amber-500/10 px-3 py-2.5">
             <p className="text-xs font-medium text-amber-900 dark:text-amber-200">
@@ -115,7 +165,9 @@ export function CsvUploadCard({ hasFile }: { hasFile: boolean }) {
           className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-8 text-center transition-colors ${
             busy
               ? 'border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900/50'
-              : 'border-zinc-300 bg-zinc-50/40 hover:border-emerald-400 hover:bg-emerald-50/40 dark:border-zinc-700 dark:bg-zinc-900/40 dark:hover:bg-emerald-500/10'
+              : isAdmin && submitMode
+                ? 'border-red-300 bg-red-50/40 hover:border-red-400 hover:bg-red-50/60 dark:border-red-500/30 dark:bg-red-500/10 dark:hover:bg-red-500/15'
+                : 'border-zinc-300 bg-zinc-50/40 hover:border-emerald-400 hover:bg-emerald-50/40 dark:border-zinc-700 dark:bg-zinc-900/40 dark:hover:bg-emerald-500/10'
           }`}
         >
           <input ref={inputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={onFileChosen} disabled={busy} />

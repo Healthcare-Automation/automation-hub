@@ -204,7 +204,7 @@ export function MohamedDashboard({
           the page's 4-way parallel query budget (mohamedDb max:4) is untouched. */}
       {(isAdmin || isMohamed) && <PortalBrowserCard canControl={isAdmin} initial={null} />}
 
-      {(isAdmin || isMohamed) && <CsvUploadCard hasFile={Boolean(ledger)} />}
+      {(isAdmin || isMohamed) && <CsvUploadCard hasFile={Boolean(ledger)} isAdmin={isAdmin} />}
 
       {/* Coverage-gap alert — client decision 2026-08-24: these visits are
           never billed, but that must be visible on every affected run
