@@ -125,37 +125,6 @@ export function getClaimSteps(runId: string, claimRef: string): Promise<StepInde
   return cached
 }
 
-const coverageGapMembersCache = new Map<string, Promise<string[] | null>>()
-
-/** Fetches the member ids behind a run's coverage-gap alert (Andy,
- * 2026-08-25: "I should be able to drill down on those people and see who
- * we missed"). Returns null when the run predates this feature or the
- * artifact isn't reachable — callers show the aggregate count only, same
- * degrade-gracefully rule as every other review artifact fetch here. */
-export function getCoverageGapMembers(runId: string): Promise<string[] | null> {
-  let cached = coverageGapMembersCache.get(runId)
-  if (!cached) {
-    cached = (async () => {
-      try {
-        const { token, uploadUrl } = await getReviewToken()
-        const res = await fetch(`${uploadUrl}/review/${runId}/coverage-gap-members.json`, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        if (!res.ok) return null
-        const payload = await res.json()
-        return Array.isArray(payload.members) ? (payload.members as string[]) : null
-      } catch {
-        return null
-      }
-    })()
-    cached.catch(() => {
-      coverageGapMembersCache.delete(runId)
-    })
-    coverageGapMembersCache.set(runId, cached)
-  }
-  return cached
-}
-
 const MEMBER_ID_LABEL = /member.?id/i
 
 /** The member id is how Mohamed identifies claims -- pulled from whichever
@@ -239,3 +208,123 @@ export function stepDisplayLabel(label: string): string {
   if (serviceLine) return `Service line ${serviceLine[1]}`
   return label
 }
+
+const coverageGapMembersCache = new Map<string, Promise<string[] | null>>()
+
+/** Fetches the member ids behind a run's coverage-gap alert (Andy,
+ * 2026-08-25: "I should be able to drill down on those people and see who
+ * we missed"). Returns null when the run predates this feature or the
+ * artifact isn't reachable — callers show the aggregate count only, same
+ * degrade-gracefully rule as every other review artifact fetch here. */
+export function getCoverageGapMembers(runId: string): Promise<string[] | null> {
+  let cached = coverageGapMembersCache.get(runId)
+  if (!cached) {
+    cached = (async () => {
+      try {
+        const { token, uploadUrl } = await getReviewToken()
+        const res = await fetch(`${uploadUrl}/review/${runId}/coverage-gap-members.json`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (!res.ok) return null
+        const payload = await res.json()
+        return Array.isArray(payload.members) ? (payload.members as string[]) : null
+      } catch {
+        return null
+      }
+    })()
+    cached.catch(() => {
+      coverageGapMembersCache.delete(runId)
+    })
+    coverageGapMembersCache.set(runId, cached)
+  }
+  return cached
+}
+
+export type EligibilityCheck = { memberRef: string; ref: string; covered: boolean }
+
+const eligibilityIndexCache = new Map<string, Promise<EligibilityCheck[] | null>>()
+
+/** Fetches this run's full per-individual eligibility-check index (Andy,
+ * 2026-09-04: "I want to be able to dig into each case where an
+ * individual didn't pass the eligibility check. I need to see each user
+ * and their screenshot of the eligibility screen."). One entry per
+ * distinct member looked up in the run, covered or not — the caller
+ * decides how to filter/group. Returns null when the run predates this
+ * feature or the artifact isn't reachable, same degrade-gracefully rule
+ * as every other review artifact fetch here. */
+export function getEligibilityChecks(runId: string): Promise<EligibilityCheck[] | null> {
+  let cached = eligibilityIndexCache.get(runId)
+  if (!cached) {
+    cached = (async () => {
+      try {
+        const { token, uploadUrl } = await getReviewToken()
+        const res = await fetch(`${uploadUrl}/review/${runId}/eligibility-index.json`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (!res.ok) return null
+        const payload = await res.json()
+        if (!Array.isArray(payload.checks)) return null
+        return payload.checks
+          .filter((c: unknown): c is { member_ref: unknown; ref: unknown; covered: unknown } => typeof c === 'object' && c !== null)
+          .map((c: { member_ref: unknown; ref: unknown; covered: unknown }) => ({
+            memberRef: String(c.member_ref ?? ''),
+            ref: String(c.ref ?? ''),
+            covered: Boolean(c.covered),
+          }))
+          .filter((c: EligibilityCheck) => c.memberRef && c.ref)
+      } catch {
+        return null
+      }
+    })()
+    cached.catch(() => {
+      eligibilityIndexCache.delete(runId)
+    })
+    eligibilityIndexCache.set(runId, cached)
+  }
+  return cached
+}
+
+const eligibilityFieldsCache = new Map<string, Promise<ReviewField[] | null>>()
+
+/** fields.json for one member's eligibility-check capture. Same shape and
+ * caching pattern as getReviewFields, scoped to the eligibility/<ref>
+ * artifact path instead of a claim's. */
+export function getEligibilityFields(runId: string, ref: string): Promise<ReviewField[] | null> {
+  const key = `${runId}/eligibility/${ref}`
+  let cached = eligibilityFieldsCache.get(key)
+  if (!cached) {
+    cached = (async () => {
+      const { token, uploadUrl } = await getReviewToken()
+      const res = await fetch(`${uploadUrl}/review/${runId}/eligibility/${ref}/fields.json`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (res.status === 404) return null
+      if (!res.ok) throw new Error('fields_unavailable')
+      const payload = await res.json()
+      return Array.isArray(payload.fields) ? (payload.fields as ReviewField[]) : []
+    })()
+    cached.catch(() => {
+      eligibilityFieldsCache.delete(key)
+    })
+    eligibilityFieldsCache.set(key, cached)
+  }
+  return cached
+}
+
+/** Returns an object URL for one member's eligibility-check screenshot, or
+ * null if missing/unavailable. Never throws — same contract as
+ * getReviewScreenshotUrl. */
+export async function getEligibilityScreenshotUrl(runId: string, ref: string): Promise<string | null> {
+  try {
+    const { token, uploadUrl } = await getReviewToken()
+    const res = await fetch(`${uploadUrl}/review/${runId}/eligibility/${ref}/screenshot.png`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!res.ok) return null
+    const blob = await res.blob()
+    return URL.createObjectURL(blob)
+  } catch {
+    return null
+  }
+}
+

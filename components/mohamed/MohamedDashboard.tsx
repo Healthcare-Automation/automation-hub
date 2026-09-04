@@ -12,6 +12,7 @@ import { CsvUploadCard } from './CsvUploadCard'
 import { PortalBrowserCard } from './PortalBrowserCard'
 import { ClientQuestionsCard } from './ClientQuestionsCard'
 import { CoverageGapAlertCard } from './CoverageGapAlertCard'
+import { EligibilityChecksCard } from './EligibilityChecksCard'
 import { RunTrace } from './RunTrace'
 import { UpdatedAgoIndicator } from '../UpdatedAgoIndicator'
 
@@ -210,6 +211,12 @@ export function MohamedDashboard({
           report. Drill-down (Andy 2026-08-25) lives in its own client
           component since it fetches member ids from the VPS on demand. */}
       {gapAlert && ledger && <CoverageGapAlertCard runId={ledger.run_id} alert={gapAlert} />}
+
+      {/* Per-individual eligibility-check drill-down (Andy, 2026-09-04:
+          "I want to see each user and their screenshot of the eligibility
+          screen"). Independent of the coverage-gap alert above — covers
+          every member checked this run, passed or not. */}
+      {ledger && <EligibilityChecksCard runId={ledger.run_id} />}
 
       {/* `nowIso` is resolved here, on the server, and passed down: RunHistory
           is a client component, and a bare Date.now() inside it would render

@@ -10,6 +10,7 @@ import {
 } from '@/lib/mohamedLedger'
 import type { ClaimApproval } from '@/lib/mohamedApprovals'
 import { ClaimsByMember } from './ClaimsByMember'
+import { EligibilityChecksCard } from './EligibilityChecksCard'
 
 const statusBadge: Record<RunLedgerSnapshot['status'], { classes: string; label: string }> = {
   review_ready: { classes: 'bg-emerald-600 text-white', label: 'Ready for review' },
@@ -197,6 +198,11 @@ export function RunDetailPanel({
                   </div>
                 )}
               </div>
+
+              {/* Per-individual eligibility-check drill-down (Andy,
+                  2026-09-04: "I want to see each user and their screenshot
+                  of the eligibility screen"). */}
+              <EligibilityChecksCard runId={ledger.run_id} />
             </div>
           )}
         </div>
