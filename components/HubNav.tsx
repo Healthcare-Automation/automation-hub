@@ -1,11 +1,12 @@
 import Link from 'next/link'
 
-export type HubTab = 'proxi' | 'mohamed' | 'outreach'
+export type HubTab = 'proxi' | 'mohamed' | 'outreach' | 'marketing'
 
 const TABS: { key: HubTab; href: string; label: string }[] = [
   { key: 'proxi', href: '/', label: 'Proxi' },
   { key: 'mohamed', href: '/mohamed', label: 'Mohamed' },
   { key: 'outreach', href: '/outreach', label: 'Outreach' },
+  { key: 'marketing', href: '/marketing', label: 'Marketing' },
 ]
 
 /** Shared tab switcher shown identically on all hub tabs (admin view).
