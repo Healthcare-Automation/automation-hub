@@ -201,7 +201,10 @@ export function summariseClaims(ledger: RunLedgerSnapshot): ClaimTrace[] {
 /** True when the claim was actually sent to HCPF (a submit event that
  * succeeded), regardless of whether the receipt scrape later worked. */
 export function wasSubmitted(ledger: RunLedgerSnapshot, claimRef: string): boolean {
-  return ledger.events.some(e => e.claim_ref === claimRef && e.step === 'submit' && e.status === 'ok')
+  const sent = ledger.events.some(e => e.claim_ref === claimRef && e.step === 'submit' && e.status === 'ok')
+  // A later HCPF re-check that found nothing means it never landed.
+  const never = ledger.events.some(e => e.claim_ref === claimRef && e.step === 'submission_validated' && e.code === 'not_found_in_hcpf_search')
+  return sent && !never
 }
 
 export type SubmissionSummary = {

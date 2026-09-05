@@ -10,6 +10,7 @@ import {
   formatPeriod,
   groupRunsByDay,
   runOutcomeFromLedger,
+  summariseCycle,
   type OutcomeSignal,
 } from '../lib/mohamedRunSummary'
 
@@ -153,4 +154,39 @@ test('a claim skipped by dedup (already submitted by an earlier run) is not "unf
   assert.equal(outcome.alreadySubmitted, 1)
   assert.equal(outcome.submitted, 1)
   assert.match(outcome.subline ?? '', /1 already billed by an earlier run/)
+})
+
+
+test('a submit HCPF never received (not_found re-check) is not counted as submitted', () => {
+  const outcome = computeRunOutcome('review_ready', [
+    { step: 'claim_drafted', status: 'ok', claim_ref: 'ghost', code: null, detail: { charge_cents: 100 } },
+    { step: 'reached_review', status: 'ok', claim_ref: 'ghost', code: null, detail: {} },
+    { step: 'submit', status: 'ok', claim_ref: 'ghost', code: null, detail: {} },
+    { step: 'submission_validated', status: 'failed', claim_ref: 'ghost', code: 'not_found_in_hcpf_search', detail: {} },
+  ], 'submit')
+  assert.equal(outcome.submitted, 0)
+  assert.equal(outcome.flagged, 0)
+})
+
+test('the cycle rolls every submission run into one picture', () => {
+  const run = (periodStart: string, periodEnd: string, o: Partial<ReturnType<typeof computeRunOutcome>>) => ({
+    mode: 'submit', periodStart, periodEnd, finishedAt: `${periodEnd}T12:00:00.000Z`,
+    outcome: { tone: 'ready', headline: '', subline: null, visitsIn: null, claimsReady: 0, visitsBlocked: 0, claimsFailed: 0, reasons: [], coverageGapVisits: 0,
+      submitted: 0, paid: 0, denied: 0, chargedCents: 0, paidCents: null, flagged: 0, alreadySubmitted: 0, ...o } as ReturnType<typeof computeRunOutcome>,
+  })
+  const cycle = summariseCycle([
+    { mode: 'dry_run', periodStart: '2026-08-01', periodEnd: '2026-08-07', finishedAt: null, outcome: null },
+    run('2026-08-28', '2026-09-03', { submitted: 25, paid: 23, denied: 2, chargedCents: 617_370, paidCents: 547_270 }),
+    run('2026-08-31', '2026-09-03', { submitted: 1, paid: 1, chargedCents: 35_048, paidCents: 35_048 }),
+    run('2026-08-31', '2026-08-31', { submitted: 1, paid: 1, chargedCents: 13_480, paidCents: 13_480 }),
+  ])
+  assert.ok(cycle)
+  assert.equal(cycle.runs, 3)
+  assert.equal(cycle.submitted, 27)
+  assert.equal(cycle.paidCents, 595_798)
+  assert.equal(cycle.chargedCents, 665_898)
+  assert.equal(cycle.periodStart, '2026-08-28')
+  assert.equal(cycle.periodEnd, '2026-09-03')
+  assert.match(cycle.headline, /27 claims submitted — \$5,957\.98 paid of \$6,658\.98 claimed/)
+  assert.equal(cycle.tone, 'attention')
 })

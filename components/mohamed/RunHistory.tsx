@@ -13,6 +13,8 @@ import {
   groupRunsByDay,
   isSubmissionRun,
   runOutcomeFromLedger,
+  summariseCycle,
+  type CycleSummary,
   type RunOutcome,
   type RunOutcomeTone,
 } from '@/lib/mohamedRunSummary'
@@ -130,12 +132,14 @@ function Stat({ value, label, className = '' }: { value: number | string; label:
 
 function StatusPanel({
   inFlight,
+  cycle,
   latest,
   latestOutcome,
   canCancel,
   nowIso,
 }: {
   inFlight: RunRequestRow | null
+  cycle: CycleSummary | null
   latest: RunLedgerSnapshot | null
   latestOutcome: RunOutcome | null
   canCancel: boolean
@@ -159,6 +163,49 @@ function StatusPanel({
               never remounts across polls that report the SAME run. */}
           <LiveRunBoard key={inFlight.id} progress={inFlight.progress} requestId={inFlight.id} canCancel={canCancel} />
           <p className="mt-3 text-[11px] text-zinc-400 dark:text-zinc-500">When it finishes it becomes the top row of the history below.</p>
+        </div>
+      </section>
+    )
+  }
+
+  // The cycle: every claim ever submitted, one picture (Andy, 2026-09-05:
+  // "a roll up of a cycle. Not the most recent run"). Falls back to the
+  // latest run only while there is no submission run at all.
+  if (cycle) {
+    const tone = TONES[cycle.tone]
+    const title = `${formatPeriod(cycle.periodStart, cycle.periodEnd)} · Billing status`
+    return (
+      <section data-section="status" className="relative mt-6 overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm">
+        <span className={`absolute inset-y-0 left-0 w-1 ${tone.accent}`} aria-hidden />
+        <div className="p-4 pl-5">
+          <div className="flex flex-wrap items-center gap-2">
+            <OutcomeIcon tone={cycle.tone} className={`h-5 w-5 ${tone.icon}`} />
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Billing status · all submissions</span>
+            <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
+              {formatPeriod(cycle.periodStart, cycle.periodEnd)}
+              {cycle.lastFinishedAt && ` · last run ${timeAgo(cycle.lastFinishedAt, nowIso)}`}
+            </span>
+            <span className="ml-auto"><ReportActions runId="cycle" title={title} /></span>
+          </div>
+          <p className={`mt-1.5 text-[15px] font-semibold leading-snug ${tone.headline}`}>{cycle.headline}</p>
+          {cycle.subline && <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">{cycle.subline}</p>}
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Stat value={cycle.submitted} label="submitted" className="bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" />
+            {cycle.paid > 0 && <Stat value={cycle.paid} label="paid" className="bg-emerald-100 text-emerald-900 dark:bg-emerald-500/15 dark:text-emerald-200" />}
+            {cycle.denied > 0 && <Stat value={cycle.denied} label="denied" className="bg-red-100 text-red-900 dark:bg-red-500/15 dark:text-red-200" />}
+            {cycle.awaiting > 0 && <Stat value={cycle.awaiting} label="awaiting HCPF" className="bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300" />}
+            {cycle.flagged > 0 && <Stat value={cycle.flagged} label="need a look" className="bg-amber-100 text-amber-900 dark:bg-amber-500/15 dark:text-amber-200" />}
+            <Stat
+              value={cycle.paidCents !== null ? `${money(cycle.paidCents)} / ${money(cycle.chargedCents)}` : money(cycle.chargedCents)}
+              label={cycle.paidCents !== null ? 'paid / claimed' : 'claimed'}
+              className="bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 ring-1 ring-zinc-200 dark:ring-zinc-700"
+            />
+          </div>
+          {latestOutcome && latest && (
+            <p className="mt-3 border-t border-zinc-100 dark:border-zinc-800 pt-2.5 text-[11px] text-zinc-500">
+              Latest run · {formatPeriod(latest.period_start, latest.period_end)} · {timeAgo(latest.finished_at ?? latest.started_at, nowIso)} · {latestOutcome.headline}
+            </p>
+          )}
         </div>
       </section>
     )
@@ -445,11 +492,12 @@ export function RunHistory({
   )
   const newestRunId = history[0]?.runId ?? ''
   const latestOutcome = latestLedger ? runOutcomeFromLedger(latestLedger) : null
+  const cycle = useMemo(() => summariseCycle(history), [history])
   const groups = groupRunsByDay(visible, now)
 
   return (
     <>
-      <StatusPanel inFlight={degraded ? null : effectiveInFlight} latest={latestLedger} latestOutcome={latestOutcome} canCancel={canCancel} nowIso={now} />
+      <StatusPanel inFlight={degraded ? null : effectiveInFlight} cycle={cycle} latest={latestLedger} latestOutcome={latestOutcome} canCancel={canCancel} nowIso={now} />
 
       {middle}
 

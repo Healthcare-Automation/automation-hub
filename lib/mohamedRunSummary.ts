@@ -264,7 +264,11 @@ export function computeRunOutcome(status: RunLedgerSnapshot['status'], events: O
             statusByRef.set(event.claim_ref, detail.hcpf_status)
           }
           if (typeof detail.paid_cents === 'number') paidByRef.set(event.claim_ref, detail.paid_cents)
-          if (event.code === 'status_mismatch' || event.code === 'not_found_in_hcpf_search') flagged += 1
+          if (event.code === 'status_mismatch') flagged += 1
+          // Found nothing in HCPF's own records: that submit never landed
+          // (the pre-Confirm-fix $1 tests of Sep 4). Not a submission, and
+          // not a flag on a real claim either -- it simply never happened.
+          if (event.code === 'not_found_in_hcpf_search') submitted.delete(event.claim_ref)
         }
         break
     }
@@ -395,4 +399,63 @@ export function computeRunOutcome(status: RunLedgerSnapshot['status'], events: O
 
 export function runOutcomeFromLedger(ledger: RunLedgerSnapshot): RunOutcome {
   return computeRunOutcome(ledger.status, ledger.events, ledger.mode)
+}
+
+/* ------------------------------------------------------------------ *
+ * The cycle: every submission run rolled into one picture
+ * ------------------------------------------------------------------ */
+
+export type CycleSummary = {
+  runs: number
+  periodStart: string
+  periodEnd: string
+  lastFinishedAt: string | null
+  submitted: number
+  paid: number
+  denied: number
+  awaiting: number
+  flagged: number
+  chargedCents: number
+  paidCents: number | null
+  tone: RunOutcomeTone
+  headline: string
+  subline: string | null
+}
+
+/** Andy, 2026-09-05: "this should be a roll up of a cycle. Not the most
+ * recent run. I want to see the full picture." Sums the per-run
+ * submission outcomes over every submission run. Safe to sum because the
+ * dedup store guarantees each claim was submitted by exactly one run, and
+ * a run's `submitted` already excludes dedup skips. */
+export function summariseCycle(history: { mode: string; periodStart: string; periodEnd: string; finishedAt: string | null; outcome?: RunOutcome | null }[]): CycleSummary | null {
+  const runs = history.filter(h => isSubmissionRun(h.mode) && h.outcome)
+  if (runs.length === 0) return null
+  let submitted = 0, paid = 0, denied = 0, flagged = 0, chargedCents = 0
+  let paidCents: number | null = null
+  for (const r of runs) {
+    const o = r.outcome as RunOutcome
+    submitted += o.submitted
+    paid += o.paid
+    denied += o.denied
+    flagged += o.flagged
+    chargedCents += o.chargedCents
+    if (o.paidCents !== null) paidCents = (paidCents ?? 0) + o.paidCents
+  }
+  const awaiting = submitted - paid - denied
+  const periodStart = runs.map(r => r.periodStart).sort()[0]
+  const periodEnd = runs.map(r => r.periodEnd).sort().at(-1) as string
+  const lastFinishedAt = runs.map(r => r.finishedAt).filter((x): x is string => Boolean(x)).sort().at(-1) ?? null
+  const totals = paidCents !== null ? `${money(paidCents)} paid of ${money(chargedCents)} claimed` : `${money(chargedCents)} claimed`
+  const bits: string[] = []
+  if (paid > 0) bits.push(`${paid} paid`)
+  if (denied > 0) bits.push(`${denied} denied`)
+  if (awaiting > 0) bits.push(`${awaiting} awaiting HCPF`)
+  if (flagged > 0) bits.push(`${flagged} ${plural(flagged, 'claim')} need a look`)
+  return {
+    runs: runs.length, periodStart, periodEnd, lastFinishedAt,
+    submitted, paid, denied, awaiting, flagged, chargedCents, paidCents,
+    tone: submitted === 0 ? 'idle' : denied > 0 || flagged > 0 ? 'attention' : 'ready',
+    headline: submitted === 0 ? 'No claims submitted yet' : `${submitted} ${plural(submitted, 'claim')} submitted — ${totals}`,
+    subline: bits.length ? `${bits.join(', ')} · across ${runs.length} submission ${plural(runs.length, 'run')}` : null,
+  }
 }

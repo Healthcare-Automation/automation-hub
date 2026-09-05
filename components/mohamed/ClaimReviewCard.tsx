@@ -215,6 +215,8 @@ export function ClaimReviewCard({ runId, claim, submitted }: { runId: string; cl
             ) : (
               <span className="rounded-full bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 px-2.5 py-1 text-[11px] font-semibold">Submitted · awaiting HCPF</span>
             )
+          ) : claim.validation?.status === 'not_found' ? (
+            <span title="A later check of HCPF's own records found no such claim: the submit never landed" className="rounded-full bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300 px-2.5 py-1 text-[11px] font-semibold">Never reached HCPF</span>
           ) : (
             <span className="rounded-full bg-zinc-100 dark:bg-zinc-800 px-2.5 py-1 text-[11px] font-medium text-zinc-500">{claim.reachedReview ? 'Test · not submitted' : 'Not submitted'}</span>
           )}
