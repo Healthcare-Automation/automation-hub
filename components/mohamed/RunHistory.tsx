@@ -20,6 +20,7 @@ import { LiveRunBoard } from './LiveRunBoard'
 import { ClaimsByMember } from './ClaimsByMember'
 import { CoverageGapAlertCard } from './CoverageGapAlertCard'
 import { EligibilityChecksCard } from './EligibilityChecksCard'
+import { ReportActions } from './ReportActions'
 
 /* ------------------------------------------------------------------ *
  * Status language: one colour per meaning, used identically everywhere
@@ -293,7 +294,10 @@ function RunRow({
 
         {isOpen && (
           <div className={`border-t border-zinc-100 dark:border-zinc-800 px-3.5 py-3.5 ${tone.wash}`}>
-            {outcome?.subline && <p className="text-xs text-zinc-600 dark:text-zinc-400">{outcome.subline}</p>}
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              {outcome?.subline ? <p className="text-xs text-zinc-600 dark:text-zinc-400">{outcome.subline}</p> : <span />}
+              <ReportActions runId={item.runId} title={`${formatPeriod(item.periodStart, item.periodEnd)} · ${isSubmit ? 'Submission' : 'Test run'}`} />
+            </div>
             {outcome && <OutcomeStats outcome={outcome} isSubmit={isSubmit} />}
 
             {outcome && outcome.reasons.length > 0 && (
