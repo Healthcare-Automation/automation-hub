@@ -169,7 +169,7 @@ export function ClaimReviewCard({ runId, claim, submitted }: { runId: string; cl
         className="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-3 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
       >
         <div className="flex min-w-0 items-start gap-3">
-          <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${claim.reachedReview ? 'bg-emerald-500' : 'bg-red-500'}`} />
+          <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${claim.reachedReview ? 'bg-emerald-500' : claim.alreadySubmitted ? 'bg-zinc-400' : 'bg-red-500'}`} />
           <div className="min-w-0">
             <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
               {memberId ? `Member ${memberId}` : claim.procedureCode ? claim.procedureCode.toUpperCase() : 'Claim'}
@@ -195,12 +195,14 @@ export function ClaimReviewCard({ runId, claim, submitted }: { runId: string; cl
                 </span>
               )}
               {paidVsClaimed}
-              {!claim.reachedReview && <span className="text-[11px] font-medium text-red-600 dark:text-red-400">did not reach review</span>}
+              {!claim.reachedReview && !claim.alreadySubmitted && <span className="text-[11px] font-medium text-red-600 dark:text-red-400">did not reach review</span>}
             </div>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2 pt-0.5">
-          {submitted ? (
+          {claim.alreadySubmitted ? (
+            <span title="Skipped: an earlier run already submitted this exact claim, so it was not sent twice" className="rounded-full bg-zinc-100 dark:bg-zinc-800 px-2.5 py-1 text-[11px] font-medium text-zinc-600 dark:text-zinc-300">Already billed by an earlier run</span>
+          ) : submitted ? (
             claim.hcpfStatus ? (
               <span
                 title={claim.hcpfClaimId ? `HCPF Claim ID ${claim.hcpfClaimId}` : undefined}
@@ -276,7 +278,11 @@ export function ClaimReviewCard({ runId, claim, submitted }: { runId: string; cl
             </>
           )}
           {state === 'loading' && <p className="text-sm text-zinc-500">Loading…</p>}
-          {state === 'missing' && <p className="text-sm text-zinc-500">No capture exists for this claim yet.</p>}
+          {state === 'missing' && (
+            <p className="text-sm text-zinc-500">
+              {claim.alreadySubmitted ? 'No capture in this run — it was skipped because an earlier run had already submitted it. Open that run to see it.' : 'No capture exists for this claim yet.'}
+            </p>
+          )}
           {state === 'error' && <p className="text-sm text-red-700 dark:text-red-400">Could not load the capture. Try again.</p>}
           {state === 'ready' && (
             <div className="grid gap-4 sm:grid-cols-2">

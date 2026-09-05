@@ -162,6 +162,11 @@ export type RunOutcome = {
   paidCents: number | null
   /** Re-checks that disagreed with the receipt or found nothing. */
   flagged: number
+  /** Claims skipped because an earlier run already submitted them (dedup).
+   * Not unfinished -- billed once, correctly (Andy, 2026-09-05: the "1
+   * unfinished" on the Aug 28 batch was F736896's week, submitted in the
+   * test run just before). */
+  alreadySubmitted: number
 }
 
 /** The subset of a ledger event this module needs. Kept structural so both
@@ -185,6 +190,7 @@ export const OUTCOME_SIGNAL_STEPS = [
   'submit',
   'hcpf_receipt',
   'submission_validated',
+  'claim_already_submitted',
 ] as const
 
 /** Keys in a `rows_evaluated` detail that are totals, not reason codes. */
@@ -211,6 +217,7 @@ export function computeRunOutcome(status: RunLedgerSnapshot['status'], events: O
   const drafted = new Set<string>()
   const reachedReview = new Set<string>()
   const submitted = new Set<string>()
+  const alreadySubmitted = new Set<string>()
   const chargeByRef = new Map<string, number>()
   const statusByRef = new Map<string, string>()
   const paidByRef = new Map<string, number>()
@@ -245,6 +252,9 @@ export function computeRunOutcome(status: RunLedgerSnapshot['status'], events: O
       case 'submit':
         if (event.status === 'ok' && event.claim_ref) submitted.add(event.claim_ref)
         break
+      case 'claim_already_submitted':
+        if (event.claim_ref) alreadySubmitted.add(event.claim_ref)
+        break
       case 'hcpf_receipt':
         if (event.claim_ref && typeof detail.hcpf_status === 'string') statusByRef.set(event.claim_ref, detail.hcpf_status)
         break
@@ -264,6 +274,9 @@ export function computeRunOutcome(status: RunLedgerSnapshot['status'], events: O
   }
 
   for (const ref of reachedReview) drafted.add(ref)
+  // A dedup skip is a finished claim (billed by an earlier run), not an
+  // unfinished one.
+  for (const ref of alreadySubmitted) drafted.delete(ref)
   // A per-claim failure that the same claim later recovered from (the
   // continuation retry drove it to reached_review/ok) is history, not the
   // outcome — mirrors RunLedger.unrecovered_failures() on the VPS. Live
@@ -296,6 +309,7 @@ export function computeRunOutcome(status: RunLedgerSnapshot['status'], events: O
   const base = {
     visitsIn, claimsReady, visitsBlocked, claimsFailed, reasons, coverageGapVisits,
     submitted: submitted.size, paid, denied, chargedCents, paidCents, flagged,
+    alreadySubmitted: alreadySubmitted.size,
   }
 
   if (status === 'failed') {
@@ -320,6 +334,7 @@ export function computeRunOutcome(status: RunLedgerSnapshot['status'], events: O
     if (flagged > 0) extras.push(`${flagged} ${plural(flagged, 'claim')} need a look`)
     if (visitsBlocked > 0) extras.push(`${visitsBlocked} ${plural(visitsBlocked, 'visit')} held back`)
     if (claimsFailed > 0) extras.push(`${claimsFailed} ${plural(claimsFailed, 'claim')} did not reach HCPF`)
+    if (alreadySubmitted.size > 0) extras.push(`${alreadySubmitted.size} already billed by an earlier run`)
     return {
       ...base,
       tone: denied > 0 || flagged > 0 ? 'attention' : 'ready',

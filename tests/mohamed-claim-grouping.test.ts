@@ -20,6 +20,7 @@ function claim(claimRef: string, overrides: Partial<ClaimTrace> = {}): ClaimTrac
     hcpfStatus: null,
     paidCents: null,
     validation: null,
+    alreadySubmitted: false,
     ...overrides,
   }
 }

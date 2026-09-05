@@ -110,6 +110,8 @@ export type ClaimTrace = {
     status: 'match' | 'mismatch' | 'not_found' | 'error' | 'skipped'
     hcpfStatus: string | null
   } | null
+  /** Skipped by dedup: an earlier run already submitted this exact claim. */
+  alreadySubmitted: boolean
 }
 
 function num(value: unknown): number | null {
@@ -141,7 +143,9 @@ export function summariseClaims(ledger: RunLedgerSnapshot): ClaimTrace[] {
       hcpfStatus: null,
       paidCents: null,
       validation: null,
+      alreadySubmitted: false,
     }
+    if (event.step === 'claim_already_submitted') trace.alreadySubmitted = true
     if (event.step === 'claim_drafted') {
       const line: ClaimLineTrace = {
         procedureCode: str(event.detail.procedure_code),

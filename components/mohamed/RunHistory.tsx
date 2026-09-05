@@ -228,6 +228,7 @@ function OutcomeStats({ outcome, isSubmit }: { outcome: RunOutcome; isSubmit: bo
   }
   if (outcome.visitsBlocked > 0 && !(isSubmit && outcome.submitted > 0)) items.push(<Stat key="held" value={outcome.visitsBlocked} label="visits held back" className="bg-amber-100 text-amber-900 dark:bg-amber-500/15 dark:text-amber-200" />)
   if (outcome.claimsFailed > 0) items.push(<Stat key="fail" value={outcome.claimsFailed} label="claims unfinished" className="bg-red-100 text-red-900 dark:bg-red-500/15 dark:text-red-200" />)
+  if (outcome.alreadySubmitted > 0) items.push(<Stat key="dedup" value={outcome.alreadySubmitted} label="already billed earlier" className="bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300" />)
   if (items.length === 0) return null
   return <div className="mt-3 flex flex-wrap gap-2">{items}</div>
 }
@@ -262,7 +263,7 @@ function RunRow({
   const isSubmit = isSubmissionRun(item.mode)
   const ledger = preview?.phase === 'ready' ? preview.ledger : null
   const claims = ledger ? summariseClaims(ledger) : []
-  const reviewable = claims.filter(c => c.reachedReview)
+  const reviewable = claims.filter(c => c.reachedReview || c.alreadySubmitted)
   const notReviewableCount = claims.length - reviewable.length
   const gapAlert = ledger ? coverageGapAlert(ledger) : null
   const sub = ledger && isSubmit ? summariseSubmissions(ledger, claims) : null

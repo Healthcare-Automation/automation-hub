@@ -133,3 +133,24 @@ test('runs are bucketed by day, newest-first order preserved', () => {
   assert.deepEqual(groups.map(g => g.label), ['Today', 'Yesterday'])
   assert.deepEqual(groups.map(g => g.runs.length), [2, 1])
 })
+
+test('a claim skipped by dedup (already submitted by an earlier run) is not "unfinished"', () => {
+  // Live 2026-09-05: the Aug 28 batch showed "1 claim did not reach HCPF" --
+  // it was F736896's week, submitted 6 minutes earlier in a test run, and
+  // correctly skipped. Andy: "can we look into the 1 unfinished bill?"
+  const outcome = computeRunOutcome(
+    'review_ready',
+    [
+      { step: 'claim_drafted', status: 'ok', claim_ref: 'dup', code: null, detail: { charge_cents: 35_048 } },
+      { step: 'claim_already_submitted', status: 'skipped', claim_ref: 'dup', code: 'already_submitted', detail: {} },
+      { step: 'claim_drafted', status: 'ok', claim_ref: 'ok', code: null, detail: { charge_cents: 100 } },
+      { step: 'reached_review', status: 'ok', claim_ref: 'ok', code: null, detail: {} },
+      { step: 'submit', status: 'ok', claim_ref: 'ok', code: null, detail: {} },
+    ],
+    'submit',
+  )
+  assert.equal(outcome.claimsFailed, 0)
+  assert.equal(outcome.alreadySubmitted, 1)
+  assert.equal(outcome.submitted, 1)
+  assert.match(outcome.subline ?? '', /1 already billed by an earlier run/)
+})
