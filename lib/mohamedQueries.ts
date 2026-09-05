@@ -149,11 +149,11 @@ export function attachRunOutcomes(items: RunHistoryItem[], signals: OutcomeSigna
     // The projection carries every failed event and every reached_review, which
     // is exactly what effectiveRunStatus needs.
     const status = effectiveRunStatus(item.status, signals)
-    return { ...item, status, outcome: computeRunOutcome(status, signals) }
+    return { ...item, status, outcome: computeRunOutcome(status, signals, item.mode) }
   })
 }
 
-export async function getMohamedRunHistory(limit = 20): Promise<RunHistoryItem[]> {
+export async function getMohamedRunHistory(limit = 200): Promise<RunHistoryItem[]> {
   if (!isMohamedLedgerConfigured) return []
   const rows = await mohamedQuery(sql => sql<RunRow[]>`
     select run_id, mode, source, period_start, period_end, started_at, finished_at, status, event_count

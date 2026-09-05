@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import type { ClaimTrace } from '@/lib/mohamedLedger'
-import type { ClaimApproval } from '@/lib/mohamedApprovals'
 import {
   extractDateRange,
   extractMemberId,
@@ -10,6 +9,7 @@ import {
   getReviewFields,
   getReviewScreenshotUrl,
   getClaimSteps,
+  serviceLineNumber,
   stepDisplayLabel,
   type ClaimDateRange,
   type ReviewField,
@@ -21,15 +21,13 @@ function money(cents: number) {
 }
 
 /** HCPF's own status word (lowercased at the source, see mohamedLedger.ts)
- * shown as a colored pill, plain-language first -- Andy, 2026-09-05: "for
- * the real claims, we need to show on automation hub if they actually
- * went through or not". Falls back to a neutral style for any status word
- * not seen live yet, so a new one never renders unreadable. */
+ * as a colored pill. Falls back to neutral for any word not seen live yet
+ * so a new one never renders unreadable. */
 function hcpfStatusPillClasses(status: string): string {
-  if (status === 'paid') return 'bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/30'
-  if (status === 'denied') return 'bg-red-50 text-red-700 ring-red-200 dark:bg-red-500/10 dark:text-red-300 dark:ring-red-500/30'
-  if (status === 'suspended') return 'bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/30'
-  return 'bg-zinc-100 text-zinc-700 ring-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:ring-zinc-700'
+  if (status === 'paid') return 'bg-emerald-600 text-white'
+  if (status === 'denied') return 'bg-red-600 text-white'
+  if (status === 'suspended') return 'bg-amber-500 text-white'
+  return 'bg-zinc-200 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-100'
 }
 
 function capitalize(word: string): string {
@@ -37,61 +35,36 @@ function capitalize(word: string): string {
 }
 
 type ReviewState = 'idle' | 'loading' | 'missing' | 'error' | 'ready'
-type Decision = 'approved' | 'rejected' | null
 
 /**
- * One claim, one card: what it is, the full field list + screenshot
- * captured right before HCPF Review, and the approve/reject controls.
+ * One claim, one card: what it is, whether HCPF took it and what it paid,
+ * and (expanded) the step-by-step field list + screenshot as entered.
  *
  * Headlined by Member ID (fetched from the per-claim fields.json on the
- * VPS at mount) because that is how Mohamed identifies claims — the
- * procedure code demotes to the secondary line. The member id never
- * touches the Supabase ledger, console logs, or analytics; this surface
- * is already authenticated and shows full PHI screenshots on expand.
+ * VPS at mount) because that is how Mohamed identifies claims. The member
+ * id never touches the Supabase ledger, console logs, or analytics; this
+ * surface is already authenticated and shows full PHI screenshots on
+ * expand.
  *
- * Deciding here only records intent (mohamed_claim_approvals) for review-
- * queue triage — separate from whether a run actually submitted the claim
- * to HCPF (see the run's `mode` and, for submitted claims, the
- * '99-submitted' step this card renders alongside '99-review'). Rejections
- * require a reason (Andy's ask) that feeds back to the automation so it
- * can learn from the errors.
+ * Andy, 2026-09-05: approve/reject removed ("The approved reject function
+ * can go"); the right-hand pill is now HCPF's own status for a submitted
+ * claim, and the numbers on the left follow the selected step so they
+ * always match the screenshot ("the number shown on the left needs to
+ * always match the input numbers in the screenshot").
  */
-export function ClaimReviewCard({
-  runId,
-  claim,
-  approval,
-  approvalDegraded = false,
-  canApprove,
-}: {
-  runId: string
-  claim: ClaimTrace
-  approval: ClaimApproval | null
-  approvalDegraded?: boolean
-  canApprove: boolean
-}) {
+export function ClaimReviewCard({ runId, claim, submitted }: { runId: string; claim: ClaimTrace; submitted: boolean }) {
   const [expanded, setExpanded] = useState(false)
   const [state, setState] = useState<ReviewState>('idle')
   const [fields, setFields] = useState<ReviewField[]>([])
   const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null)
   const [memberId, setMemberId] = useState<string | null>(null)
   const [dateRange, setDateRange] = useState<ClaimDateRange>(null)
-  const [decision, setDecision] = useState<Decision>(approval?.decision ?? (approval?.approved ? 'approved' : null))
-  const [reason, setReason] = useState<string | null>(approval?.reason ?? null)
-  const [decidedBy, setDecidedBy] = useState<string | null>(approval?.approvedBy ?? null)
-  const [rejecting, setRejecting] = useState(false)
-  const [reasonDraft, setReasonDraft] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [decisionError, setDecisionError] = useState<string | null>(null)
-
   const [steps, setSteps] = useState<StepIndexEntry[] | null>(null)
   const [selectedStep, setSelectedStep] = useState(0)
 
   // Fetch fields.json at mount purely for the member-id and date-range
   // headline. Best effort: any failure just leaves the procedure-code
-  // headline in place -- the card must never block on this. The top-level
-  // fields.json always exists once a claim reaches review or
-  // fails-with-capture, whether or not it also has step captures (see
-  // review_capture.capture_review).
+  // headline in place -- the card must never block on this.
   useEffect(() => {
     let cancelled = false
     getReviewFields(runId, claim.claimRef, '')
@@ -167,39 +140,29 @@ export function ClaimReviewCard({
     if (next) void load()
   }
 
-  async function sendDecision(next: 'approved' | 'rejected' | 'clear', reasonText?: string) {
-    setBusy(true)
-    setDecisionError(null)
-    try {
-      const res = await fetch('/api/mohamed/approve', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ runId, claimRef: claim.claimRef, decision: next, reason: reasonText }),
-      })
-      const data = await res.json()
-      if (res.ok && data.ok) {
-        setDecision(next === 'clear' ? null : next)
-        setReason(next === 'rejected' ? (reasonText ?? null) : null)
-        setDecidedBy(next === 'clear' ? null : 'you')
-        setRejecting(false)
-        setReasonDraft('')
-      } else if (data.error === 'not_migrated') {
-        setDecisionError('Rejection requires the DB migration (005_claim_reviews.sql) — ask Andy to run it.')
-      } else {
-        setDecisionError('Could not save the decision. Try again.')
-      }
-    } catch {
-      setDecisionError('Could not save the decision. Try again.')
-    } finally {
-      setBusy(false)
-    }
-  }
+  // The numbers on the left follow the screenshot on the right: on a
+  // service-line step show THAT line's units/charge/code; everywhere else
+  // (collapsed, member info, review, submitted) show the claim's totals.
+  const lineNo = expanded && steps ? serviceLineNumber(steps[selectedStep]?.label ?? '') : null
+  const line = lineNo !== null ? (claim.lines[lineNo - 1] ?? null) : null
+  const shownUnits = line ? line.unitsX100 : claim.unitsX100
+  const shownCharge = line ? line.chargeCents : claim.chargeCents
+  const shownCode = line ? line.procedureCode : claim.procedureCode
+  const shownMods = line ? line.modifiers : claim.modifiers
+  const unitsLabel = shownUnits != null ? `${(shownUnits / 100).toFixed(2)} units` : null
+  const amountLabel = shownCharge != null ? money(shownCharge) : null
+  const multiLine = claim.lines.length > 1
 
-  const unitsLabel = claim.unitsX100 != null ? `${(claim.unitsX100 / 100).toFixed(2)} units` : null
-  const amountLabel = claim.chargeCents != null ? money(claim.chargeCents) : null
+  const flagged = claim.hcpfStatus === 'denied' || claim.validation?.status === 'mismatch' || claim.validation?.status === 'not_found'
+  const paidVsClaimed =
+    submitted && claim.paidCents !== null && claim.chargeCents !== null ? (
+      <span className={`text-[11px] font-medium tabular-nums ${claim.paidCents < claim.chargeCents ? 'text-amber-700 dark:text-amber-400' : 'text-emerald-700 dark:text-emerald-400'}`}>
+        {money(claim.paidCents)} paid of {money(claim.chargeCents)}
+      </span>
+    ) : null
 
   return (
-    <div className={`overflow-hidden rounded-xl border bg-white dark:bg-zinc-900 ${decision === 'rejected' ? 'border-red-300' : 'border-zinc-200 dark:border-zinc-800'}`}>
+    <div className={`overflow-hidden rounded-xl border bg-white dark:bg-zinc-900 ${flagged ? 'border-red-300 dark:border-red-500/40' : 'border-zinc-200 dark:border-zinc-800'}`}>
       <button
         type="button"
         onClick={toggle}
@@ -209,81 +172,80 @@ export function ClaimReviewCard({
           <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${claim.reachedReview ? 'bg-emerald-500' : 'bg-red-500'}`} />
           <div className="min-w-0">
             <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-              {/* Member ID is the headline — that's how Mohamed identifies
-                  claims. Falls back to procedure code while (or if) the
-                  fields.json fetch hasn't produced one. */}
               {memberId ? `Member ${memberId}` : claim.procedureCode ? claim.procedureCode.toUpperCase() : 'Claim'}
             </p>
-            {/* The two things that actually tell same-member, same-procedure
-                claims apart at a glance -- date range and procedure code --
-                as their own badges, not buried in a plain-text join (Andy,
-                2026-08-27: "4 pills... we need to know that before clicking
-                on them"). Everything else stays plain text alongside. */}
             <div className="mt-1 flex flex-wrap items-center gap-1.5">
               {dateRange && (
                 <span className="inline-flex items-center rounded-md bg-blue-50 text-blue-700 ring-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-500/30 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums ring-1 ring-inset">
                   {formatReviewDate(dateRange.from)} – {formatReviewDate(dateRange.to)}
                 </span>
               )}
-              {claim.procedureCode && (
+              {shownCode && (
                 <span className="inline-flex items-center gap-1 rounded-md bg-violet-50 text-violet-700 ring-violet-200 dark:bg-violet-500/10 dark:text-violet-300 dark:ring-violet-500/30 px-1.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset">
-                  {claim.procedureCode.toUpperCase()}
-                  {claim.modifiers && claim.modifiers !== 'none' && (
-                    <span className="font-normal text-violet-500 dark:text-violet-400">{claim.modifiers.replaceAll('_', ', ').toUpperCase()}</span>
+                  {shownCode.toUpperCase()}
+                  {shownMods && shownMods !== 'none' && (
+                    <span className="font-normal text-violet-500 dark:text-violet-400">{shownMods.replaceAll('_', ', ').toUpperCase()}</span>
                   )}
                 </span>
               )}
               {(unitsLabel || amountLabel) && (
-                <span className="text-[11px] text-zinc-500">{[unitsLabel, amountLabel].filter(Boolean).join(' · ')}</span>
-              )}
-              {claim.hcpfStatus && (
-                <span
-                  title={claim.hcpfClaimId ? `HCPF Claim ID ${claim.hcpfClaimId}` : undefined}
-                  className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${hcpfStatusPillClasses(claim.hcpfStatus)}`}
-                >
-                  {capitalize(claim.hcpfStatus)}
-                  {claim.validation?.status === 'mismatch' && (
-                    <span title="HCPF's own record disagrees with this status now — re-check before trusting it" className="text-amber-600 dark:text-amber-400">⚠</span>
-                  )}
-                  {claim.validation?.status === 'not_found' && (
-                    <span title="Not found in a later HCPF Search Claims check — worth a manual look" className="text-red-600 dark:text-red-400">⚠</span>
-                  )}
+                <span className="text-[11px] text-zinc-500">
+                  {line ? `Line ${lineNo}: ` : multiLine ? `${claim.lines.length} lines · ` : ''}
+                  {[unitsLabel, amountLabel].filter(Boolean).join(' · ')}
                 </span>
               )}
+              {paidVsClaimed}
               {!claim.reachedReview && <span className="text-[11px] font-medium text-red-600 dark:text-red-400">did not reach review</span>}
             </div>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2 pt-0.5">
-          {decision === 'approved' && (
-            <span className="rounded-full bg-emerald-600 px-2.5 py-1 text-[11px] font-semibold text-white">Approved</span>
+          {submitted ? (
+            claim.hcpfStatus ? (
+              <span
+                title={claim.hcpfClaimId ? `HCPF Claim ID ${claim.hcpfClaimId}` : undefined}
+                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${hcpfStatusPillClasses(claim.hcpfStatus)}`}
+              >
+                {capitalize(claim.hcpfStatus)}
+                {claim.validation?.status === 'mismatch' && <span title="HCPF's own record now disagrees with the receipt">⚠</span>}
+                {claim.validation?.status === 'not_found' && <span title="Not found in a later HCPF Search Claims check">⚠</span>}
+              </span>
+            ) : (
+              <span className="rounded-full bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 px-2.5 py-1 text-[11px] font-semibold">Submitted · awaiting HCPF</span>
+            )
+          ) : (
+            <span className="rounded-full bg-zinc-100 dark:bg-zinc-800 px-2.5 py-1 text-[11px] font-medium text-zinc-500">{claim.reachedReview ? 'Test · not submitted' : 'Not submitted'}</span>
           )}
-          {decision === 'rejected' && (
-            <span className="rounded-full bg-red-600 px-2.5 py-1 text-[11px] font-semibold text-white">Rejected</span>
-          )}
-          {decision === null && (
-            <span className="rounded-full bg-zinc-100 dark:bg-zinc-800 px-2.5 py-1 text-[11px] font-medium text-zinc-500">Needs review</span>
-          )}
-          <span className="text-xs text-zinc-400 dark:text-zinc-500">{expanded ? 'Hide' : 'Review'}</span>
+          <span className="text-xs text-zinc-400 dark:text-zinc-500">{expanded ? 'Hide' : 'Open'}</span>
         </div>
       </button>
 
-      {approvalDegraded && (
-        <p className="border-t border-amber-100 bg-amber-50 text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300 px-4 py-2 text-xs">
-          Reconnecting to the approvals database — any existing decision on this claim isn&apos;t shown yet, refreshes automatically.
-        </p>
-      )}
-
-      {/* A rejection reason stays visible even collapsed — it's the whole
-          point of the feedback loop. */}
-      {decision === 'rejected' && reason && !expanded && (
-        <p className="border-t border-red-100 bg-red-50 text-red-800 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300 px-4 py-2 text-xs">
-          Rejected{decidedBy ? ` by ${decidedBy}` : ''}: {reason}
-        </p>
-      )}
-
       {expanded && (
         <div className="border-t border-zinc-200 dark:border-zinc-800 px-4 py-4">
+          {claim.hcpfClaimId && (
+            <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 px-3 py-2 text-xs">
+              <span><span className="text-zinc-500">HCPF Claim ID </span><span className="font-mono font-semibold text-zinc-900 dark:text-zinc-100">{claim.hcpfClaimId}</span></span>
+              {claim.hcpfStatus && <span><span className="text-zinc-500">Status </span><span className="font-semibold">{capitalize(claim.hcpfStatus)}</span></span>}
+              {claim.chargeCents !== null && <span><span className="text-zinc-500">Claimed </span><span className="font-semibold tabular-nums">{money(claim.chargeCents)}</span></span>}
+              {claim.paidCents !== null && (
+                <span>
+                  <span className="text-zinc-500">Paid </span>
+                  <span className={`font-semibold tabular-nums ${claim.chargeCents !== null && claim.paidCents < claim.chargeCents ? 'text-amber-700 dark:text-amber-400' : ''}`}>{money(claim.paidCents)}</span>
+                  {claim.chargeCents !== null && claim.paidCents < claim.chargeCents && (
+                    <span className="ml-1 text-zinc-500">({money(claim.chargeCents - claim.paidCents)} under — HCPF's rate)</span>
+                  )}
+                </span>
+              )}
+              <span className="ml-auto text-[11px]">
+                {claim.validation?.status === 'match' && <span className="font-medium text-emerald-700 dark:text-emerald-400">✓ Checked against HCPF&apos;s own records</span>}
+                {claim.validation?.status === 'mismatch' && <span className="font-medium text-amber-700 dark:text-amber-400">⚠ HCPF now shows {claim.validation.hcpfStatus ? capitalize(claim.validation.hcpfStatus) : 'a different status'}</span>}
+                {claim.validation?.status === 'not_found' && <span className="font-medium text-red-700 dark:text-red-400">⚠ Not found in HCPF Search Claims</span>}
+                {claim.validation?.status === 'error' && <span className="text-zinc-500">Re-check couldn&apos;t run — not a billing problem</span>}
+                {!claim.validation && <span className="text-zinc-500">Not re-checked yet</span>}
+              </span>
+            </div>
+          )}
+
           {steps && steps.length > 1 && (
             <>
               <div className="mb-2 flex gap-1.5 overflow-x-auto pb-1">
@@ -303,21 +265,11 @@ export function ClaimReviewCard({
                 ))}
               </div>
               <div className="mb-3 flex items-center justify-between text-xs text-zinc-500">
-                <button
-                  type="button"
-                  disabled={selectedStep === 0}
-                  onClick={() => selectStep(selectedStep - 1)}
-                  className="font-medium text-emerald-700 dark:text-emerald-400 hover:underline disabled:pointer-events-none disabled:text-zinc-300 dark:disabled:text-zinc-600"
-                >
+                <button type="button" disabled={selectedStep === 0} onClick={() => selectStep(selectedStep - 1)} className="font-medium text-emerald-700 dark:text-emerald-400 hover:underline disabled:pointer-events-none disabled:text-zinc-300 dark:disabled:text-zinc-600">
                   ← Prev
                 </button>
                 <span>{stepDisplayLabel(steps[selectedStep].label)}</span>
-                <button
-                  type="button"
-                  disabled={selectedStep === steps.length - 1}
-                  onClick={() => selectStep(selectedStep + 1)}
-                  className="font-medium text-emerald-700 dark:text-emerald-400 hover:underline disabled:pointer-events-none disabled:text-zinc-300 dark:disabled:text-zinc-600"
-                >
+                <button type="button" disabled={selectedStep === steps.length - 1} onClick={() => selectStep(selectedStep + 1)} className="font-medium text-emerald-700 dark:text-emerald-400 hover:underline disabled:pointer-events-none disabled:text-zinc-300 dark:disabled:text-zinc-600">
                   Next →
                 </button>
               </div>
@@ -326,31 +278,6 @@ export function ClaimReviewCard({
           {state === 'loading' && <p className="text-sm text-zinc-500">Loading…</p>}
           {state === 'missing' && <p className="text-sm text-zinc-500">No capture exists for this claim yet.</p>}
           {state === 'error' && <p className="text-sm text-red-700 dark:text-red-400">Could not load the capture. Try again.</p>}
-          {claim.hcpfClaimId && (
-            <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 px-3 py-2 text-xs">
-              <span className="font-medium text-zinc-500">HCPF Claim ID</span>
-              <span className="font-mono font-semibold text-zinc-900 dark:text-zinc-100">{claim.hcpfClaimId}</span>
-              {claim.hcpfStatus && (
-                <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${hcpfStatusPillClasses(claim.hcpfStatus)}`}>
-                  {capitalize(claim.hcpfStatus)}
-                </span>
-              )}
-              {claim.validation?.status === 'match' && (
-                <span className="ml-auto text-[11px] font-medium text-emerald-700 dark:text-emerald-400">✓ Confirmed against HCPF&apos;s own records</span>
-              )}
-              {claim.validation?.status === 'mismatch' && (
-                <span className="ml-auto text-[11px] font-medium text-amber-700 dark:text-amber-400">
-                  ⚠ HCPF now shows {claim.validation.hcpfStatus ? capitalize(claim.validation.hcpfStatus) : 'a different status'} — worth a re-check
-                </span>
-              )}
-              {claim.validation?.status === 'not_found' && (
-                <span className="ml-auto text-[11px] font-medium text-red-700 dark:text-red-400">⚠ Not found in a later HCPF Search Claims check</span>
-              )}
-              {claim.validation?.status === 'error' && (
-                <span className="ml-auto text-[11px] font-medium text-zinc-500">Validation check couldn&apos;t run — not a billing problem</span>
-              )}
-            </div>
-          )}
           {state === 'ready' && (
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
@@ -373,96 +300,11 @@ export function ClaimReviewCard({
                   </p>
                 )}
                 {screenshotUrl ? (
-                  <img
-                    src={screenshotUrl}
-                    alt={claim.reachedReview ? 'HCPF claim form screenshot' : 'HCPF portal screen when the session ended'}
-                    className="rounded-lg border border-zinc-200 dark:border-zinc-800"
-                  />
+                  <img src={screenshotUrl} alt={claim.reachedReview ? 'HCPF claim form screenshot' : 'HCPF portal screen when the session ended'} className="rounded-lg border border-zinc-200 dark:border-zinc-800" />
                 ) : (
                   <p className="text-xs text-zinc-400 dark:text-zinc-500">No screenshot captured.</p>
                 )}
               </div>
-            </div>
-          )}
-
-          {canApprove && claim.reachedReview && (
-            <div className={`mt-4 rounded-lg border px-3 py-2.5 ${decision === 'rejected' ? 'border-red-200 bg-red-50 dark:border-red-500/30 dark:bg-red-500/10' : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50'}`}>
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className={`text-xs ${decision === 'rejected' ? 'text-red-800' : 'text-zinc-600 dark:text-zinc-400'}`}>
-                  {decision === 'approved' &&
-                    `Approved${decidedBy ? ` by ${decidedBy}` : ''}. Nothing is submitted automatically — submission is not built yet.`}
-                  {decision === 'rejected' && `Rejected${decidedBy ? ` by ${decidedBy}` : ''}: ${reason ?? ''}`}
-                  {decision === null && 'Review the fields and screenshot above, then approve or reject.'}
-                </p>
-                <div className="flex shrink-0 items-center gap-2">
-                  {decision !== 'approved' && (
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => sendDecision('approved')}
-                      className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
-                    >
-                      Approve
-                    </button>
-                  )}
-                  {decision !== 'rejected' && (
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => setRejecting(v => !v)}
-                      className="rounded-lg border border-red-300 bg-white dark:bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
-                    >
-                      Reject
-                    </button>
-                  )}
-                  {decision !== null && (
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => sendDecision('clear')}
-                      className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-50"
-                    >
-                      Undo
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {rejecting && decision !== 'rejected' && (
-                <div className="mt-3">
-                  <textarea
-                    value={reasonDraft}
-                    onChange={event => setReasonDraft(event.target.value)}
-                    maxLength={2000}
-                    rows={2}
-                    placeholder="What's wrong with this claim? (no client names please)"
-                    className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 px-3 py-2 text-xs focus:border-red-400 focus:outline-none"
-                  />
-                  <div className="mt-2 flex items-center justify-end gap-2">
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => {
-                        setRejecting(false)
-                        setReasonDraft('')
-                      }}
-                      className="rounded-lg px-3 py-1.5 text-xs font-medium text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      disabled={busy || !reasonDraft.trim()}
-                      onClick={() => sendDecision('rejected', reasonDraft.trim())}
-                      className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
-                    >
-                      Confirm rejection
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {decisionError && <p className="mt-2 text-xs text-red-700 dark:text-red-400">{decisionError}</p>}
             </div>
           )}
         </div>

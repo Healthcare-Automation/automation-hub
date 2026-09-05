@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ADMIN_COOKIE_NAME, verifyAdminCookieValue } from '@/lib/adminAuth'
 import { MOHAMED_COOKIE_NAME, verifyMohamedCookieValue } from '@/lib/mohamedAuth'
 import { getMohamedLedger } from '@/lib/mohamedQueries'
-import { getApprovalsForRun } from '@/lib/mohamedApprovals'
 
 export const dynamic = 'force-dynamic'
 // Same reasoning as app/mohamed/page.tsx: the Mohamed Supabase project lives
@@ -12,10 +11,8 @@ export const preferredRegion = 'hnd1'
 const RUN_ID = /^[0-9a-f]{32}$/
 
 /**
- * Run drill-down for the side panel: one run's PHI-free ledger plus its
- * approvals, as JSON. Powers RunDetailPanel so clicking a run in the history
- * table opens in place instead of a disorienting full-page navigation
- * (the /mohamed?run=<id> deep link still works as the fallback view).
+ * Run drill-down: one run's PHI-free ledger as JSON. Powers the expanded
+ * run row in RunHistory (claims, HCPF status, paid vs claimed).
  * Auth-gated exactly like /api/mohamed/approve — same cookies, same 401.
  */
 export async function GET(
@@ -38,9 +35,7 @@ export async function GET(
     if (!ledger) {
       return NextResponse.json({ ok: false, error: 'not_found' }, { status: 404 })
     }
-    // Approvals failing must not sink the panel — same degrade rule as the page.
-    const approvals = await getApprovalsForRun(runId).catch(() => new Map())
-    return NextResponse.json({ ok: true, ledger, approvals: Object.fromEntries(approvals) })
+    return NextResponse.json({ ok: true, ledger })
   } catch (err) {
     console.error('Mohamed run detail failed:', err)
     return NextResponse.json({ ok: false, error: 'unavailable' }, { status: 503 })

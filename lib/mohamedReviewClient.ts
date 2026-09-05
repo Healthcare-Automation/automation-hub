@@ -210,6 +210,12 @@ export function stepDisplayLabel(label: string): string {
   return label
 }
 
+/** 1-based service-line number for a '03-service-line-N' step, else null. */
+export function serviceLineNumber(label: string): number | null {
+  const m = SERVICE_LINE_LABEL.exec(label)
+  return m ? Number(m[1]) : null
+}
+
 const coverageGapMembersCache = new Map<string, Promise<string[] | null>>()
 
 /** Fetches the member ids behind a run's coverage-gap alert (Andy,

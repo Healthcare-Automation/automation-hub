@@ -45,9 +45,17 @@ export function describeBlockReason(code: string): string {
 /** "dry_run" is meaningless to a client; what they need to know is that
  * nothing left the building. */
 export function describeRunMode(mode: string): string {
-  if (mode === 'dry_run') return 'Review run · nothing submitted'
-  if (mode === 'live') return 'Live run · claims submitted'
+  if (mode === 'dry_run') return 'Test run · nothing submitted'
+  if (mode === 'submit' || mode === 'live') return 'Submission · claims sent to HCPF'
   return mode.replaceAll('_', ' ')
+}
+
+/** Andy, 2026-09-05: "a filter at the top of the historical runs where I
+ * ONLY see the actual submissions". A run is a submission when it was
+ * started in submit mode -- even if it ended up submitting zero claims,
+ * that's still the record of a real attempt, not a test. */
+export function isSubmissionRun(mode: string): boolean {
+  return mode === 'submit' || mode === 'live'
 }
 
 /* ------------------------------------------------------------------ *
@@ -145,6 +153,15 @@ export type RunOutcome = {
   /** Blocking reasons, most common first. */
   reasons: BlockReason[]
   coverageGapVisits: number
+  /** Submit-mode runs only: what actually went to HCPF and what came back. */
+  submitted: number
+  paid: number
+  denied: number
+  chargedCents: number
+  /** null until at least one submitted claim has been re-checked. */
+  paidCents: number | null
+  /** Re-checks that disagreed with the receipt or found nothing. */
+  flagged: number
 }
 
 /** The subset of a ledger event this module needs. Kept structural so both
@@ -165,6 +182,9 @@ export const OUTCOME_SIGNAL_STEPS = [
   'claim_drafted',
   'reached_review',
   'coverage_gap_alert',
+  'submit',
+  'hcpf_receipt',
+  'submission_validated',
 ] as const
 
 /** Keys in a `rows_evaluated` detail that are totals, not reason codes. */
@@ -178,7 +198,11 @@ function plural(n: number, one: string, many = `${one}s`): string {
   return n === 1 ? one : many
 }
 
-export function computeRunOutcome(status: RunLedgerSnapshot['status'], events: OutcomeSignal[]): RunOutcome {
+function money(cents: number): string {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100)
+}
+
+export function computeRunOutcome(status: RunLedgerSnapshot['status'], events: OutcomeSignal[], mode = 'dry_run'): RunOutcome {
   let visitsIn: number | null = null
   let visitsBlocked = 0
   let coverageGapVisits = 0
@@ -186,6 +210,11 @@ export function computeRunOutcome(status: RunLedgerSnapshot['status'], events: O
   const reasonCounts = new Map<string, number>()
   const drafted = new Set<string>()
   const reachedReview = new Set<string>()
+  const submitted = new Set<string>()
+  const chargeByRef = new Map<string, number>()
+  const statusByRef = new Map<string, string>()
+  const paidByRef = new Map<string, number>()
+  let flagged = 0
 
   for (const event of events) {
     const detail = event.detail ?? {}
@@ -205,13 +234,33 @@ export function computeRunOutcome(status: RunLedgerSnapshot['status'], events: O
         coverageGapVisits += count(detail.visits_never_billed)
         break
       case 'claim_drafted':
-        if (event.claim_ref) drafted.add(event.claim_ref)
+        if (event.claim_ref) {
+          drafted.add(event.claim_ref)
+          chargeByRef.set(event.claim_ref, (chargeByRef.get(event.claim_ref) ?? 0) + count(detail.charge_cents))
+        }
         break
       case 'reached_review':
         if (event.status === 'ok' && event.claim_ref) reachedReview.add(event.claim_ref)
         break
+      case 'submit':
+        if (event.status === 'ok' && event.claim_ref) submitted.add(event.claim_ref)
+        break
+      case 'hcpf_receipt':
+        if (event.claim_ref && typeof detail.hcpf_status === 'string') statusByRef.set(event.claim_ref, detail.hcpf_status)
+        break
+      case 'submission_validated':
+        if (event.claim_ref) {
+          if (typeof detail.hcpf_status === 'string' && (event.code === 'match' || event.code === 'status_mismatch')) {
+            statusByRef.set(event.claim_ref, detail.hcpf_status)
+          }
+          if (typeof detail.paid_cents === 'number') paidByRef.set(event.claim_ref, detail.paid_cents)
+          if (event.code === 'status_mismatch' || event.code === 'not_found_in_hcpf_search') flagged += 1
+        }
+        break
     }
-    if (event.status === 'failed') failedEvents.push(event)
+    // A validation disagreement is a flag on a claim HCPF already has, not
+    // a run failure -- it must never turn the card red.
+    if (event.status === 'failed' && event.step !== 'submission_validated') failedEvents.push(event)
   }
 
   for (const ref of reachedReview) drafted.add(ref)
@@ -230,17 +279,52 @@ export function computeRunOutcome(status: RunLedgerSnapshot['status'], events: O
     .sort((a, b) => b.count - a.count)
   const topReason = reasons[0] ?? null
 
-  const base = { visitsIn, claimsReady, visitsBlocked, claimsFailed, reasons, coverageGapVisits }
+  let paid = 0
+  let denied = 0
+  let chargedCents = 0
+  let paidCents: number | null = null
+  for (const ref of submitted) {
+    chargedCents += chargeByRef.get(ref) ?? 0
+    const s = statusByRef.get(ref)
+    if (s === 'paid') paid += 1
+    else if (s === 'denied') denied += 1
+    const p = paidByRef.get(ref)
+    if (p !== undefined) paidCents = (paidCents ?? 0) + p
+  }
+  const isSubmit = isSubmissionRun(mode)
+
+  const base = {
+    visitsIn, claimsReady, visitsBlocked, claimsFailed, reasons, coverageGapVisits,
+    submitted: submitted.size, paid, denied, chargedCents, paidCents, flagged,
+  }
 
   if (status === 'failed') {
     const explanation = explainFailureCode(failureCode)
+    const sent = submitted.size > 0 ? ` ${submitted.size} ${plural(submitted.size, 'claim')} had already been submitted.` : ' Nothing was submitted.'
     return {
       ...base,
       tone: 'failed',
       headline: 'Run stopped before it finished',
-      subline: explanation
-        ? explanation.whatHappened
-        : 'The run hit an error and stopped. Nothing was submitted.',
+      subline: (explanation ? explanation.whatHappened : 'The run hit an error and stopped.') + sent,
+    }
+  }
+
+  if (isSubmit && submitted.size > 0) {
+    const bits: string[] = []
+    if (paid > 0) bits.push(`${paid} paid`)
+    if (denied > 0) bits.push(`${denied} denied`)
+    const awaiting = submitted.size - paid - denied
+    if (awaiting > 0) bits.push(`${awaiting} awaiting HCPF`)
+    const totals = paidCents !== null ? `${money(paidCents)} paid of ${money(chargedCents)} claimed` : `${money(chargedCents)} claimed`
+    const extras: string[] = []
+    if (flagged > 0) extras.push(`${flagged} ${plural(flagged, 'claim')} need a look`)
+    if (visitsBlocked > 0) extras.push(`${visitsBlocked} ${plural(visitsBlocked, 'visit')} held back`)
+    if (claimsFailed > 0) extras.push(`${claimsFailed} ${plural(claimsFailed, 'claim')} did not reach HCPF`)
+    return {
+      ...base,
+      tone: denied > 0 || flagged > 0 ? 'attention' : 'ready',
+      headline: `${submitted.size} ${plural(submitted.size, 'claim')} submitted — ${totals}`,
+      subline: [bits.join(', '), ...extras].filter(Boolean).join(' · ') || null,
     }
   }
 
@@ -256,7 +340,9 @@ export function computeRunOutcome(status: RunLedgerSnapshot['status'], events: O
     return {
       ...base,
       tone: 'ready',
-      headline: `${claimsReady} ${plural(claimsReady, 'claim')} ready for your review`,
+      headline: isSubmit
+        ? `${claimsReady} ${plural(claimsReady, 'claim')} reached HCPF review — none submitted`
+        : `${claimsReady} ${plural(claimsReady, 'claim')} passed the test run`,
       subline,
     }
   }
@@ -293,5 +379,5 @@ export function computeRunOutcome(status: RunLedgerSnapshot['status'], events: O
 }
 
 export function runOutcomeFromLedger(ledger: RunLedgerSnapshot): RunOutcome {
-  return computeRunOutcome(ledger.status, ledger.events)
+  return computeRunOutcome(ledger.status, ledger.events, ledger.mode)
 }

@@ -65,6 +65,13 @@ export type RunLedgerSnapshot = {
   events: RunEvent[]
 }
 
+export type ClaimLineTrace = {
+  procedureCode: string | null
+  modifiers: string | null
+  unitsX100: number | null
+  chargeCents: number | null
+}
+
 export type ClaimTrace = {
   claimRef: string
   portalActions: number
@@ -72,28 +79,45 @@ export type ClaimTrace = {
   reachedReview: boolean
   failureCode: string | null
   failureField: string | null
+  /** First service line's code/modifiers -- the claim's headline. */
   procedureCode: string | null
   modifiers: string | null
+  /** CLAIM totals: the sum over every service line. pipeline.py records one
+   * claim_drafted event per line, and the old summary kept only the LAST
+   * line's numbers, so a two-line claim's card showed line 2's units and
+   * charge while its screenshot showed line 1 (Andy, 2026-09-05: "the
+   * number shown on the left needs to always match the input numbers in
+   * the screenshot"). Per-line numbers live in `lines`. */
   unitsX100: number | null
   chargeCents: number | null
+  lines: ClaimLineTrace[]
   /** HCPF's own receipt detail (Andy, 2026-09-05: "for the real claims,
    * we need to show on automation hub if they actually went through or
    * not") -- null unless this run actually submitted the claim and the
-   * receipt scrape succeeded. hcpfStatus is HCPF's own status word
-   * verbatim ("paid", "denied", "suspended") -- lowercased at the source
-   * (audit.py's ledger detail validator requires it), never re-cased or
-   * re-interpreted here. */
+   * receipt scrape succeeded. hcpfStatus is HCPF's own status word,
+   * lowercased at the source (audit.py's ledger detail validator requires
+   * it), never re-interpreted here. */
   hcpfClaimId: string | null
   hcpfStatus: string | null
-  /** The mandatory post-submission validation result (Andy, 2026-09-05:
-   * "we should make this validation layer a mandatory after each real
-   * submission runs") -- an independent HCPF Search Claims re-check, run
-   * after submission, comparing against hcpfStatus above. null when this
-   * claim was never submitted, or the validation pass hasn't run yet. */
+  /** What HCPF actually paid, from the mandatory post-submission Search
+   * Claims re-check (Andy, 2026-09-05: "how much of those were actually
+   * paid vs claimed"). null = not checked yet; 0 = genuinely $0 (denied). */
+  paidCents: number | null
+  /** The post-submission validation result: an independent HCPF Search
+   * Claims re-check compared against the receipt. null when this claim was
+   * never submitted or the validation pass hasn't run yet. */
   validation: {
     status: 'match' | 'mismatch' | 'not_found' | 'error' | 'skipped'
     hcpfStatus: string | null
   } | null
+}
+
+function num(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+function str(value: unknown): string | null {
+  return typeof value === 'string' && value !== '' ? value : null
 }
 
 /** One row per claim, derived purely from the event stream. */
@@ -112,15 +136,24 @@ export function summariseClaims(ledger: RunLedgerSnapshot): ClaimTrace[] {
       modifiers: null,
       unitsX100: null,
       chargeCents: null,
+      lines: [],
       hcpfClaimId: null,
       hcpfStatus: null,
+      paidCents: null,
       validation: null,
     }
     if (event.step === 'claim_drafted') {
-      trace.procedureCode = typeof event.detail.procedure_code === 'string' ? event.detail.procedure_code : null
-      trace.modifiers = typeof event.detail.modifiers === 'string' ? event.detail.modifiers : null
-      trace.unitsX100 = typeof event.detail.units_x100 === 'number' ? event.detail.units_x100 : null
-      trace.chargeCents = typeof event.detail.charge_cents === 'number' ? event.detail.charge_cents : null
+      const line: ClaimLineTrace = {
+        procedureCode: str(event.detail.procedure_code),
+        modifiers: str(event.detail.modifiers),
+        unitsX100: num(event.detail.units_x100),
+        chargeCents: num(event.detail.charge_cents),
+      }
+      trace.lines.push(line)
+      if (trace.procedureCode === null) trace.procedureCode = line.procedureCode
+      if (trace.modifiers === null) trace.modifiers = line.modifiers
+      if (line.unitsX100 !== null) trace.unitsX100 = (trace.unitsX100 ?? 0) + line.unitsX100
+      if (line.chargeCents !== null) trace.chargeCents = (trace.chargeCents ?? 0) + line.chargeCents
     }
     if (event.step === 'portal_action') {
       trace.portalActions += 1
@@ -128,12 +161,12 @@ export function summariseClaims(ledger: RunLedgerSnapshot): ClaimTrace[] {
     }
     if (event.step === 'reached_review' && event.status === 'ok') trace.reachedReview = true
     if (event.step === 'hcpf_receipt' && event.status === 'ok') {
-      trace.hcpfClaimId = typeof event.detail.claim_id === 'string' ? event.detail.claim_id : null
-      trace.hcpfStatus = typeof event.detail.hcpf_status === 'string' ? event.detail.hcpf_status : null
+      trace.hcpfClaimId = str(event.detail.claim_id)
+      trace.hcpfStatus = str(event.detail.hcpf_status)
     }
     if (event.step === 'submission_validated') {
       const code = event.code ?? ''
-      const status: 'match' | 'mismatch' | 'not_found' | 'error' | 'skipped' =
+      const status: NonNullable<ClaimTrace['validation']>['status'] =
         event.status === 'skipped'
           ? 'skipped'
           : code === 'match'
@@ -143,18 +176,59 @@ export function summariseClaims(ledger: RunLedgerSnapshot): ClaimTrace[] {
               : code === 'not_found_in_hcpf_search'
                 ? 'not_found'
                 : 'error'
-      trace.validation = {
-        status,
-        hcpfStatus: typeof event.detail.hcpf_status === 'string' ? event.detail.hcpf_status : null,
-      }
+      const confirmedStatus = str(event.detail.hcpf_status)
+      trace.validation = { status, hcpfStatus: confirmedStatus }
+      // The re-check is HCPF's later, authoritative word: it fills in a
+      // status the receipt scrape missed and carries the paid amount.
+      if (confirmedStatus && (status === 'match' || status === 'mismatch')) trace.hcpfStatus = confirmedStatus
+      const paid = num(event.detail.paid_cents)
+      if (paid !== null) trace.paidCents = paid
+      if (trace.hcpfClaimId === null) trace.hcpfClaimId = str(event.detail.hcpf_claim_id)
     }
-    if (event.status === 'failed' && !trace.failureCode) {
+    if (event.status === 'failed' && !trace.failureCode && event.step !== 'submission_validated') {
       trace.failureCode = event.code
       trace.failureField = event.field
     }
     byRef.set(event.claim_ref, trace)
   }
   return [...byRef.values()]
+}
+
+/** True when the claim was actually sent to HCPF (a submit event that
+ * succeeded), regardless of whether the receipt scrape later worked. */
+export function wasSubmitted(ledger: RunLedgerSnapshot, claimRef: string): boolean {
+  return ledger.events.some(e => e.claim_ref === claimRef && e.step === 'submit' && e.status === 'ok')
+}
+
+export type SubmissionSummary = {
+  /** Claims this run actually sent to HCPF. */
+  submitted: number
+  paid: number
+  denied: number
+  /** Submitted but HCPF's status is something else / unknown yet. */
+  other: number
+  chargedCents: number
+  /** Sum of HCPF's paid amounts over submitted claims that have been
+   * re-checked. null when none has. */
+  paidCents: number | null
+  /** Claims whose re-check disagreed with the receipt, or wasn't found. */
+  flagged: number
+}
+
+/** Paid-vs-claimed roll-up for a submit-mode run (Andy, 2026-09-05). */
+export function summariseSubmissions(ledger: RunLedgerSnapshot, claims = summariseClaims(ledger)): SubmissionSummary {
+  const out: SubmissionSummary = { submitted: 0, paid: 0, denied: 0, other: 0, chargedCents: 0, paidCents: null, flagged: 0 }
+  for (const claim of claims) {
+    if (!wasSubmitted(ledger, claim.claimRef)) continue
+    out.submitted += 1
+    out.chargedCents += claim.chargeCents ?? 0
+    if (claim.hcpfStatus === 'paid') out.paid += 1
+    else if (claim.hcpfStatus === 'denied') out.denied += 1
+    else out.other += 1
+    if (claim.paidCents !== null) out.paidCents = (out.paidCents ?? 0) + claim.paidCents
+    if (claim.validation && (claim.validation.status === 'mismatch' || claim.validation.status === 'not_found')) out.flagged += 1
+  }
+  return out
 }
 
 /** Where the run stopped, in one line, or null when it reached the end state. */
@@ -188,21 +262,37 @@ export function summariseInPlainLanguage(ledger: RunLedgerSnapshot): string {
   const reached = claims.filter(c => c.reachedReview).length
   const failed = claims.filter(c => !c.reachedReview).length
   const blockedStage = ledger.stages.find(s => s.stage === 'billing_rules')
+  const isSubmit = ledger.mode === 'submit'
 
   if (ledger.status === 'failed') {
     const failure = ledger.first_failure
     const where = failure ? STAGE_LABELS[failure.stage] : 'an unknown stage'
-    return `Stopped during ${where.toLowerCase()} — ${reached} claim${reached === 1 ? '' : 's'} made it through before the run failed. Nothing was submitted.`
+    const sub = summariseSubmissions(ledger, claims)
+    const tail = isSubmit && sub.submitted > 0
+      ? ` ${sub.submitted} claim${sub.submitted === 1 ? ' was' : 's were'} submitted before it stopped.`
+      : ' Nothing was submitted.'
+    return `Stopped during ${where.toLowerCase()} — ${reached} claim${reached === 1 ? '' : 's'} made it through before the run failed.${tail}`
   }
   if (reached === 0 && failed === 0) {
     return blockedStage?.status === 'blocked'
       ? 'No claims were built — every row this run saw was blocked by a billing rule (see Billing rules below for why).'
       : 'This run found nothing to bill.'
   }
-  if (failed > 0) {
-    return `${reached} of ${reached + failed} claim${reached + failed === 1 ? '' : 's'} reached HCPF Review; ${failed} did not. Nothing was submitted — review is required either way.`
+  if (isSubmit) {
+    const sub = summariseSubmissions(ledger, claims)
+    const money = (cents: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100)
+    const parts: string[] = [`${sub.submitted} claim${sub.submitted === 1 ? '' : 's'} submitted to HCPF`]
+    if (sub.paid > 0) parts.push(`${sub.paid} paid`)
+    if (sub.denied > 0) parts.push(`${sub.denied} denied`)
+    if (sub.other > 0) parts.push(`${sub.other} awaiting HCPF`)
+    const totals = sub.paidCents !== null ? ` — ${money(sub.paidCents)} paid of ${money(sub.chargedCents)} claimed` : ''
+    const unfinished = failed > 0 ? ` ${failed} claim${failed === 1 ? '' : 's'} did not reach HCPF.` : ''
+    return `${parts.join(', ')}${totals}.${unfinished}`
   }
-  return `All ${reached} claim${reached === 1 ? '' : 's'} reached HCPF Review successfully. Nothing was submitted — this is a dry run.`
+  if (failed > 0) {
+    return `${reached} of ${reached + failed} claim${reached + failed === 1 ? '' : 's'} reached HCPF Review; ${failed} did not. Nothing was submitted — this was a test run.`
+  }
+  return `All ${reached} claim${reached === 1 ? '' : 's'} reached HCPF Review successfully. Nothing was submitted — this was a test run.`
 }
 
 export type ClientFailureExplanation = {

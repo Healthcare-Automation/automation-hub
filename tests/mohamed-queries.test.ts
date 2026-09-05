@@ -78,7 +78,7 @@ test('a flat multi-run signal projection folds into one outcome per run', () => 
   ]
 
   const [a, b, c] = attachRunOutcomes(items, signals)
-  assert.equal(a.outcome?.headline, '1 claim ready for your review')
+  assert.equal(a.outcome?.headline, '1 claim passed the test run')
   assert.equal(a.outcome?.visitsIn, 5)
   assert.match(b.outcome?.headline ?? '', /No claims built — 3 visits blocked: visit has no billable hours/)
   // A run with no signal rows still gets an honest outcome, not a crash.

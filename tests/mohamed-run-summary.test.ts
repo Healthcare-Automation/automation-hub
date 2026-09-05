@@ -30,7 +30,7 @@ test('an unknown reason code degrades to a readable phrase, never a raw undersco
 })
 
 test('"dry run" reads as a review run that submitted nothing', () => {
-  assert.match(describeRunMode('dry_run'), /Review run/)
+  assert.match(describeRunMode('dry_run'), /Test run/)
   assert.match(describeRunMode('dry_run'), /nothing submitted/)
 })
 
@@ -40,7 +40,7 @@ test('the demo run headlines the number of claims ready for review', () => {
   assert.equal(outcome.claimsReady, 2)
   assert.equal(outcome.visitsIn, 4)
   assert.equal(outcome.visitsBlocked, 1)
-  assert.equal(outcome.headline, '2 claims ready for your review')
+  assert.equal(outcome.headline, '2 claims passed the test run')
   assert.match(outcome.subline ?? '', /1 visit held back: missing one of the two required coverages/)
   assert.deepEqual(outcome.reasons, [
     { code: 'qualifying_coverage_missing', label: 'missing one of the two required coverages', count: 1 },

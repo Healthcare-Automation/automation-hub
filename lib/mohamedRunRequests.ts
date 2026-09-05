@@ -27,6 +27,9 @@ export type RunRequestRow = {
   progress: string | null
   progressAt: string | null
   cancelRequestedAt: string | null
+  /** True when this request was uploaded with the Submission toggle on
+   * (mohamed_run_requests.submit_mode, sql/012). Older rows: false. */
+  submitMode: boolean
 }
 
 type RawRow = {
@@ -42,6 +45,7 @@ type RawRow = {
   progress: string | null
   progress_at: string | Date | null
   cancel_requested_at: string | Date | null
+  submit_mode?: boolean | null
 }
 
 function iso(value: string | Date): string {
@@ -62,6 +66,7 @@ function toRow(raw: RawRow): RunRequestRow {
     progress: raw.progress ?? null,
     progressAt: raw.progress_at ? iso(raw.progress_at) : null,
     cancelRequestedAt: raw.cancel_requested_at ? iso(raw.cancel_requested_at) : null,
+    submitMode: raw.submit_mode === true,
   }
 }
 
