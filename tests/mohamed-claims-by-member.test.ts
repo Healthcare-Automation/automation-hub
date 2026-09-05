@@ -26,6 +26,8 @@ function claim(claimRef: string, overrides: Partial<ClaimTrace> = {}): ClaimTrac
     paidCents: null,
     validation: null,
     alreadySubmitted: false,
+    reasonCodes: [],
+    reasonsChecked: false,
     ...overrides,
   }
 }
@@ -81,4 +83,12 @@ test('the collapsed card shows CLAIM totals, not the last line (multi-line claim
   ]
   const html = renderToStaticMarkup(createElement(ClaimsByMember, { runId: 'r'.repeat(32), ledger: base, claims }))
   assert.match(html, /2 lines · 75\.00 units · \$533\.25/)
+})
+
+test('a denied claim shows its HCPF reason code on the collapsed card', () => {
+  const claims = [claim(REF, { hcpfClaimId: '2226247008043', hcpfStatus: 'denied', paidCents: 0, validation: { status: 'match', hcpfStatus: 'denied' }, reasonCodes: [{ eob: '3054', scope: 'line_1' }], reasonsChecked: true })]
+  const html = renderToStaticMarkup(createElement(ClaimsByMember, { runId: 'r'.repeat(32), ledger: withSubmit(REF), claims }))
+  assert.match(html, />Denied</)
+  // renderToStaticMarkup never runs effects, so HCPF's wording hasn't loaded: the code is shown, never nothing.
+  assert.match(html, /HCPF reason 3054/)
 })

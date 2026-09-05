@@ -335,3 +335,38 @@ export async function getEligibilityScreenshotUrl(runId: string, ref: string): P
   }
 }
 
+
+export type ClaimReason = { scope: string; eob: string; description: string }
+
+const reasonsCache = new Map<string, Promise<Record<string, { hcpf_claim_id: string; errors: ClaimReason[] }> | null>>()
+
+/** HCPF's own adjudication wording per claim (Andy, 2026-09-05: "it should
+ * have a reason no? For denial"). One fetch per run, shared across its
+ * cards. null when the run has no reasons.json yet. Never throws. */
+export function getRunReasons(runId: string): Promise<Record<string, { hcpf_claim_id: string; errors: ClaimReason[] }> | null> {
+  let pending = reasonsCache.get(runId)
+  if (!pending) {
+    pending = (async () => {
+      try {
+        const { token, uploadUrl } = await getReviewToken()
+        const res = await fetch(`${uploadUrl}/review/${runId}/reasons.json`, { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' })
+        if (res.status === 401 || res.status === 403) invalidateReviewToken()
+        if (res.status === 404) return null
+        if (!res.ok) throw new Error('reasons_unavailable')
+        const json = await res.json()
+        return json && typeof json === 'object' ? json : null
+      } catch {
+        reasonsCache.delete(runId)
+        return null
+      }
+    })()
+    reasonsCache.set(runId, pending)
+  }
+  return pending
+}
+
+export async function getClaimReasons(runId: string, claimRef: string): Promise<ClaimReason[] | null> {
+  const all = await getRunReasons(runId)
+  const entry = all?.[claimRef]
+  return entry && Array.isArray(entry.errors) ? entry.errors : null
+}

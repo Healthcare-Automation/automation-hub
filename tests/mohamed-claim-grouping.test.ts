@@ -21,6 +21,8 @@ function claim(claimRef: string, overrides: Partial<ClaimTrace> = {}): ClaimTrac
     paidCents: null,
     validation: null,
     alreadySubmitted: false,
+    reasonCodes: [],
+    reasonsChecked: false,
     ...overrides,
   }
 }

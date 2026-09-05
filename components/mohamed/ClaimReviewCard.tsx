@@ -8,10 +8,12 @@ import {
   formatReviewDate,
   getReviewFields,
   getReviewScreenshotUrl,
+  getClaimReasons,
   getClaimSteps,
   serviceLineNumber,
   stepDisplayLabel,
   type ClaimDateRange,
+  type ClaimReason,
   type ReviewField,
   type StepIndexEntry,
 } from '@/lib/mohamedReviewClient'
@@ -61,6 +63,21 @@ export function ClaimReviewCard({ runId, claim, submitted }: { runId: string; cl
   const [dateRange, setDateRange] = useState<ClaimDateRange>(null)
   const [steps, setSteps] = useState<StepIndexEntry[] | null>(null)
   const [selectedStep, setSelectedStep] = useState(0)
+  const [reasons, setReasons] = useState<ClaimReason[] | null>(null)
+
+  // HCPF's own words for why it denied / cut this claim. Fetched at mount
+  // (not on expand) so the collapsed card can already say "EVV record
+  // required and not found" next to Denied.
+  useEffect(() => {
+    if (claim.reasonCodes.length === 0) return
+    let cancelled = false
+    getClaimReasons(runId, claim.claimRef).then(r => {
+      if (!cancelled) setReasons(r)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [runId, claim.claimRef, claim.reasonCodes.length])
 
   // Fetch fields.json at mount purely for the member-id and date-range
   // headline. Best effort: any failure just leaves the procedure-code
@@ -197,6 +214,13 @@ export function ClaimReviewCard({ runId, claim, submitted }: { runId: string; cl
               {paidVsClaimed}
               {!claim.reachedReview && !claim.alreadySubmitted && <span className="text-[11px] font-medium text-red-600 dark:text-red-400">did not reach review</span>}
             </div>
+            {claim.reasonCodes.length > 0 && (
+              <p className={`mt-1 text-[11px] ${claim.hcpfStatus === 'denied' ? 'text-red-700 dark:text-red-400' : 'text-amber-700 dark:text-amber-400'}`}>
+                {reasons && reasons.length > 0
+                  ? [...new Set(reasons.map(r => r.description))].join(' · ')
+                  : `HCPF reason ${[...new Set(claim.reasonCodes.map(r => r.eob))].join(', ')}`}
+              </p>
+            )}
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2 pt-0.5">
@@ -247,6 +271,27 @@ export function ClaimReviewCard({ runId, claim, submitted }: { runId: string; cl
                 {claim.validation?.status === 'error' && <span className="text-zinc-500">Re-check couldn&apos;t run — not a billing problem</span>}
                 {!claim.validation && <span className="text-zinc-500">Not re-checked yet</span>}
               </span>
+            </div>
+          )}
+
+          {claim.hcpfClaimId && (claim.reasonCodes.length > 0 || (claim.reasonsChecked && claim.paidCents !== null && claim.chargeCents !== null && claim.paidCents < claim.chargeCents)) && (
+            <div className={`mb-3 rounded-lg border px-3 py-2 text-xs ${claim.hcpfStatus === 'denied' ? 'border-red-200 bg-red-50/60 dark:border-red-500/30 dark:bg-red-500/10' : 'border-amber-200 bg-amber-50/60 dark:border-amber-500/30 dark:bg-amber-500/10'}`}>
+              <p className={`font-semibold ${claim.hcpfStatus === 'denied' ? 'text-red-900 dark:text-red-200' : 'text-amber-900 dark:text-amber-200'}`}>
+                {claim.hcpfStatus === 'denied' ? 'Why HCPF denied it' : 'Why HCPF paid less'}
+              </p>
+              {claim.reasonCodes.length === 0 ? (
+                <p className="mt-0.5 text-amber-800 dark:text-amber-300">HCPF listed no adjudication error: this is its fee schedule for the service, not a problem with the claim.</p>
+              ) : (
+                <ul className="mt-1 space-y-0.5">
+                  {(reasons && reasons.length > 0 ? reasons : claim.reasonCodes.map(r => ({ eob: r.eob, scope: r.scope, description: '' }))).map((r, i) => (
+                    <li key={`${r.eob}-${i}`} className={claim.hcpfStatus === 'denied' ? 'text-red-800 dark:text-red-300' : 'text-amber-800 dark:text-amber-300'}>
+                      <span className="font-mono text-[10px] opacity-70">EOB {r.eob}</span>
+                      {r.scope && <span className="ml-1 text-[10px] opacity-70">{String(r.scope).replace(/^line_(\d+)$/, 'line $1').replace(/^Service # /, 'line ')}</span>}
+                      {r.description && <span className="ml-1.5">{r.description}</span>}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           )}
 

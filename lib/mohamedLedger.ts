@@ -112,6 +112,14 @@ export type ClaimTrace = {
   } | null
   /** Skipped by dedup: an earlier run already submitted this exact claim. */
   alreadySubmitted: boolean
+  /** HCPF's adjudication reasons (EOB codes) for a denied / underpaid
+   * claim, from hcpf_reason events. Empty when HCPF listed none (a
+   * fee-schedule underpayment) or the claim was paid in full. HCPF's own
+   * wording lives in the run's reasons.json on the VPS (see
+   * getClaimReasons). */
+  reasonCodes: { eob: string; scope: string }[]
+  /** True once the reason lookup ran (even if it found nothing). */
+  reasonsChecked: boolean
 }
 
 function num(value: unknown): number | null {
@@ -144,8 +152,15 @@ export function summariseClaims(ledger: RunLedgerSnapshot): ClaimTrace[] {
       paidCents: null,
       validation: null,
       alreadySubmitted: false,
+      reasonCodes: [],
+      reasonsChecked: false,
     }
     if (event.step === 'claim_already_submitted') trace.alreadySubmitted = true
+    if (event.step === 'hcpf_reason') {
+      trace.reasonsChecked = true
+      const eob = str(event.detail.eob)
+      if (eob) trace.reasonCodes.push({ eob, scope: str(event.detail.scope) ?? 'claim' })
+    }
     if (event.step === 'claim_drafted') {
       const line: ClaimLineTrace = {
         procedureCode: str(event.detail.procedure_code),
@@ -189,7 +204,7 @@ export function summariseClaims(ledger: RunLedgerSnapshot): ClaimTrace[] {
       if (paid !== null) trace.paidCents = paid
       if (trace.hcpfClaimId === null) trace.hcpfClaimId = str(event.detail.hcpf_claim_id)
     }
-    if (event.status === 'failed' && !trace.failureCode && event.step !== 'submission_validated') {
+    if (event.status === 'failed' && !trace.failureCode && event.step !== 'submission_validated' && event.step !== 'hcpf_reason') {
       trace.failureCode = event.code
       trace.failureField = event.field
     }
