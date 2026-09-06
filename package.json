@@ -9,7 +9,8 @@
     "test": "node --test --experimental-test-module-mocks --import tsx tests/*.test.ts",
     "typecheck": "tsc --noEmit",
     "db:marketing-schema": "tsx --env-file=.env.local scripts/apply-marketing-schema.ts",
-    "seed:marketing": "tsx --env-file=.env.local scripts/seed-marketing.ts"
+    "seed:marketing": "tsx --env-file=.env.local scripts/seed-marketing.ts",
+    "research:marketing": "tsx --env-file=.env.local scripts/research-marketing.ts"
   },
   "dependencies": {
     "@yeger/html-diff": "^1.0.0",
