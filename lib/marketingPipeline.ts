@@ -29,9 +29,13 @@ export async function runFullPipeline(options: RunIngestionOptions): Promise<Pip
     const clustersRescored = await rescoreAllClusters(options.orgId)
     const opportunitiesCreated = await refreshOpportunities(options.orgId)
 
+    // runIngestion already set completed_at once ingestion+enrichment finished — overwrite
+    // it here so it reflects when the run record actually finished filling in (clustering/
+    // scoring/opportunities can meaningfully outlast ingestion), not a premature timestamp.
     await sql`
       update marketing_research_runs
-      set stage = 'done', clusters_updated = ${clustering.attached + clustering.created},
+      set stage = 'done', completed_at = now(),
+          clusters_updated = ${clustering.attached + clustering.created},
           opportunities_created = ${opportunitiesCreated}
       where id = ${ingestion.runId}
     `

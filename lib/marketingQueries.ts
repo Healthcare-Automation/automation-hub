@@ -569,6 +569,20 @@ export async function getFeedSourceStats(orgId: string): Promise<FeedSourceStats
   })
 }
 
+/** Sources page enabled toggle. Upserts a marketing_sources row even if this feed has
+ * never run yet, so disabling a feed before its first run actually sticks — ingestFeed
+ * checks source.enabled and skips disabled feeds without recording an error. */
+export async function setFeedEnabled(orgId: string, feedRegistryId: string, enabled: boolean): Promise<void> {
+  const entry = FEED_REGISTRY.find((e) => e.id === feedRegistryId)
+  if (!entry) throw new Error(`Unknown feed registry id: ${feedRegistryId}`)
+  await sql`
+    insert into marketing_sources (org_id, adapter_id, name, is_demo_data, feed_registry_id, reliability_classification, enabled)
+    values (${orgId}, 'rss', ${entry.name}, false, ${feedRegistryId}, ${entry.reliabilityClassification}, ${enabled})
+    on conflict (org_id, feed_registry_id) where feed_registry_id is not null
+    do update set enabled = excluded.enabled
+  `
+}
+
 export interface ResearchRunRow {
   id: string
   startedAt: string
