@@ -13,7 +13,7 @@ export default async function MarketingLayout({ children }: { children: React.Re
   return (
     <main className="min-h-screen" style={{ background: 'var(--background)' }}>
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-8">
-        <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
+        <header className="mb-6 flex items-start justify-between gap-4">
           <div>
             <Link href="/" className="text-xs text-zinc-500 transition-colors hover:text-zinc-800 dark:hover:text-zinc-300">
               ← Automation Hub
@@ -25,11 +25,11 @@ export default async function MarketingLayout({ children }: { children: React.Re
               Signal → trend cluster → scored story opportunity → three angles → content → feedback.
             </p>
           </div>
-          <div className="flex flex-col items-end gap-2">
-            {isAdmin && <HubNav active="marketing" />}
-            <MarketingTabs />
-          </div>
+          {isAdmin && <HubNav active="marketing" />}
         </header>
+        <div className="mb-6">
+          <MarketingTabs />
+        </div>
         {children}
       </div>
     </main>
