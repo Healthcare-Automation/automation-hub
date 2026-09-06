@@ -262,15 +262,16 @@ export async function getRecentSourceItems(orgId: string, limit = 30): Promise<S
   `
 }
 
-export async function ingestManualUrl(orgId: string, url: string) {
+export async function ingestManualUrl(orgId: string, url: string): Promise<{ inserted: boolean }> {
   const [source] = await sql<{ id: string }[]>`
     insert into marketing_sources (org_id, adapter_id, name, is_demo_data)
     values (${orgId}, 'manual-url', ${url}, false)
     returning id
   `
   const items = await manualUrlAdapter.fetch(url)
+  let inserted = false
   for (const item of items) {
-    await sql`
+    const [row] = await sql<{ id: string }[]>`
       insert into marketing_source_items (
         org_id, source_id, source_url, title, raw_content, published_at, retrieved_at,
         author_or_org, source_type, supporting_excerpt, reliability_classification,
@@ -282,8 +283,12 @@ export async function ingestManualUrl(orgId: string, url: string) {
         ${item.healthcareRelevance}, ${item.geographicRelevance}, ${sql.json(item.topicClassification)},
         ${item.isDemoData}
       )
+      on conflict (org_id, source_url) do nothing
+      returning id
     `
+    if (row) inserted = true
   }
+  return { inserted }
 }
 
 // ---------- Settings ----------
