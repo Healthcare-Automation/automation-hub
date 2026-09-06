@@ -1,6 +1,6 @@
 /** Ported from marketing_content/lib/content-generator.ts. DB access layer swapped from
  * Drizzle to the raw-SQL getActivePreferences; the template/prompt logic itself is
- * unchanged. Routes through lib/marketing/llm.ts when LLM_API_KEY is configured,
+ * unchanged. Routes through lib/marketing/llm.ts when OPENAI_API_KEY is configured,
  * otherwise falls back to a deterministic local template — the only place Content
  * Studio output depends on whether a real provider is configured (see /marketing/settings). */
 import { getActivePreferences } from '../marketingPreferences'

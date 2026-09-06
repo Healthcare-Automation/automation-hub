@@ -3,6 +3,9 @@
 
 export type SourceType =
   | 'manual' | 'trend_feed' | 'news' | 'social' | 'regulatory' | 'review' | 'newsletter'
+  // Added for the real RSS/Atom feed registry (lib/marketing/adapters/feedRegistry.ts) —
+  // 'regulatory' above is kept as an alias of 'government' for the demo/manual adapters.
+  | 'publication' | 'government' | 'association' | 'video'
 
 export type ReliabilityClassification =
   | 'verified_fact' | 'reported_opinion' | 'anecdote' | 'unverified'
