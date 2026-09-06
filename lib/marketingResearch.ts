@@ -110,7 +110,7 @@ async function enrichItem(itemId: string, url: string): Promise<boolean> {
 
 export interface RunIngestionOptions {
   orgId: string
-  triggeredBy: 'cron' | 'manual'
+  triggeredBy: 'cron' | 'manual' | 'modal'
   timeBudgetMs?: number
 }
 

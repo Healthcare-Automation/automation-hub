@@ -9,7 +9,7 @@ import { runFullPipeline } from '../lib/marketingPipeline'
  * instead of over HTTP. Useful for a one-off run or debugging without starting `next dev`. */
 async function main() {
   const { orgId } = await getDemoOrgAndUser()
-  const result = await runFullPipeline({ orgId, triggeredBy: 'manual', timeBudgetMs: Number(process.env.MARKETING_TIME_BUDGET_MS ?? 240_000) })
+  const result = await runFullPipeline({ orgId, triggeredBy: (process.env.MARKETING_TRIGGERED_BY ?? 'manual') as 'manual' | 'modal', timeBudgetMs: Number(process.env.MARKETING_TIME_BUDGET_MS ?? 240_000) })
   console.log(JSON.stringify(result, null, 2))
   process.exit(0)
 }
