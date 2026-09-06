@@ -48,6 +48,27 @@ export async function getActivePreferences(orgId: string): Promise<LearnedPrefer
   `
 }
 
+export interface FeedbackEventRow {
+  id: string
+  target_type: FeedbackTargetType
+  target_id: string
+  tags: string[]
+  free_text: string | null
+  created_at: string
+}
+
+/** Voice and Learning's examples drawer needs the actual feedback content (what was
+ * tagged, on what, when) — not just the raw event ids stored in supporting_example_ids. */
+export async function getFeedbackEventsByIds(ids: string[]): Promise<FeedbackEventRow[]> {
+  if (ids.length === 0) return []
+  return sql<FeedbackEventRow[]>`
+    select id, target_type, target_id, tags, free_text, created_at
+    from marketing_feedback_events
+    where id = any(${ids})
+    order by created_at desc
+  `
+}
+
 const NEGATIVE_TAGS_TO_RULE_KEY: Record<string, string> = {
   too_clinical: 'avoid_tag:too_clinical',
   too_generic: 'avoid_tag:too_generic',
