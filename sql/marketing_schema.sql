@@ -250,3 +250,7 @@ ALTER TABLE marketing_research_runs ADD COLUMN IF NOT EXISTS clusters_updated IN
 ALTER TABLE marketing_research_runs ADD COLUMN IF NOT EXISTS opportunities_created INTEGER NOT NULL DEFAULT 0;
 
 CREATE INDEX IF NOT EXISTS idx_marketing_research_runs_org_started ON marketing_research_runs(org_id, started_at DESC);
+
+-- Which mode produced this opportunity's angles — same 'template' | 'llm' vocabulary as
+-- marketing_content_drafts.generated_by, surfaced the same way in the UI (Settings/badges).
+ALTER TABLE marketing_story_opportunities ADD COLUMN IF NOT EXISTS generated_by TEXT NOT NULL DEFAULT 'template';

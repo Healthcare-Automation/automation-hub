@@ -1,8 +1,12 @@
 /** Ported from marketing_content/lib/story-generator.ts. DB access layer swapped from
- * Drizzle to the raw-SQL getActivePreferences (lib/marketingPreferences.ts); the
- * template/angle logic itself is unchanged. */
+ * Drizzle to the raw-SQL getActivePreferences (lib/marketingPreferences.ts). The template
+ * angle logic (buildAngle) is unchanged and stays the fallback; generateAngles now also
+ * tries an LLM path first when OPENAI_API_KEY is set (MARKETING_V1_BRIEF.md section 3),
+ * reusing StoryOpportunityWithAnglesSchema to validate the LLM's structured JSON output —
+ * the same schema that already enforces "hypothetical moments must say Example scenario". */
 import { getActivePreferences } from '../marketingPreferences'
 import { checkDuplicate, type DuplicateCheckResult } from './duplicateDetection'
+import { completeJSON, hasLLMProvider } from './llm'
 import { StoryOpportunityWithAnglesSchema } from './zodSchemas'
 import type { AngleType, GeneratedAngle, StoryAngleStructure } from './types'
 
@@ -19,6 +23,7 @@ export interface GenerateAnglesResult {
   signalSummary: string
   angles: GeneratedAngle[]
   duplicateWarning: DuplicateCheckResult | null
+  generatedBy: 'template' | 'llm'
 }
 
 function buildAngle(
@@ -81,23 +86,86 @@ function buildAngle(
   return { angleType, structure: byType[angleType], appliedPreferenceNotes: notes }
 }
 
+const ANGLE_SYSTEM_PROMPT =
+  'You generate three story angles (practical, strategic, human) for a dental/healthcare practice ' +
+  'marketing intelligence tool, from a real trend cluster and its evidence excerpts. Rules, ' +
+  'non-negotiable: never invent patient cases, quotes, or statistics beyond the evidence given; any ' +
+  'hypothetical moment must set the recognizableMoment field to start with the literal text ' +
+  '"Example scenario" and isHypothetical must be true, otherwise isHypothetical must be false; ' +
+  'ground the evidence field in the supplied excerpts, do not fabricate data or cite a study that ' +
+  "was not given; reject generic angles (\"5 ways X\", \"AI is transforming Y\", or advice generic " +
+  'to any industry) — every angle must be specific to this cluster. Respond with ONLY a JSON object: ' +
+  '{"title": string, "signalSummary": string, "angles": [{"angleType": "practical"|"strategic"|"human", ' +
+  '"structure": {"audience": string, "recognizableMoment": string, "tensionOrMisconception": string, ' +
+  '"evidence": string, "ourInterpretation": string, "whyItMatters": string, "takeaway": string, ' +
+  '"closingThoughtCta": string, "isHypothetical": boolean}}]} — exactly one angle per type, no prose ' +
+  'or markdown fences outside the JSON object.'
+
+interface LLMAngleResult {
+  title: string
+  signalSummary: string
+  angles: GeneratedAngle[]
+}
+
+/** Returns null (never throws) on any failure — missing key, request error, or a JSON
+ * shape that fails schema validation — so the caller falls back to the template angles. */
+async function generateAnglesWithLLM(
+  input: GenerateAnglesInput,
+  avoidClinicalTone: boolean,
+): Promise<LLMAngleResult | null> {
+  if (!hasLLMProvider()) return null
+  try {
+    const prompt = [
+      `Cluster title: ${input.clusterTitle}`,
+      `Cluster summary: ${input.clusterSummary}`,
+      avoidClinicalTone
+        ? 'Tone constraint: avoid clinical/academic phrasing — 3+ feedback events on this org tagged too_clinical.'
+        : '',
+      'Evidence excerpts (the ONLY facts you may reference — do not go beyond them):',
+      ...input.evidenceExcerpts.slice(0, 8).map((excerpt, i) => `[${i + 1}] ${excerpt}`),
+    ]
+      .filter(Boolean)
+      .join('\n')
+
+    const parsed = await completeJSON({ system: ANGLE_SYSTEM_PROMPT, prompt }, StoryOpportunityWithAnglesSchema)
+    const angles: GeneratedAngle[] = parsed.angles.map((angle) => ({
+      angleType: angle.angleType,
+      structure: angle.structure,
+      appliedPreferenceNotes: avoidClinicalTone
+        ? ['Shifted to plain-language tone: 3+ feedback events tagged too_clinical on this org.']
+        : [],
+    }))
+    return { title: parsed.title, signalSummary: parsed.signalSummary, angles }
+  } catch {
+    return null
+  }
+}
+
 export async function generateAngles(input: GenerateAnglesInput): Promise<GenerateAnglesResult> {
   const preferences = await getActivePreferences(input.orgId)
   const avoidClinicalTone = preferences.some((p) => p.key === 'avoid_tag:too_clinical')
 
-  const angles = (['practical', 'strategic', 'human'] as const).map((type) =>
-    buildAngle(type, input.clusterTitle, input.clusterSummary, avoidClinicalTone),
-  )
+  const llmResult = await generateAnglesWithLLM(input, avoidClinicalTone)
+  const generatedBy: 'template' | 'llm' = llmResult ? 'llm' : 'template'
 
-  const title = input.clusterTitle
-  const signalSummary = input.clusterSummary
+  const title = llmResult?.title ?? input.clusterTitle
+  const signalSummary = llmResult?.signalSummary ?? input.clusterSummary
+  const angles =
+    llmResult?.angles ??
+    (['practical', 'strategic', 'human'] as const).map((type) =>
+      buildAngle(type, input.clusterTitle, input.clusterSummary, avoidClinicalTone),
+    )
 
-  const parsed = StoryOpportunityWithAnglesSchema.parse({ title, signalSummary, angles })
+  const parsed = StoryOpportunityWithAnglesSchema.parse({
+    title,
+    signalSummary,
+    angles: angles.map(({ angleType, structure }) => ({ angleType, structure })),
+  })
 
   const duplicateWarning =
     input.existingOpportunityTexts.length > 0
       ? await checkDuplicate(`${title} ${signalSummary}`, input.existingOpportunityTexts, 0.6)
       : null
 
-  return { title: parsed.title, signalSummary: parsed.signalSummary, angles, duplicateWarning }
+  return { title: parsed.title, signalSummary: parsed.signalSummary, angles, duplicateWarning, generatedBy }
 }
