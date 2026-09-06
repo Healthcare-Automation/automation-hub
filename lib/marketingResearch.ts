@@ -136,7 +136,15 @@ export async function runIngestion(options: RunIngestionOptions): Promise<RunIng
   `
   const runId = run.id
 
+  // Least-recently-fetched first, so a run that exhausts its time budget picks up where the
+  // previous one left off instead of re-hitting the same first N registry entries every tick.
+  const lastFetched = await sql<{ feed_registry_id: string; last_fetched_at: string | null }[]>`
+    select feed_registry_id, last_fetched_at from marketing_sources
+    where org_id = ${orgId} and feed_registry_id is not null
+  `
+  const fetchedAt = new Map(lastFetched.map((r) => [r.feed_registry_id, r.last_fetched_at ? Date.parse(r.last_fetched_at) : 0]))
   const enabledFeeds = FEED_REGISTRY.filter((entry) => entry.enabled)
+    .sort((a, b) => (fetchedAt.get(a.id) ?? 0) - (fetchedAt.get(b.id) ?? 0))
   const feedResults: FeedRunResult[] = []
   let itemsIngested = 0
   let feedsSkippedForBudget = 0
