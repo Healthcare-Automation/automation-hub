@@ -159,6 +159,7 @@ test('admin session can cross Proxi and Mohamed tenant routes', async () => {
 test('cron and login endpoints remain reachable for their own authentication', async () => {
   for (const path of [
     '/api/cron/slack-alerts',
+    '/api/cron/marketing-research',
     '/api/admin/login',
     '/api/portal/login',
     '/api/mohamed/login',

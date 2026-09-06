@@ -2,6 +2,7 @@ import { marketingSql as sql } from './marketingDb'
 import { manualUrlAdapter } from './marketing/adapters/manualUrl'
 import { FEED_REGISTRY } from './marketing/adapters/feedRegistry'
 import { generateContent } from './marketing/contentGenerator'
+import { compareOpportunityRank } from './marketing/ranking'
 import type {
   AngleType, ContentFormat, GeneratedAngle, ReliabilityClassification,
   SourceType, StoryAngleStructure,
@@ -95,8 +96,6 @@ export async function getBriefingCards(orgId: string, options: { hideDemo?: bool
           where cluster_id = o.cluster_id order by computed_at desc limit 1
         ) s on true
         where o.org_id = ${orgId} and o.is_demo_data = false and o.status <> 'archived'
-        order by (s.total_score is null), s.total_score desc
-        limit 5
       `
     : await sql<
         {
@@ -113,12 +112,18 @@ export async function getBriefingCards(orgId: string, options: { hideDemo?: bool
           where cluster_id = o.cluster_id order by computed_at desc limit 1
         ) s on true
         where o.org_id = ${orgId} and o.status <> 'archived'
-        order by o.is_demo_data asc, (s.total_score is null), s.total_score desc
-        limit 5
       `
 
+  // Definitive ranking happens here in JS (compareOpportunityRank), not in the SQL above —
+  // see lib/marketing/ranking.ts for why: it's the same rule this file's SQL used to
+  // encode directly, pulled out so "live always outranks demo" is unit-testable.
+  const ranked = rows
+    .slice()
+    .sort((a, b) => compareOpportunityRank({ isDemoData: a.is_demo_data, totalScore: a.total_score }, { isDemoData: b.is_demo_data, totalScore: b.total_score }))
+    .slice(0, 5)
+
   const cards: BriefingCard[] = []
-  for (const row of rows) {
+  for (const row of ranked) {
     const summary = row.cluster_id
       ? await evidenceSummaryForCluster(row.cluster_id)
       : { sourceTypeCounts: [], sparkline: [0, 0, 0, 0, 0, 0, 0], freshnessLabel: 'Unknown' }
