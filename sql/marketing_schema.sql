@@ -207,3 +207,46 @@ CREATE INDEX IF NOT EXISTS idx_marketing_story_angles_opportunity ON marketing_s
 CREATE INDEX IF NOT EXISTS idx_marketing_content_drafts_org ON marketing_content_drafts(org_id);
 CREATE INDEX IF NOT EXISTS idx_marketing_feedback_events_org ON marketing_feedback_events(org_id);
 CREATE INDEX IF NOT EXISTS idx_marketing_learned_preferences_org_status ON marketing_learned_preferences(org_id, status);
+
+-- ─── Marketing V1: real ingestion / clustering / scheduled runs ──────────────
+-- Additive only (ALTER ... ADD COLUMN IF NOT EXISTS / CREATE ... IF NOT EXISTS), safe to
+-- re-run alongside the CREATE TABLE IF NOT EXISTS statements above. See MARKETING_V1_BRIEF.md.
+
+-- Dedupe key for real ingestion: one row per (org, normalized source URL). Manual-url and
+-- RSS ingestion both upsert against this with ON CONFLICT DO NOTHING.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_marketing_source_items_org_url
+  ON marketing_source_items(org_id, source_url);
+
+-- Registry-backed feeds (lib/marketing/adapters/feedRegistry.ts) need bookkeeping the
+-- original manual/demo-only sources table didn't: which registry entry a source came from,
+-- whether it's enabled, and when it last ran / last failed, surfaced on the Sources page.
+ALTER TABLE marketing_sources ADD COLUMN IF NOT EXISTS feed_registry_id TEXT;
+ALTER TABLE marketing_sources ADD COLUMN IF NOT EXISTS reliability_classification TEXT;
+ALTER TABLE marketing_sources ADD COLUMN IF NOT EXISTS enabled BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE marketing_sources ADD COLUMN IF NOT EXISTS last_fetched_at TIMESTAMPTZ;
+ALTER TABLE marketing_sources ADD COLUMN IF NOT EXISTS last_error TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_marketing_sources_org_feed_registry_id
+  ON marketing_sources(org_id, feed_registry_id) WHERE feed_registry_id IS NOT NULL;
+
+-- Enrichment stores a longer excerpt (~2000 chars, fetched from the article page) separately
+-- from the short supporting_excerpt shown inline in evidence lists.
+ALTER TABLE marketing_source_items ADD COLUMN IF NOT EXISTS full_excerpt TEXT;
+-- Embedding vector (JSON float array — no pgvector extension assumed to be enabled on this
+-- Supabase project) used for cosine-similarity clustering. Populated by lib/marketing/embeddings.ts.
+ALTER TABLE marketing_source_items ADD COLUMN IF NOT EXISTS embedding JSONB;
+
+-- Cluster centroid embedding + the most recent item's published_at, so momentum/recency and
+-- "attach vs. create" clustering decisions don't have to re-fetch every member item.
+ALTER TABLE marketing_trend_clusters ADD COLUMN IF NOT EXISTS embedding JSONB;
+ALTER TABLE marketing_trend_clusters ADD COLUMN IF NOT EXISTS last_item_at TIMESTAMPTZ;
+
+-- Chunked/resumable cron runs (Vercel function time budget): stage records the last pipeline
+-- step completed, feed_results carries per-feed item counts/errors, triggered_by distinguishes
+-- the cron tick from the admin "Run research now" button.
+ALTER TABLE marketing_research_runs ADD COLUMN IF NOT EXISTS stage TEXT;
+ALTER TABLE marketing_research_runs ADD COLUMN IF NOT EXISTS feed_results JSONB NOT NULL DEFAULT '[]';
+ALTER TABLE marketing_research_runs ADD COLUMN IF NOT EXISTS triggered_by TEXT NOT NULL DEFAULT 'cron';
+ALTER TABLE marketing_research_runs ADD COLUMN IF NOT EXISTS clusters_updated INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE marketing_research_runs ADD COLUMN IF NOT EXISTS opportunities_created INTEGER NOT NULL DEFAULT 0;
+
+CREATE INDEX IF NOT EXISTS idx_marketing_research_runs_org_started ON marketing_research_runs(org_id, started_at DESC);
