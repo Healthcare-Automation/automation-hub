@@ -1,12 +1,15 @@
 /** Ported from marketing_content/lib/content-generator.ts. DB access layer swapped from
- * Drizzle to the raw-SQL getActivePreferences; the template/prompt logic itself is
- * unchanged. Routes through lib/marketing/llm.ts when OPENAI_API_KEY is configured,
- * otherwise falls back to a deterministic local template — the only place Content
- * Studio output depends on whether a real provider is configured (see /marketing/settings). */
+ * Drizzle to the raw-SQL getActivePreferences; the deterministic template stays the
+ * fallback (buildLinkedInPost/buildVideoScript, unchanged). When OPENAI_API_KEY is set,
+ * generateContent now asks the LLM for the full structured draft (hooks, alternative POV,
+ * claims requiring review, suggested visual) via JSON mode, validated with
+ * LLMContentDraftSchema below, per MARKETING_V1_BRIEF.md section 3 — not just the plain
+ * draft text. See /marketing/settings for which mode produced a given draft. */
+import { z } from 'zod'
 import { getActivePreferences } from '../marketingPreferences'
 import { ContentDraftSchema } from './zodSchemas'
 import type { ContentFormat, GeneratedAngle } from './types'
-import { complete, hasLLMProvider } from './llm'
+import { completeJSON, hasLLMProvider } from './llm'
 
 export interface GenerateContentInput {
   orgId: string
@@ -86,27 +89,53 @@ function buildDraftPrompt(input: GenerateContentInput, avoidPromotional: boolean
 const SYSTEM_PROMPT =
   'You write marketing content for healthcare practices (dental-focused). Never invent patient ' +
   'cases, quotes, or statistics beyond what is given. Never give individualized medical advice. ' +
-  'Distinguish evidence from interpretation. Keep the tone editorial, not promotional unless asked.'
+  'Distinguish evidence from interpretation. Keep the tone editorial, not promotional unless asked. ' +
+  'Respond with ONLY a JSON object: {"hookOptions": [string, ...] (at least 2), ' +
+  '"draftText": string, "alternativePov": string (a credible counter-argument or edge case), ' +
+  '"claimsRequiringReview": [string, ...] (any claim in the draft that needs a citation it doesn\'t ' +
+  'have — empty array if none), "suggestedVisual": string|null}. No prose or markdown fences ' +
+  'outside the JSON object.'
 
-async function generateDraftText(
+const LLMContentDraftSchema = z.object({
+  hookOptions: z.array(z.string()).min(1),
+  draftText: z.string().min(1),
+  alternativePov: z.string().min(1),
+  claimsRequiringReview: z.array(z.string()),
+  suggestedVisual: z.string().nullable(),
+})
+
+/** Returns null (never throws) on any failure so the caller falls back to the template. */
+async function generateDraftWithLLM(
   input: GenerateContentInput,
   avoidPromotional: boolean,
-): Promise<{ text: string; generatedBy: 'template' | 'llm' }> {
-  if (hasLLMProvider()) {
-    const result = await complete({ system: SYSTEM_PROMPT, prompt: buildDraftPrompt(input, avoidPromotional) })
-    return { text: result.text, generatedBy: 'llm' }
+): Promise<z.infer<typeof LLMContentDraftSchema> | null> {
+  if (!hasLLMProvider()) return null
+  try {
+    return await completeJSON({ system: SYSTEM_PROMPT, prompt: buildDraftPrompt(input, avoidPromotional) }, LLMContentDraftSchema)
+  } catch {
+    return null
   }
-  const text = input.format === 'linkedin_post' ? buildLinkedInPost(input.angle, avoidPromotional) : buildVideoScript(input.angle)
-  return { text, generatedBy: 'template' }
 }
 
 export async function generateContent(input: GenerateContentInput) {
   const preferences = await getActivePreferences(input.orgId)
   const avoidPromotional = preferences.some((p) => p.key === 'avoid_tag:too_promotional')
 
-  const { text: draftText, generatedBy } = await generateDraftText(input, avoidPromotional)
+  const llmDraft = await generateDraftWithLLM(input, avoidPromotional)
+  const generatedBy: 'template' | 'llm' = llmDraft ? 'llm' : 'template'
 
-  const hookOptions = [input.angle.structure.recognizableMoment, `${input.angle.structure.takeaway} Here's why.`]
+  const draftText =
+    llmDraft?.draftText ??
+    (input.format === 'linkedin_post' ? buildLinkedInPost(input.angle, avoidPromotional) : buildVideoScript(input.angle))
+  const hookOptions =
+    llmDraft?.hookOptions ?? [input.angle.structure.recognizableMoment, `${input.angle.structure.takeaway} Here's why.`]
+  const alternativePov =
+    llmDraft?.alternativePov ??
+    'Some practices will argue reminders alone are sufficient — worth acknowledging that this only holds for low no-show baselines.'
+  const claimsRequiringReview = llmDraft?.claimsRequiringReview ?? claimsNeedingCitation(input.angle.structure)
+  const suggestedVisual =
+    llmDraft?.suggestedVisual ??
+    (input.format === 'video_script' ? 'Split-screen: cluttered reminder text vs. one-tap confirmation UI.' : null)
 
   const fields = {
     format: input.format,
@@ -119,11 +148,9 @@ export async function generateContent(input: GenerateContentInput) {
     sourceMaterialLinks: input.sourceMaterialLinks,
     hookOptions,
     draftText,
-    alternativePov:
-      'Some practices will argue reminders alone are sufficient — worth acknowledging that this only holds for low no-show baselines.',
-    claimsRequiringReview: claimsNeedingCitation(input.angle.structure),
-    suggestedVisual:
-      input.format === 'video_script' ? 'Split-screen: cluttered reminder text vs. one-tap confirmation UI.' : null,
+    alternativePov,
+    claimsRequiringReview,
+    suggestedVisual,
   }
 
   return { ...ContentDraftSchema.parse(fields), generatedBy }
