@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ADMIN_COOKIE_NAME, verifyAdminCookieValue } from '@/lib/adminAuth'
 import { getDemoOrgAndUser } from '@/lib/marketingDemoActor'
-import { createContentDraft } from '@/lib/marketingQueries'
+import { createContentDraft, getContentDraft } from '@/lib/marketingQueries'
 
 /** Generates a content draft from a selected angle — LinkedIn post or video script
  * only, per BUILD_BRIEF.md MVP scope. Never auto-generates both. Admin-gated. */
@@ -30,7 +30,10 @@ export async function POST(request: NextRequest) {
   try {
     const { orgId } = await getDemoOrgAndUser()
     const draftId = await createContentDraft(orgId, opportunityId, angleId, format)
-    return NextResponse.json({ ok: true, draftId })
+    // Return the full draft alongside the id so the inline Content Studio panel
+    // (Story Workspace) can render it without a second round trip.
+    const draft = await getContentDraft(draftId)
+    return NextResponse.json({ ok: true, draftId, draft })
   } catch (err) {
     console.error('Marketing content generation failed:', err)
     return NextResponse.json({ ok: false, error: 'generation_failed' }, { status: 503 })
