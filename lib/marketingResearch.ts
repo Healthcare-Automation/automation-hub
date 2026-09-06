@@ -3,7 +3,7 @@ import { marketingSql as sql } from './marketingDb'
 import { FEED_REGISTRY, type FeedRegistryEntry } from './marketing/adapters/feedRegistry'
 import { createRssAdapter, FEED_USER_AGENT } from './marketing/adapters/rss'
 import { extractText } from './marketing/htmlText'
-import { scoreRelevance } from './marketing/relevance'
+import { classifyRelevanceWithLLM, scoreRelevanceByKeyword } from './marketing/relevance'
 import type { RawItem } from './marketing/types'
 
 /** Real ingestion pipeline (MARKETING_V1_BRIEF.md section 1): one marketing_sources row
@@ -22,6 +22,7 @@ const ENRICH_FETCH_TIMEOUT_MS = 10_000
 // once the budget is spent) means a single run may only process a subset; the next run
 // picks up the remaining feeds since ingestFeed is idempotent (dedupe on source_url).
 const DEFAULT_TIME_BUDGET_MS = 45_000
+const CLASSIFY_MAX_PER_RUN = 150
 
 export interface FeedRunResult {
   feedId: string
@@ -45,7 +46,9 @@ async function ensureSourceForFeed(orgId: string, entry: FeedRegistryEntry): Pro
 }
 
 async function insertItem(orgId: string, sourceId: string, item: RawItem): Promise<string | null> {
-  const relevance = await scoreRelevance(item.title, item.rawContent, {
+  // Keyword-only at insert time so ingestion never blocks on the network per item; the
+  // LLM refinement runs afterwards as a bounded, budget-aware batch (classifyNewItems).
+  const relevance = scoreRelevanceByKeyword(item.title, item.rawContent, {
     dentalRelevance: item.dentalRelevance,
     healthcareRelevance: item.healthcareRelevance,
   })
@@ -69,7 +72,7 @@ async function insertItem(orgId: string, sourceId: string, item: RawItem): Promi
 
 /** Ingests one feed end-to-end. Never throws — a feed-level failure (network error, feed
  * taken offline, rate limit) is recorded as this feed's error and the run continues. */
-export async function ingestFeed(orgId: string, entry: FeedRegistryEntry): Promise<FeedRunResult> {
+export async function ingestFeed(orgId: string, entry: FeedRegistryEntry, deadlineMs = Infinity): Promise<FeedRunResult> {
   const source = await ensureSourceForFeed(orgId, entry)
   if (!source.enabled) {
     return { feedId: entry.id, name: entry.name, itemsFound: 0, itemsInserted: 0, error: 'disabled' }
@@ -78,6 +81,7 @@ export async function ingestFeed(orgId: string, entry: FeedRegistryEntry): Promi
     const items = await createRssAdapter(entry).fetch()
     let inserted = 0
     for (const item of items) {
+      if (Date.now() > deadlineMs) break
       const id = await insertItem(orgId, source.id, item)
       if (id) inserted++
     }
@@ -119,6 +123,7 @@ export interface RunIngestionResult {
   feedResults: FeedRunResult[]
   itemsIngested: number
   itemsEnriched: number
+  itemsClassified: number
   feedsProcessed: number
   feedsSkippedForBudget: number
 }
@@ -154,7 +159,7 @@ export async function runIngestion(options: RunIngestionOptions): Promise<RunIng
       feedsSkippedForBudget = enabledFeeds.length - feedResults.length
       break
     }
-    const result = await ingestFeed(orgId, entry)
+    const result = await ingestFeed(orgId, entry, startedAt + timeBudgetMs)
     feedResults.push(result)
     itemsIngested += result.itemsInserted
   }
@@ -180,6 +185,28 @@ export async function runIngestion(options: RunIngestionOptions): Promise<RunIng
     if (ok) itemsEnriched++
   }
 
+  // LLM relevance refinement on this run's new items, highest keyword score first, bounded
+  // by both a hard cap and the remaining time budget. Items not reached keep keyword scores.
+  let itemsClassified = 0
+  const toClassify = await sql<{ id: string; title: string; excerpt: string }[]>`
+    select id, title, coalesce(full_excerpt, supporting_excerpt, raw_content, '') as excerpt
+    from marketing_source_items
+    where org_id = ${orgId} and retrieved_at >= ${startedAtIso} and llm_classified_at is null
+    order by (dental_relevance + healthcare_relevance) desc
+    limit ${CLASSIFY_MAX_PER_RUN}
+  `
+  for (const item of toClassify) {
+    if (Date.now() - startedAt > timeBudgetMs) break
+    const score = await classifyRelevanceWithLLM(item.title, item.excerpt)
+    if (!score) continue
+    await sql`
+      update marketing_source_items
+      set dental_relevance = ${score.dentalRelevance}, healthcare_relevance = ${score.healthcareRelevance}, llm_classified_at = now()
+      where id = ${item.id}
+    `
+    itemsClassified++
+  }
+
   await sql`
     update marketing_research_runs
     set status = 'completed', completed_at = now(), stage = 'enrich_done'
@@ -191,6 +218,7 @@ export async function runIngestion(options: RunIngestionOptions): Promise<RunIng
     feedResults,
     itemsIngested,
     itemsEnriched,
+    itemsClassified,
     feedsProcessed: feedResults.length,
     feedsSkippedForBudget,
   }

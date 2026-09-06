@@ -37,6 +37,7 @@ async function openaiEmbed(text: string): Promise<number[]> {
   const baseUrl = process.env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1'
   const response = await fetch(`${baseUrl}/embeddings`, {
     method: 'POST',
+    signal: AbortSignal.timeout(30_000),
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({ model: EMBEDDING_MODEL, input: text.slice(0, 8000) }),
   })

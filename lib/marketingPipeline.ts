@@ -10,6 +10,7 @@ export interface PipelineResult {
   runId: string
   itemsIngested: number
   itemsEnriched: number
+  itemsClassified: number
   feedsProcessed: number
   feedsSkippedForBudget: number
   feedResults: FeedRunResult[]
@@ -44,6 +45,7 @@ export async function runFullPipeline(options: RunIngestionOptions): Promise<Pip
       runId: ingestion.runId,
       itemsIngested: ingestion.itemsIngested,
       itemsEnriched: ingestion.itemsEnriched,
+      itemsClassified: ingestion.itemsClassified,
       feedsProcessed: ingestion.feedsProcessed,
       feedsSkippedForBudget: ingestion.feedsSkippedForBudget,
       feedResults: ingestion.feedResults,

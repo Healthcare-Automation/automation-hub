@@ -254,3 +254,5 @@ CREATE INDEX IF NOT EXISTS idx_marketing_research_runs_org_started ON marketing_
 -- Which mode produced this opportunity's angles — same 'template' | 'llm' vocabulary as
 -- marketing_content_drafts.generated_by, surfaced the same way in the UI (Settings/badges).
 ALTER TABLE marketing_story_opportunities ADD COLUMN IF NOT EXISTS generated_by TEXT NOT NULL DEFAULT 'template';
+
+alter table marketing_source_items add column if not exists llm_classified_at timestamptz;

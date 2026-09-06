@@ -46,6 +46,7 @@ export async function complete(req: LLMRequest): Promise<LLMResult> {
   const apiKey = requireApiKey()
   const response = await fetch(`${baseUrl()}/chat/completions`, {
     method: 'POST',
+    signal: AbortSignal.timeout(60_000),
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
       model: model(),
@@ -71,6 +72,7 @@ export async function completeJSON<T>(req: LLMRequest, schema: ZodType<T>): Prom
   const apiKey = requireApiKey()
   const response = await fetch(`${baseUrl()}/chat/completions`, {
     method: 'POST',
+    signal: AbortSignal.timeout(60_000),
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
       model: model(),
