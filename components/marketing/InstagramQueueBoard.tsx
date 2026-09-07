@@ -20,6 +20,7 @@ const SENTIMENT_LABELS: Record<InstagramSentimentTag, string> = {
   community_focused: 'Community-focused',
   cost_saving: 'Cost-saving',
   urgency: 'Urgency',
+  uncited_educational: 'No hard stat (uncited)',
 }
 
 function formatDate(iso: string): string {
@@ -193,7 +194,11 @@ function InstagramDraftCard({
             {draft.sentimentTags.map((tag) => (
               <span
                 key={tag}
-                className="rounded border border-zinc-300 px-1.5 py-0.5 text-[10px] text-zinc-500 dark:border-zinc-700"
+                className={
+                  tag === 'uncited_educational'
+                    ? 'rounded border border-amber-500/60 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300'
+                    : 'rounded border border-zinc-300 px-1.5 py-0.5 text-[10px] text-zinc-500 dark:border-zinc-700'
+                }
               >
                 {SENTIMENT_LABELS[tag as InstagramSentimentTag] ?? tag}
               </span>

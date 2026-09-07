@@ -80,6 +80,7 @@ export const INSTAGRAM_SENTIMENT_TAGS = [
   'community_focused',
   'cost_saving',
   'urgency',
+  'uncited_educational',
 ] as const
 export type InstagramSentimentTag = (typeof INSTAGRAM_SENTIMENT_TAGS)[number]
 

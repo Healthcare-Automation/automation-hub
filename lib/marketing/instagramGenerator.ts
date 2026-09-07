@@ -243,8 +243,16 @@ export async function generateInstagramPost(recent: RecentDraftContext[]): Promi
     return null
   }
 
+  // Deterministic, not left to the model to remember: any draft with zero real citations is
+  // explicitly tagged so the review queue always surfaces "no hard stat behind this" rather
+  // than letting it silently read the same as a cited, data-driven post.
+  const sentimentTags =
+    research.citations.length === 0 && !fields.sentimentTags.includes('uncited_educational')
+      ? [...fields.sentimentTags, 'uncited_educational' as const]
+      : fields.sentimentTags
+
   return {
-    fields,
+    fields: { ...fields, sentimentTags },
     sourceUrls: research.citations.map((c) => c.url),
     fingerprint: contentFingerprint(fields.mainIdea),
   }
