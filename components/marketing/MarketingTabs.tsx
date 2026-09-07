@@ -5,18 +5,15 @@ import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 
 const TABS = [
-  { href: '/marketing', label: 'Briefing' },
-  { href: '/marketing/trend-radar', label: 'Trend Radar' },
-  { href: '/marketing/story-workspace', label: 'Story Workspace' },
-  { href: '/marketing/content-library', label: 'Content Library' },
-  { href: '/marketing/instagram-queue', label: 'Instagram Queue' },
-  { href: '/marketing/voice-and-learning', label: 'Voice and Learning' },
-  { href: '/marketing/sources', label: 'Sources' },
+  { href: '/marketing', label: 'Instagram Queue' },
   { href: '/marketing/settings', label: 'Settings' },
 ]
 
-/** Sub-nav within the Marketing tab, one route per Practice Story Engine page area —
- * mirrors components/djc/DjcTabs.tsx's pattern (active-tab detection via pathname). */
+/** Sub-nav within the Marketing tab. Rebuilt Instagram-only on 2026-09-08
+ * (MARKETING_TAB_REBUILD_BRIEF.md) — the old 8-tab Practice Story Engine nav (Briefing,
+ * Trend Radar, Story Workspace, Content Library, Voice and Learning, Sources) is gone;
+ * the Instagram Queue is now the tab's landing page. Mirrors components/djc/DjcTabs.tsx's
+ * pattern (active-tab detection via pathname). */
 export function MarketingTabs() {
   const pathname = usePathname()
   return (

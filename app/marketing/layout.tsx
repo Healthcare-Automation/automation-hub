@@ -4,8 +4,9 @@ import { ADMIN_COOKIE_NAME, verifyAdminCookieValue } from '@/lib/adminAuth'
 import { MarketingTabs } from '@/components/marketing/MarketingTabs'
 import { HubNav } from '@/components/HubNav'
 
-/** Shared shell for the Marketing tab (Practice Story Engine port): brand header,
- *  top-level hub nav, and the 7-page sub-nav. Mirrors app/djc/layout.tsx's pattern. */
+/** Shared shell for the Marketing tab: brand header, top-level hub nav, and the 2-page
+ * sub-nav (Instagram Queue + Settings). Rebuilt Instagram-only on 2026-09-08
+ * (MARKETING_TAB_REBUILD_BRIEF.md) — mirrors app/djc/layout.tsx's pattern. */
 export default async function MarketingLayout({ children }: { children: React.ReactNode }) {
   const cookieStore = await cookies()
   const isAdmin = await verifyAdminCookieValue(cookieStore.get(ADMIN_COOKIE_NAME)?.value)
@@ -19,10 +20,10 @@ export default async function MarketingLayout({ children }: { children: React.Re
               ← Automation Hub
             </Link>
             <h1 className="mt-1.5 text-xl font-semibold tracking-tight text-zinc-900 dark:text-white">
-              Marketing — Practice Story Engine
+              Marketing — Instagram
             </h1>
             <p className="mt-1 text-xs text-zinc-500">
-              Signal → trend cluster → scored story opportunity → three angles → content → feedback.
+              UZU&apos;s brand-account Instagram content queue — generated Mon/Wed/Fri, reviewed here.
             </p>
           </div>
           {isAdmin && <HubNav active="marketing" />}

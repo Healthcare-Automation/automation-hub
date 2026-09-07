@@ -1,55 +1,37 @@
 import { cookies } from 'next/headers'
 import { ADMIN_COOKIE_NAME, verifyAdminCookieValue } from '@/lib/adminAuth'
 import { getDemoOrgAndUser } from '@/lib/marketingDemoActor'
-import { getBriefingCards, getBriefingMetrics, hasLiveMarketingData } from '@/lib/marketingQueries'
-import { isMarketingConfigured } from '@/lib/marketingDb'
-import { BriefingMetricStrip } from '@/components/marketing/BriefingMetricStrip'
-import { HideDemoToggle } from '@/components/marketing/HideDemoToggle'
-import { OpportunityCard } from '@/components/marketing/OpportunityCard'
+import { getInstagramDrafts } from '@/lib/marketingQueries'
+import { InstagramQueueBoard } from '@/components/marketing/InstagramQueueBoard'
 
 export const dynamic = 'force-dynamic'
 
-/** Briefing (homepage): a metric strip, then up to five story opportunities ranked by
- * trend score — live data always outranks demo (getBriefingCards), and demo is hidden by
- * default once any live data exists (hasLiveMarketingData). */
-export default async function MarketingBriefingPage() {
-  if (!isMarketingConfigured) {
-    return <p className="text-sm text-zinc-500">Set DATABASE_URL to show the Marketing tab here.</p>
-  }
-
+/** Instagram content queue (INSTAGRAM_QUEUE_BRIEF.md) — UZU's own brand-account review
+ * queue, not client-facing. ~3 drafts/week land here from the Mon/Wed/Fri Modal cron
+ * (scripts/generate-instagram-content.ts); Andy reviews/approves after the fact. This is
+ * now the Marketing tab's landing page (moved from app/marketing/instagram-queue/page.tsx
+ * on 2026-09-08 — MARKETING_TAB_REBUILD_BRIEF.md made the tab Instagram-only). */
+export default async function MarketingPage() {
+  const { orgId } = await getDemoOrgAndUser()
   const cookieStore = await cookies()
   const isAdmin = await verifyAdminCookieValue(cookieStore.get(ADMIN_COOKIE_NAME)?.value)
-  const { orgId } = await getDemoOrgAndUser()
-
-  const hideDemoCookie = cookieStore.get('mkt_hide_demo')?.value
-  const hideDemo = hideDemoCookie === undefined ? await hasLiveMarketingData(orgId) : hideDemoCookie === '1'
-
-  const [metrics, cards] = await Promise.all([getBriefingMetrics(orgId), getBriefingCards(orgId, { hideDemo })])
+  const drafts = await getInstagramDrafts(orgId)
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">Today&apos;s Briefing</h2>
-          <p className="mt-1 text-sm text-zinc-500">Up to five story opportunities, ranked by trend score.</p>
-        </div>
-        <HideDemoToggle hideDemo={hideDemo} />
+      <div>
+        <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">Instagram Queue</h2>
+        <p className="mt-1 text-sm text-zinc-500">
+          UZU&apos;s own brand-account drafts — grounded in cited research, never auto-posted. Review, approve, and check off once posted.
+        </p>
       </div>
 
-      <BriefingMetricStrip {...metrics} />
-
-      {cards.length === 0 ? (
+      {drafts.length === 0 ? (
         <p className="text-sm text-zinc-500">
-          {hideDemo
-            ? 'No live story opportunities yet — the scheduled research run populates this, or use "Run research now" on the Sources page.'
-            : 'No story opportunities yet. Run npx tsx scripts/seed-marketing.ts to populate demo data.'}
+          No Instagram drafts yet. Run <code className="rounded bg-zinc-100 px-1 py-0.5 text-xs dark:bg-zinc-800">npm run instagram:generate</code> or wait for the Mon/Wed/Fri cron.
         </p>
       ) : (
-        <ol className="space-y-4">
-          {cards.map((card) => (
-            <OpportunityCard key={card.id} card={card} isAdmin={isAdmin} />
-          ))}
-        </ol>
+        <InstagramQueueBoard drafts={drafts} isAdmin={isAdmin} />
       )}
     </div>
   )
