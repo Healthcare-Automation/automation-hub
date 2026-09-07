@@ -228,7 +228,9 @@ export async function recordInstagramReview(orgId: string, draftId: string, tag:
 // ---------- Settings ----------
 
 export async function getMarketingOrgAndUser(orgId: string, userId: string) {
-  const [org] = await sql<{ name: string }[]>`select name from marketing_organizations where id = ${orgId}`
-  const [user] = await sql<{ name: string; email: string }[]>`select name, email from marketing_users where id = ${userId}`
+  const [[org], [user]] = await Promise.all([
+    sql<{ name: string }[]>`select name from marketing_organizations where id = ${orgId}`,
+    sql<{ name: string; email: string }[]>`select name, email from marketing_users where id = ${userId}`,
+  ])
   return { org: org ?? null, user: user ?? null }
 }

@@ -9,9 +9,14 @@ const DEMO_ORG_NAME = 'Riverside Family Dental (Demo)'
 const DEMO_USER_EMAIL = 'demo@practice-story-engine.local'
 
 export async function getDemoOrgAndUser(): Promise<{ orgId: string; userId: string }> {
-  const [existingOrg] = await sql<{ id: string }[]>`
-    select id from marketing_organizations where name = ${DEMO_ORG_NAME} limit 1
-  `
+  // Both lookups are independent (the user lookup is by email, not by org) — run them in
+  // one round trip instead of two. Only the insert branches below have a real dependency
+  // (a freshly-inserted user needs orgId), so those stay sequential.
+  const [[existingOrg], [existingUser]] = await Promise.all([
+    sql<{ id: string }[]>`select id from marketing_organizations where name = ${DEMO_ORG_NAME} limit 1`,
+    sql<{ id: string }[]>`select id from marketing_users where email = ${DEMO_USER_EMAIL} limit 1`,
+  ])
+
   const orgId = existingOrg
     ? existingOrg.id
     : (
@@ -20,9 +25,6 @@ export async function getDemoOrgAndUser(): Promise<{ orgId: string; userId: stri
         `
       )[0].id
 
-  const [existingUser] = await sql<{ id: string }[]>`
-    select id from marketing_users where email = ${DEMO_USER_EMAIL} limit 1
-  `
   const userId = existingUser
     ? existingUser.id
     : (
