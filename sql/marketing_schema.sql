@@ -288,8 +288,15 @@ alter table marketing_content_drafts add column if not exists used_at timestampt
 -- Andy's freeform written reasoning, editable in the UI. Also where the generator flags a
 -- claim as speculative/thin-evidence rather than presenting it as fact.
 alter table marketing_content_drafts add column if not exists notes text;
+-- image_url holds the path to this app's own image-serving route (see
+-- app/api/marketing/instagram-image/[id]/route.ts), NOT the image bytes themselves — the
+-- list query (getInstagramDrafts) must stay light, so the raw bytes live in image_data and
+-- are only fetched when that route is actually hit. See INSTAGRAM_IMAGE_BRIEF.md decision #2
+-- (BYTEA over a Vercel Blob dependency this repo doesn't have; base64-in-image_url was the
+-- other option but would bloat every list-page load with full image payloads).
 alter table marketing_content_drafts add column if not exists image_url text;
 alter table marketing_content_drafts add column if not exists image_prompt text;
+alter table marketing_content_drafts add column if not exists image_data bytea;
 -- Short slug of the core claim+angle (see contentFingerprint() in
 -- lib/marketing/instagramGenerator.ts), used to bias topic selection away from angles
 -- already queued/used recently. Not a uniqueness constraint — angles can legitimately repeat

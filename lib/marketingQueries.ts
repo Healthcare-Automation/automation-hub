@@ -642,6 +642,24 @@ export async function getInstagramDrafts(orgId: string): Promise<InstagramDraftR
   }))
 }
 
+/** Stores the generated stat-card image bytes and points image_url at this app's own
+ * serving route (app/api/marketing/instagram-image/[id]/route.ts) rather than the bytes
+ * themselves — keeps getInstagramDrafts' list query light (INSTAGRAM_IMAGE_BRIEF.md). */
+export async function setInstagramDraftImage(draftId: string, bytes: Buffer): Promise<void> {
+  await sql`
+    update marketing_content_drafts
+    set image_data = ${bytes}, image_url = ${'/api/marketing/instagram-image/' + draftId}
+    where id = ${draftId} and format = 'instagram_post'
+  `
+}
+
+export async function getInstagramDraftImage(draftId: string): Promise<Buffer | null> {
+  const [row] = await sql<{ image_data: Buffer | null }[]>`
+    select image_data from marketing_content_drafts where id = ${draftId} and format = 'instagram_post'
+  `
+  return row?.image_data ?? null
+}
+
 export async function updateInstagramDraftNotes(draftId: string, notes: string): Promise<void> {
   await sql`update marketing_content_drafts set notes = ${notes} where id = ${draftId} and format = 'instagram_post'`
 }

@@ -1,11 +1,17 @@
 import { generateInstagramPost } from './marketing/instagramGenerator'
-import { getRecentInstagramDraftsContext, insertInstagramDraft } from './marketingQueries'
+import { generateStatCardImage } from './marketing/imageGenerator'
+import { getRecentInstagramDraftsContext, insertInstagramDraft, setInstagramDraftImage } from './marketingQueries'
 
 /** Orchestrates one Instagram content queue generation run (INSTAGRAM_QUEUE_BRIEF.md):
  * pull recent-draft context, generate one grounded post, insert it as a draft. Called by
  * scripts/generate-instagram-content.ts (cron/manual entrypoint), one draft per run —
  * the Mon/Wed/Fri Modal schedule is what produces the ~3 posts/week cadence, not a batch
- * inside a single run. */
+ * inside a single run.
+ *
+ * Image generation (INSTAGRAM_IMAGE_BRIEF.md) runs immediately after the draft insert and
+ * is best-effort: any failure is caught and logged here, never allowed to fail the run —
+ * the draft is already saved with a real id by that point, so losing the image is far
+ * better than losing the draft. */
 
 export interface InstagramGenerationResult {
   draftId: string | null
@@ -36,6 +42,19 @@ export async function runInstagramGeneration(orgId: string): Promise<InstagramGe
     claimsRequiringReview: generated.fields.claimsRequiringReview,
     fingerprint: generated.fingerprint,
   })
+
+  try {
+    const image = await generateStatCardImage({
+      stylePrompt: generated.fields.imagePrompt,
+      statOrQuote: generated.fields.hookLine,
+      citationSource: generated.sourceUrls[0] ?? null,
+    })
+    if (image) {
+      await setInstagramDraftImage(draftId, image.bytes)
+    }
+  } catch (err) {
+    console.error('Instagram image generation/storage failed (draft saved without image):', err instanceof Error ? err.message : err)
+  }
 
   return { draftId, skippedReason: null }
 }
