@@ -11,7 +11,8 @@
     "db:marketing-schema": "tsx --env-file=.env.local scripts/apply-marketing-schema.ts",
     "seed:marketing": "tsx --env-file=.env.local scripts/seed-marketing.ts",
     "research:marketing": "tsx --env-file=.env.local scripts/research-marketing.ts",
-    "instagram:generate": "tsx --env-file=.env.local scripts/generate-instagram-content.ts"
+    "instagram:generate": "tsx --env-file=.env.local scripts/generate-instagram-content.ts",
+    "instagram:backfill-images": "tsx --env-file=.env.local scripts/backfill-instagram-images.ts"
   },
   "dependencies": {
     "@yeger/html-diff": "^1.0.0",

@@ -642,6 +642,34 @@ export async function getInstagramDrafts(orgId: string): Promise<InstagramDraftR
   }))
 }
 
+export interface InstagramDraftMissingImage {
+  id: string
+  imagePrompt: string
+  hookLine: string
+  sourceUrls: string[]
+}
+
+/** Drafts still missing a generated image — backs scripts/backfill-instagram-images.ts
+ * (INSTAGRAM_IMAGE_BRIEF.md backfill step). */
+export async function getInstagramDraftsMissingImage(orgId: string): Promise<InstagramDraftMissingImage[]> {
+  const rows = await sql<
+    { id: string; image_prompt: string | null; hook_options: string[]; source_material_links: string[] }[]
+  >`
+    select id, image_prompt, hook_options, source_material_links
+    from marketing_content_drafts
+    where org_id = ${orgId} and format = 'instagram_post' and image_url is null
+    order by created_at asc
+  `
+  return rows
+    .filter((r) => r.image_prompt)
+    .map((r) => ({
+      id: r.id,
+      imagePrompt: r.image_prompt as string,
+      hookLine: r.hook_options?.[0] ?? '',
+      sourceUrls: r.source_material_links ?? [],
+    }))
+}
+
 /** Stores the generated stat-card image bytes and points image_url at this app's own
  * serving route (app/api/marketing/instagram-image/[id]/route.ts) rather than the bytes
  * themselves — keeps getInstagramDrafts' list query light (INSTAGRAM_IMAGE_BRIEF.md). */
