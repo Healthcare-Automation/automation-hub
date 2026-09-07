@@ -21,7 +21,15 @@ import { generateAngles } from './marketing/storyGenerator'
 const REAL_EMBEDDING_THRESHOLD = 0.78
 const LOCAL_HASH_THRESHOLD = 0.5
 const MAX_LIVE_OPPORTUNITIES = 5
-const EMBED_BATCH_LIMIT = 50
+const EMBED_BATCH_LIMIT = 200
+// Only signal-grade items make it into clusters: recent, and at least somewhat relevant to
+// dental OR clearly relevant to healthcare-practice operations. Everything else stays in
+// marketing_source_items as raw evidence but never becomes a trend on its own.
+const CLUSTER_MAX_AGE_DAYS = 90
+const CLUSTER_MIN_DENTAL = 40
+const CLUSTER_MIN_HEALTHCARE = 60
+// An opportunity needs more than one item of evidence, or it's a single article, not a trend.
+const OPPORTUNITY_MIN_ITEMS = 2
 
 export function clusterThreshold(): number {
   return hasEmbeddingsProvider() ? REAL_EMBEDDING_THRESHOLD : LOCAL_HASH_THRESHOLD
@@ -61,7 +69,9 @@ export async function embedNewItems(orgId: string, limit = EMBED_BATCH_LIMIT): P
   const items = await sql<{ id: string; title: string; full_excerpt: string | null; supporting_excerpt: string }[]>`
     select id, title, full_excerpt, supporting_excerpt from marketing_source_items
     where org_id = ${orgId} and is_demo_data = false and embedding is null
-    order by retrieved_at desc
+      and coalesce(published_at, retrieved_at) >= now() - (${CLUSTER_MAX_AGE_DAYS} || ' days')::interval
+      and (dental_relevance >= ${CLUSTER_MIN_DENTAL} or healthcare_relevance >= ${CLUSTER_MIN_HEALTHCARE})
+    order by (dental_relevance + healthcare_relevance) desc, retrieved_at desc
     limit ${limit}
   `
   let embedded = 0
@@ -271,6 +281,7 @@ export async function refreshOpportunities(orgId: string, maxLive = MAX_LIVE_OPP
     from marketing_trend_clusters c
     join marketing_trend_scores s on s.cluster_id = c.id
     where c.org_id = ${orgId} and c.is_demo_data = false
+      and (select count(*) from marketing_trend_cluster_items ci where ci.cluster_id = c.id) >= ${OPPORTUNITY_MIN_ITEMS}
     order by c.id, s.computed_at desc
   `
   const top = scored.sort((a, b) => b.total_score - a.total_score).slice(0, maxLive)

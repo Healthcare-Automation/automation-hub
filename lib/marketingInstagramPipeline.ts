@@ -32,6 +32,7 @@ export async function runInstagramGeneration(orgId: string): Promise<InstagramGe
     objective: generated.fields.objective,
     caption: generated.fields.caption,
     hookLine: generated.fields.hookLine,
+    coreStat: generated.fields.coreStat,
     sourceUrls: generated.sourceUrls,
     hashtags: generated.fields.hashtags,
     sentimentTags: generated.fields.sentimentTags,
@@ -46,7 +47,7 @@ export async function runInstagramGeneration(orgId: string): Promise<InstagramGe
   try {
     const image = await generateStatCardImage({
       stylePrompt: generated.fields.imagePrompt,
-      statOrQuote: generated.fields.hookLine,
+      statOrQuote: generated.fields.coreStat,
       citationSource: generated.sourceUrls[0] ?? null,
     })
     if (image) {

@@ -13,12 +13,16 @@ export interface StatCardImageInput {
   /** Base visual style, taken verbatim from the draft's own `image_prompt` (already
    * synthesized by instagramGenerator.ts to match the dark-navy/single-accent aesthetic). */
   stylePrompt: string
-  /** The single shareable stat/quote to render large — the draft's hookLine, which is
-   * already synthesized as the sharpest one-line takeaway of its cited research. Reusing
-   * it means no second extraction pass over the caption is needed. */
+  /** The single concrete, resonant stat/quote to render large — must contain a real number,
+   * percentage, dollar figure, or a punchy verbatim quote (instagramGenerator.ts's coreStat
+   * field), never a generic rephrased question. Stripped of any URL/year before rendering
+   * (see stripUnrenderableText) as a defensive second layer beyond the system prompt. */
   statOrQuote: string
-  /** First cited source URL, if any, so the model can render a real small attribution
-   * line instead of inventing one. */
+  /** Citation is tracked for provenance but is intentionally NOT passed into the image
+   * prompt — INSTAGRAM_IMAGE_BRIEF follow-up: rendering literal source URLs as visible text
+   * in the graphic (including query strings like ?utm_source=) looked unprofessional and
+   * broke the "elite" bar. The citation still lives on the draft row itself; this card is a
+   * pure content visual, not a screenshot of a footnote. */
   citationSource: string | null
 }
 
@@ -26,19 +30,36 @@ export interface GeneratedImage {
   bytes: Buffer
 }
 
+const URL_PATTERN = /\bhttps?:\/\/\S+/gi
+const BARE_DOMAIN_PATTERN = /\b[a-z0-9-]+\.(com|org|net|io|co|gov|edu)\b\S*/gi
+const CALENDAR_YEAR_PATTERN = /\b(19|20)\d{2}\b/g
+
+/** Defensive cleanup applied to any text handed to the image model, independent of the
+ * synthesis system prompt's own instructions — a second layer so a prompt-following slip
+ * upstream can't put a raw URL or a stale year into the rendered graphic. */
+function stripUnrenderableText(text: string): string {
+  return text
+    .replace(URL_PATTERN, '')
+    .replace(BARE_DOMAIN_PATTERN, '')
+    .replace(CALENDAR_YEAR_PATTERN, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}
+
 function buildImagePrompt(input: StatCardImageInput): string {
+  const cleanStat = stripUnrenderableText(input.statOrQuote)
   const lines = [
     input.stylePrompt,
     '',
-    `Render ONE punchy stat/quote card as large, bold typography — the hero content is this ` +
-      `exact line: "${input.statOrQuote}"`,
+    `Render ONE punchy, concrete stat/quote card as large, bold typography — the hero content is this ` +
+      `exact line: "${cleanStat}"`,
     'A single stat/quote card only — NOT a dense multi-section infographic.',
+    'Do NOT render any URL, website domain, tracking-parameter text, citation text, or calendar year ' +
+      'anywhere in the image — no attribution line, no footer link, no date. The card is pure content: ' +
+      'the stat/quote and nothing else identifying its source.',
     'Leave a small, subtle empty area in the bottom-right corner reserved for a future logo — ' +
       'do not draw any logo, wordmark, or brand name there.',
   ]
-  if (input.citationSource) {
-    lines.push(`If you add an attribution line, keep it small and reference only: ${input.citationSource}`)
-  }
   return lines.join('\n')
 }
 

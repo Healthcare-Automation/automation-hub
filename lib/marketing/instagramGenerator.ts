@@ -100,6 +100,7 @@ export interface InstagramDraftFields {
   objective: string
   caption: string
   hookLine: string
+  coreStat: string
   hashtags: string[]
   sentimentTags: string[]
   impactScore: number
@@ -115,6 +116,7 @@ const InstagramDraftSchema = z.object({
   objective: z.string().min(1),
   caption: z.string().min(1),
   hookLine: z.string().min(1),
+  coreStat: z.string().min(1),
   hashtags: z.array(z.string()).min(10).max(35),
   sentimentTags: z.array(z.enum(INSTAGRAM_SENTIMENT_TAGS)).min(1),
   impactScore: z.number().int().min(0).max(100),
@@ -138,13 +140,24 @@ const SYNTHESIS_SYSTEM_PROMPT =
   "don't have is its own form of fabrication, even if you also disclose it in notes. If you have no " +
   'real citation, write in your own observational/experiential voice instead (no invoked authority). ' +
   'impactScore is YOUR OWN honest 0-100 estimate of viral/engagement potential, not a precise ' +
-  'measurement — impactScoreReasoning must explain the estimate briefly. imagePrompt describes a ' +
-  'branded stat/quote graphic card: clean, professional, high-contrast dark navy background with a ' +
-  'single accent color, elite modern-SaaS/consulting aesthetic (Stripe/Linear-adjacent minimalism), ' +
-  'NOT a stock photo with text overlay. Respond with ONLY a JSON object: {"mainIdea": string (short, ' +
-  'used to detect duplicate angles across runs), "audience": string, "objective": string, "caption": ' +
-  'string (the full IG caption, hook-first), "hookLine": string (the caption\'s first line, standalone), ' +
-  '"hashtags": [string, ...], "sentimentTags": [string, ...] (from: ' +
+  'measurement — impactScoreReasoning must explain the estimate briefly. ' +
+  'coreStat is the SINGLE most concrete, resonant, shareable data point or short verbatim quote from ' +
+  'the research — it must contain an actual number, percentage, dollar figure, or a punchy verbatim ' +
+  'quote (NOT a rephrased question, NOT a generic teaser like "wondering which X works best?"). ' +
+  'Example of a GOOD coreStat: "Referred patients accept treatment plans at 40% higher rates." ' +
+  'Example of a BAD coreStat (reject this style): "Wondering which marketing channels work best in 2023?" ' +
+  'NEVER include a specific calendar year (2023, 2024, 2025, etc.) anywhere in coreStat, hookLine, or ' +
+  'imagePrompt — evergreen phrasing only ("today", "right now", or no time reference at all), since this ' +
+  'graphic must not read as dated the week or month after it is generated. If the research itself is ' +
+  'about a dated event, keep the year out of the rendered stat and mention it only in the caption body ' +
+  'if truly necessary. imagePrompt describes a branded stat/quote graphic card: clean, professional, ' +
+  'high-contrast dark navy background with a single accent color, elite modern-SaaS/consulting aesthetic ' +
+  '(Stripe/Linear-adjacent minimalism), NOT a stock photo with text overlay, and must NOT instruct the ' +
+  'renderer to include any URL, domain name, or citation text anywhere in the image. Respond with ONLY ' +
+  'a JSON object: {"mainIdea": string (short, used to detect duplicate angles across runs), "audience": ' +
+  'string, "objective": string, "caption": string (the full IG caption, hook-first), "hookLine": string ' +
+  '(the caption\'s first line, standalone), "coreStat": string (the concrete number/quote per the rules ' +
+  'above, no calendar year), "hashtags": [string, ...], "sentimentTags": [string, ...] (from: ' +
   `${INSTAGRAM_SENTIMENT_TAGS.join(', ')}), "impactScore": number, "impactScoreReasoning": string, ` +
   '"imagePrompt": string, "notes": string (flag speculative/thin-evidence claims here; empty string ' +
   'if none), "claimsRequiringReview": [string, ...] (any claim that still needs a citation it doesn\'t ' +

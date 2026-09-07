@@ -31,7 +31,7 @@ test('generateStatCardImage returns null with no LLM provider configured', async
   })
 })
 
-test('generateStatCardImage decodes base64 image data into a Buffer', async (t) => {
+test('generateStatCardImage decodes base64 image data into a Buffer, and never renders the citation URL', async (t) => {
   const { generateStatCardImage } = await import('../lib/marketing/imageGenerator')
   const pngBytes = Buffer.from('89504e470d0a1a0a', 'hex')
   const b64 = pngBytes.toString('base64')
@@ -39,13 +39,38 @@ test('generateStatCardImage decodes base64 image data into a Buffer', async (t) 
     const body = JSON.parse(init.body as string)
     assert.equal(body.model, 'gpt-image-1')
     assert.match(body.prompt, /73% of local searches convert within 24 hours/)
-    assert.match(body.prompt, /example\.com\/study/)
+    // Citation URLs must never be rendered as visible text in the image (the original bug:
+    // a raw URL with ?utm_source= showed up baked into the graphic).
+    assert.doesNotMatch(body.prompt, /example\.com/)
+    assert.doesNotMatch(body.prompt, /https?:\/\//)
     return new Response(JSON.stringify({ data: [{ b64_json: b64 }] }), { status: 200 })
   })
   await withEnv('OPENAI_API_KEY', 'sk-test', async () => {
     const result = await generateStatCardImage(SAMPLE_INPUT)
     assert.ok(result)
     assert.ok(result.bytes.equals(pngBytes))
+  })
+})
+
+test('generateStatCardImage strips URLs and calendar years out of the rendered stat text', async (t) => {
+  const { generateStatCardImage } = await import('../lib/marketing/imageGenerator')
+  const pngBytes = Buffer.from('89504e470d0a1a0a', 'hex')
+  const b64 = pngBytes.toString('base64')
+  t.mock.method(globalThis, 'fetch', async (_url: string, init: RequestInit) => {
+    const body = JSON.parse(init.body as string)
+    assert.doesNotMatch(body.prompt, /2024/)
+    assert.doesNotMatch(body.prompt, /wordstream\.com/)
+    assert.doesNotMatch(body.prompt, /utm_source/)
+    assert.match(body.prompt, /Referred patients accept treatment plans/)
+    return new Response(JSON.stringify({ data: [{ b64_json: b64 }] }), { status: 200 })
+  })
+  await withEnv('OPENAI_API_KEY', 'sk-test', async () => {
+    const result = await generateStatCardImage({
+      stylePrompt: SAMPLE_INPUT.stylePrompt,
+      statOrQuote: 'Referred patients accept treatment plans in 2024, per wordstream.com/blog?utm_source=openai',
+      citationSource: 'https://wordstream.com/blog?utm_source=openai',
+    })
+    assert.ok(result)
   })
 })
 

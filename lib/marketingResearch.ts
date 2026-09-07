@@ -23,6 +23,8 @@ const ENRICH_FETCH_TIMEOUT_MS = 10_000
 // picks up the remaining feeds since ingestFeed is idempotent (dedupe on source_url).
 const DEFAULT_TIME_BUDGET_MS = 45_000
 const CLASSIFY_MAX_PER_RUN = 150
+// Anything older than this is archive, not a signal. Feeds like CDC's expose 15 years of history.
+const MAX_ITEM_AGE_DAYS = 90
 
 export interface FeedRunResult {
   feedId: string
@@ -80,8 +82,10 @@ export async function ingestFeed(orgId: string, entry: FeedRegistryEntry, deadli
   try {
     const items = await createRssAdapter(entry).fetch()
     let inserted = 0
+    const cutoff = Date.now() - MAX_ITEM_AGE_DAYS * 24 * 60 * 60 * 1000
     for (const item of items) {
       if (Date.now() > deadlineMs) break
+      if (item.publishedAt && item.publishedAt.getTime() < cutoff) continue
       const id = await insertItem(orgId, source.id, item)
       if (id) inserted++
     }

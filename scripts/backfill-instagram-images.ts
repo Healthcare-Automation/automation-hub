@@ -17,7 +17,7 @@ async function main() {
   for (const draft of drafts) {
     const image = await generateStatCardImage({
       stylePrompt: draft.imagePrompt,
-      statOrQuote: draft.hookLine,
+      statOrQuote: draft.coreStat,
       citationSource: draft.sourceUrls[0] ?? null,
     })
     if (!image) {

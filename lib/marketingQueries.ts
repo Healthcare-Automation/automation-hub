@@ -588,6 +588,7 @@ export interface InsertInstagramDraftInput {
   objective: string
   caption: string
   hookLine: string
+  coreStat: string
   sourceUrls: string[]
   hashtags: string[]
   sentimentTags: string[]
@@ -608,7 +609,7 @@ export async function insertInstagramDraft(input: InsertInstagramDraftInput): Pr
       claims_requiring_review, generated_by, status, is_demo_data
     ) values (
       ${input.orgId}, null, null, 'instagram_post', 'instagram', ${input.audience}, ${input.objective}, ${input.mainIdea},
-      ${sql.json(input.sourceUrls)}, ${sql.json([input.hookLine])}, ${input.caption}, ${input.caption},
+      ${sql.json(input.sourceUrls)}, ${sql.json([input.hookLine, input.coreStat])}, ${input.caption}, ${input.caption},
       ${sql.json(input.hashtags)}, ${sql.json(input.sentimentTags)},
       ${input.impactScore}, ${input.impactScoreReasoning}, ${input.imagePrompt}, ${input.notes || null},
       ${input.fingerprint}, ${sql.json(input.claimsRequiringReview)}, 'llm', 'draft', false
@@ -696,11 +697,13 @@ export interface InstagramDraftMissingImage {
   id: string
   imagePrompt: string
   hookLine: string
+  coreStat: string
   sourceUrls: string[]
 }
 
 /** Drafts still missing a generated image — backs scripts/backfill-instagram-images.ts
- * (INSTAGRAM_IMAGE_BRIEF.md backfill step). */
+ * (INSTAGRAM_IMAGE_BRIEF.md backfill step). coreStat falls back to hookLine for any draft
+ * inserted before the coreStat field existed (hook_options had only one element then). */
 export async function getInstagramDraftsMissingImage(orgId: string): Promise<InstagramDraftMissingImage[]> {
   const rows = await sql<
     { id: string; image_prompt: string | null; hook_options: string[]; source_material_links: string[] }[]
@@ -716,6 +719,7 @@ export async function getInstagramDraftsMissingImage(orgId: string): Promise<Ins
       id: r.id,
       imagePrompt: r.image_prompt as string,
       hookLine: r.hook_options?.[0] ?? '',
+      coreStat: r.hook_options?.[1] ?? r.hook_options?.[0] ?? '',
       sourceUrls: r.source_material_links ?? [],
     }))
 }
