@@ -4,9 +4,10 @@ import { FEED_REGISTRY } from './marketing/adapters/feedRegistry'
 import { generateContent } from './marketing/contentGenerator'
 import { compareOpportunityRank } from './marketing/ranking'
 import type {
-  AngleType, ContentFormat, GeneratedAngle, ReliabilityClassification,
+  AngleType, ContentFormat, GeneratedAngle, InstagramReviewTag, ReliabilityClassification,
   SourceType, StoryAngleStructure,
 } from './marketing/types'
+import type { RecentDraftContext } from './marketing/instagramGenerator'
 
 /** Raw postgres.js query functions for the Marketing tab (Practice Story Engine port).
  * Follows lib/outreachQueries.ts's convention: one function per page/action, hand-written
@@ -495,6 +496,168 @@ export async function createContentDraft(
     returning id
   `
   return draft.id
+}
+
+// ---------- Instagram content queue ----------
+
+/** Context for the generator's planning/synthesis prompts (avoid repeating recent angles,
+ * bias on past approve/disapprove feedback). Most recent N instagram drafts only — the
+ * generator only needs recent history, not the full archive. */
+export async function getRecentInstagramDraftsContext(orgId: string, limit = 25): Promise<RecentDraftContext[]> {
+  const rows = await sql<
+    {
+      main_idea: string; sentiment_tags: string[]; created_at: Date; notes: string | null
+      feedback_tags: string[] | null; feedback_free_text: string | null
+    }[]
+  >`
+    select d.main_idea, d.sentiment_tags, d.created_at, d.notes, fb.tags as feedback_tags, fb.free_text as feedback_free_text
+    from marketing_content_drafts d
+    left join lateral (
+      select tags, free_text from marketing_feedback_events
+      where target_type = 'content_draft' and target_id = d.id and (tags ? 'approved' or tags ? 'disapproved')
+      order by created_at desc limit 1
+    ) fb on true
+    where d.org_id = ${orgId} and d.platform = 'instagram'
+    order by d.created_at desc
+    limit ${limit}
+  `
+  return rows.map((r) => ({
+    mainIdea: r.main_idea,
+    sentimentTags: r.sentiment_tags,
+    createdAt: r.created_at.toISOString(),
+    reviewTag: r.feedback_tags?.includes('approved') ? 'approved' : r.feedback_tags?.includes('disapproved') ? 'disapproved' : null,
+    freeText: r.feedback_free_text,
+    notes: r.notes,
+  }))
+}
+
+export interface InsertInstagramDraftInput {
+  orgId: string
+  mainIdea: string
+  audience: string
+  objective: string
+  caption: string
+  hookLine: string
+  sourceUrls: string[]
+  hashtags: string[]
+  sentimentTags: string[]
+  impactScore: number
+  impactScoreReasoning: string
+  imagePrompt: string
+  notes: string
+  claimsRequiringReview: string[]
+  fingerprint: string
+}
+
+export async function insertInstagramDraft(input: InsertInstagramDraftInput): Promise<string> {
+  const [row] = await sql<{ id: string }[]>`
+    insert into marketing_content_drafts (
+      org_id, opportunity_id, angle_id, format, platform, audience, objective, main_idea,
+      source_material_links, hook_options, draft_text, caption, hashtags, sentiment_tags,
+      impact_score, impact_score_reasoning, image_prompt, notes, content_fingerprint,
+      claims_requiring_review, generated_by, status, is_demo_data
+    ) values (
+      ${input.orgId}, null, null, 'instagram_post', 'instagram', ${input.audience}, ${input.objective}, ${input.mainIdea},
+      ${sql.json(input.sourceUrls)}, ${sql.json([input.hookLine])}, ${input.caption}, ${input.caption},
+      ${sql.json(input.hashtags)}, ${sql.json(input.sentimentTags)},
+      ${input.impactScore}, ${input.impactScoreReasoning}, ${input.imagePrompt}, ${input.notes || null},
+      ${input.fingerprint}, ${sql.json(input.claimsRequiringReview)}, 'llm', 'draft', false
+    )
+    returning id
+  `
+  return row.id
+}
+
+export interface InstagramDraftRow {
+  id: string
+  mainIdea: string
+  audience: string
+  objective: string
+  caption: string
+  hookLine: string
+  sourceUrls: string[]
+  hashtags: string[]
+  sentimentTags: string[]
+  impactScore: number | null
+  impactScoreReasoning: string | null
+  imageUrl: string | null
+  imagePrompt: string | null
+  notes: string | null
+  usedAt: string | null
+  claimsRequiringReview: string[]
+  createdAt: string
+  generatedBy: 'template' | 'llm'
+  isDemoData: boolean
+  reviewStatus: 'approved' | 'disapproved' | 'unreviewed'
+}
+
+/** Full instagram-platform draft list for the review queue — small dataset (3 posts/week),
+ * so sort/filter happens client-side (components/marketing/InstagramQueueBoard.tsx),
+ * matching TrendRadarTable's convention. */
+export async function getInstagramDrafts(orgId: string): Promise<InstagramDraftRow[]> {
+  const rows = await sql<
+    {
+      id: string; main_idea: string; audience: string; objective: string; caption: string | null
+      hook_options: string[]; source_material_links: string[]; hashtags: string[]; sentiment_tags: string[]
+      impact_score: number | null; impact_score_reasoning: string | null; image_url: string | null
+      image_prompt: string | null; notes: string | null; used_at: Date | null
+      claims_requiring_review: string[]; created_at: Date; generated_by: 'template' | 'llm'; is_demo_data: boolean
+      feedback_tags: string[] | null
+    }[]
+  >`
+    select d.id, d.main_idea, d.audience, d.objective, d.caption, d.hook_options, d.source_material_links,
+      d.hashtags, d.sentiment_tags, d.impact_score, d.impact_score_reasoning, d.image_url, d.image_prompt,
+      d.notes, d.used_at, d.claims_requiring_review, d.created_at, d.generated_by, d.is_demo_data,
+      fb.tags as feedback_tags
+    from marketing_content_drafts d
+    left join lateral (
+      select tags from marketing_feedback_events
+      where target_type = 'content_draft' and target_id = d.id and (tags ? 'approved' or tags ? 'disapproved')
+      order by created_at desc limit 1
+    ) fb on true
+    where d.org_id = ${orgId} and d.platform = 'instagram'
+    order by d.created_at desc
+  `
+  return rows.map((r) => ({
+    id: r.id,
+    mainIdea: r.main_idea,
+    audience: r.audience,
+    objective: r.objective,
+    caption: r.caption ?? '',
+    hookLine: r.hook_options?.[0] ?? '',
+    sourceUrls: r.source_material_links ?? [],
+    hashtags: r.hashtags ?? [],
+    sentimentTags: r.sentiment_tags ?? [],
+    impactScore: r.impact_score,
+    impactScoreReasoning: r.impact_score_reasoning,
+    imageUrl: r.image_url,
+    imagePrompt: r.image_prompt,
+    notes: r.notes,
+    usedAt: r.used_at ? r.used_at.toISOString() : null,
+    claimsRequiringReview: r.claims_requiring_review ?? [],
+    createdAt: r.created_at.toISOString(),
+    generatedBy: r.generated_by,
+    isDemoData: r.is_demo_data,
+    reviewStatus: r.feedback_tags?.includes('approved') ? 'approved' : r.feedback_tags?.includes('disapproved') ? 'disapproved' : 'unreviewed',
+  }))
+}
+
+export async function updateInstagramDraftNotes(draftId: string, notes: string): Promise<void> {
+  await sql`update marketing_content_drafts set notes = ${notes} where id = ${draftId} and platform = 'instagram'`
+}
+
+export async function setInstagramDraftUsed(draftId: string, used: boolean): Promise<void> {
+  await sql`
+    update marketing_content_drafts set used_at = ${used ? sql`now()` : null}
+    where id = ${draftId} and platform = 'instagram'
+  `
+}
+
+export async function recordInstagramReview(orgId: string, draftId: string, tag: InstagramReviewTag): Promise<void> {
+  await sql`
+    insert into marketing_feedback_events (org_id, target_type, target_id, tags)
+    values (${orgId}, 'content_draft', ${draftId}, ${sql.json([tag])})
+  `
 }
 
 // ---------- Voice and Learning ----------

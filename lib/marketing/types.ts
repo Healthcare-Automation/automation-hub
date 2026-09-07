@@ -63,8 +63,27 @@ export interface GeneratedAngle {
 
 export type ContentFormat =
   | 'linkedin_post' | 'video_script' | 'carousel' | 'newsletter'
-  | 'discussion_prompt' | 'founder_commentary'
+  | 'discussion_prompt' | 'founder_commentary' | 'instagram_post'
 
 export type FeedbackTargetType = 'story_opportunity' | 'story_angle' | 'content_draft'
 
 export type PreferenceStatus = 'active' | 'temporary' | 'reset'
+
+/** Instagram content queue (INSTAGRAM_QUEUE_BRIEF.md) — finalized multi-select sentiment
+ * vocabulary for marketing_content_drafts.sentiment_tags, stored as a string array. */
+export const INSTAGRAM_SENTIMENT_TAGS = [
+  'contrarian',
+  'educational',
+  'myth_busting',
+  'data_driven',
+  'inspirational',
+  'community_focused',
+  'cost_saving',
+  'urgency',
+] as const
+export type InstagramSentimentTag = (typeof INSTAGRAM_SENTIMENT_TAGS)[number]
+
+/** First-class review tags used by the Instagram queue's approve/disapprove buttons,
+ * written as marketing_feedback_events rows against target_type='content_draft'. */
+export const INSTAGRAM_REVIEW_TAGS = ['approved', 'disapproved'] as const
+export type InstagramReviewTag = (typeof INSTAGRAM_REVIEW_TAGS)[number]

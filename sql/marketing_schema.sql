@@ -256,3 +256,45 @@ CREATE INDEX IF NOT EXISTS idx_marketing_research_runs_org_started ON marketing_
 ALTER TABLE marketing_story_opportunities ADD COLUMN IF NOT EXISTS generated_by TEXT NOT NULL DEFAULT 'template';
 
 alter table marketing_source_items add column if not exists llm_classified_at timestamptz;
+
+-- ─── Instagram content queue ──────────────────────────────────────────────
+-- Repurposes marketing_content_drafts / marketing_feedback_events for a much simpler,
+-- concrete deliverable: UZU's own Instagram content queue (NOT client-facing), generated
+-- directly from grounded web research rather than routed through the
+-- opportunity -> cluster -> angle pipeline built for the dental-practice story engine.
+-- See INSTAGRAM_QUEUE_BRIEF.md for the full spec.
+
+-- The Instagram generator (lib/marketing/instagramGenerator.ts) never has a real
+-- opportunity/angle to point at, and has no "alternative point of view" concept — loosen
+-- these rather than inventing synthetic opportunity/angle rows just to satisfy the FK.
+alter table marketing_content_drafts alter column opportunity_id drop not null;
+alter table marketing_content_drafts alter column angle_id drop not null;
+alter table marketing_content_drafts alter column alternative_pov drop not null;
+
+alter table marketing_content_drafts add column if not exists platform text not null default 'instagram';
+-- The Instagram caption, kept separate from draft_text (which existing LinkedIn/video-script
+-- rows already populate and read elsewhere) rather than overloading its meaning.
+alter table marketing_content_drafts add column if not exists caption text;
+alter table marketing_content_drafts add column if not exists hashtags jsonb not null default '[]';
+-- One or more of: contrarian | educational | myth_busting | data_driven | inspirational |
+-- community_focused | cost_saving | urgency (lib/marketing/types.ts INSTAGRAM_SENTIMENT_TAGS).
+alter table marketing_content_drafts add column if not exists sentiment_tags jsonb not null default '[]';
+-- Model's own honest estimate of engagement/viral potential (0-100) plus its reasoning —
+-- labeled as an estimate in the UI, never presented as a measured outcome.
+alter table marketing_content_drafts add column if not exists impact_score integer;
+alter table marketing_content_drafts add column if not exists impact_score_reasoning text;
+-- Null = not yet posted; set when Andy checks "used" in the review UI.
+alter table marketing_content_drafts add column if not exists used_at timestamptz;
+-- Andy's freeform written reasoning, editable in the UI. Also where the generator flags a
+-- claim as speculative/thin-evidence rather than presenting it as fact.
+alter table marketing_content_drafts add column if not exists notes text;
+alter table marketing_content_drafts add column if not exists image_url text;
+alter table marketing_content_drafts add column if not exists image_prompt text;
+-- Short slug of the core claim+angle (see contentFingerprint() in
+-- lib/marketing/instagramGenerator.ts), used to bias topic selection away from angles
+-- already queued/used recently. Not a uniqueness constraint — angles can legitimately repeat
+-- with a different hook, so this only informs the generator, it never hard-blocks a run.
+alter table marketing_content_drafts add column if not exists content_fingerprint text;
+
+create index if not exists idx_marketing_content_drafts_platform on marketing_content_drafts(platform);
+create index if not exists idx_marketing_content_drafts_fingerprint on marketing_content_drafts(content_fingerprint);

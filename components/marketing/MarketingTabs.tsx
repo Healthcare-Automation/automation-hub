@@ -9,6 +9,7 @@ const TABS = [
   { href: '/marketing/trend-radar', label: 'Trend Radar' },
   { href: '/marketing/story-workspace', label: 'Story Workspace' },
   { href: '/marketing/content-library', label: 'Content Library' },
+  { href: '/marketing/instagram-queue', label: 'Instagram Queue' },
   { href: '/marketing/voice-and-learning', label: 'Voice and Learning' },
   { href: '/marketing/sources', label: 'Sources' },
   { href: '/marketing/settings', label: 'Settings' },

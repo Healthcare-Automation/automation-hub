@@ -4,8 +4,13 @@ Runs the automation-hub Marketing pipeline (ingest → enrich → embed → clus
 opportunities) from lib/marketingPipeline.ts with a generous time budget, instead of the
 Vercel cron (which caps at 300s and could only chew through ~2 feeds per tick).
 
+Also hosts run_instagram_content, the Mon/Wed/Fri Instagram content queue generator
+(INSTAGRAM_QUEUE_BRIEF.md) — same image, same secret, calls
+scripts/generate-instagram-content.ts instead.
+
 Deploy (from automation-hub repo root):  modal deploy modal/marketing_research.py
 Run once now:                             modal run modal/marketing_research.py
+Run instagram function once now:          modal run modal/marketing_research.py::run_instagram_content
 Secrets: Modal secret `marketing-research` with DATABASE_URL, OPENAI_API_KEY (+ optional OPENAI_MODEL).
 """
 from pathlib import Path
@@ -59,6 +64,31 @@ def run_research(time_budget_ms: int = 20 * 60 * 1000) -> str:
     print(out[-6000:])
     if proc.returncode != 0:
         raise RuntimeError(f"research-marketing exited {proc.returncode}")
+    return out[-2000:]
+
+
+@app.function(
+    image=image,
+    secrets=[modal.Secret.from_name("marketing-research")],
+    timeout=10 * 60,
+    schedule=modal.Cron("0 13 * * 1,3,5"),  # Mon/Wed/Fri 13:00 UTC — INSTAGRAM_QUEUE_BRIEF.md cadence
+)
+def run_instagram_content() -> str:
+    import os
+
+    env = dict(os.environ)
+    proc = subprocess.run(
+        ["npx", "tsx", "scripts/generate-instagram-content.ts"],
+        cwd="/app",
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=9 * 60,
+    )
+    out = (proc.stdout or "") + (proc.stderr or "")
+    print(out[-6000:])
+    if proc.returncode != 0:
+        raise RuntimeError(f"generate-instagram-content exited {proc.returncode}")
     return out[-2000:]
 
 
