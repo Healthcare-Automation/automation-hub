@@ -517,7 +517,7 @@ export async function getRecentInstagramDraftsContext(orgId: string, limit = 25)
       where target_type = 'content_draft' and target_id = d.id and (tags ? 'approved' or tags ? 'disapproved')
       order by created_at desc limit 1
     ) fb on true
-    where d.org_id = ${orgId} and d.platform = 'instagram'
+    where d.org_id = ${orgId} and d.format = 'instagram_post'
     order by d.created_at desc
     limit ${limit}
   `
@@ -615,7 +615,7 @@ export async function getInstagramDrafts(orgId: string): Promise<InstagramDraftR
       where target_type = 'content_draft' and target_id = d.id and (tags ? 'approved' or tags ? 'disapproved')
       order by created_at desc limit 1
     ) fb on true
-    where d.org_id = ${orgId} and d.platform = 'instagram'
+    where d.org_id = ${orgId} and d.format = 'instagram_post'
     order by d.created_at desc
   `
   return rows.map((r) => ({
@@ -643,13 +643,13 @@ export async function getInstagramDrafts(orgId: string): Promise<InstagramDraftR
 }
 
 export async function updateInstagramDraftNotes(draftId: string, notes: string): Promise<void> {
-  await sql`update marketing_content_drafts set notes = ${notes} where id = ${draftId} and platform = 'instagram'`
+  await sql`update marketing_content_drafts set notes = ${notes} where id = ${draftId} and format = 'instagram_post'`
 }
 
 export async function setInstagramDraftUsed(draftId: string, used: boolean): Promise<void> {
   await sql`
     update marketing_content_drafts set used_at = ${used ? sql`now()` : null}
-    where id = ${draftId} and platform = 'instagram'
+    where id = ${draftId} and format = 'instagram_post'
   `
 }
 

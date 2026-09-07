@@ -133,6 +133,10 @@ const SYNTHESIS_SYSTEM_PROMPT =
   'Caption style: hook-first (the reader decides in the first line), one clear teaching point, the ' +
   'cited stat/quote worked in naturally (not academic-sounding), and a soft CTA that positions UZU ' +
   'credibly — never a hard sell. Hashtags: 15-30, a mix of broad and niche, no spam/irrelevant tags. ' +
+  'NEVER write phrases like "studies show", "research shows", "data reveals", or "experts say" unless ' +
+  'a specific citation from the Research section backs that exact claim — invoking authority you ' +
+  "don't have is its own form of fabrication, even if you also disclose it in notes. If you have no " +
+  'real citation, write in your own observational/experiential voice instead (no invoked authority). ' +
   'impactScore is YOUR OWN honest 0-100 estimate of viral/engagement potential, not a precise ' +
   'measurement — impactScoreReasoning must explain the estimate briefly. imagePrompt describes a ' +
   'branded stat/quote graphic card: clean, professional, high-contrast dark navy background with a ' +
@@ -203,6 +207,11 @@ export interface GeneratedInstagramPost {
   fingerprint: string
 }
 
+// Belt-and-suspenders against the model inventing an authority it doesn't have — the system
+// prompt forbids this, but when there are zero real citations, also refuse the draft outright
+// rather than trust the instruction alone.
+const UNEARNED_AUTHORITY_PATTERN = /\b(studies|research|data|reports?|surveys?|experts?)\s+(show|shows|reveal|reveals|indicate|indicates|say|says|suggest|suggests|confirm|confirms)\b/i
+
 /** Full generation pass: plan a topic, research it, synthesize the draft. Returns null
  * (never throws) if any stage fails or produces nothing usable — the caller must not insert
  * a partial/fabricated row. */
@@ -215,6 +224,11 @@ export async function generateInstagramPost(recent: RecentDraftContext[]): Promi
 
   const fields = await synthesizeDraft(plan, research.text, research.citations, recent)
   if (!fields) return null
+
+  if (research.citations.length === 0 && UNEARNED_AUTHORITY_PATTERN.test(fields.caption)) {
+    console.error('Instagram draft rejected: invoked authority ("studies show" etc.) with zero real citations.')
+    return null
+  }
 
   return {
     fields,
