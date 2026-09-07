@@ -47,17 +47,21 @@ export function freshnessLabelFromMs(ms: number): string {
   return `${Math.floor(days / 30)}mo ago`
 }
 
-async function evidenceSummaryForCluster(clusterId: string): Promise<{
+interface EvidenceSummary {
   sourceTypeCounts: SourceTypeCount[]
   sparkline: number[]
   freshnessLabel: string
-}> {
-  const evidence = await sql<{ source_type: SourceType; published_at: Date | null; retrieved_at: Date }[]>`
-    select i.source_type, i.published_at, i.retrieved_at
-    from marketing_trend_cluster_items ci
-    join marketing_source_items i on i.id = ci.source_item_id
-    where ci.cluster_id = ${clusterId}
-  `
+}
+
+const EMPTY_EVIDENCE_SUMMARY: EvidenceSummary = {
+  sourceTypeCounts: [],
+  sparkline: [0, 0, 0, 0, 0, 0, 0],
+  freshnessLabel: 'Unknown',
+}
+
+function summarizeEvidenceRows(
+  evidence: { source_type: SourceType; published_at: Date | null; retrieved_at: Date }[],
+): EvidenceSummary {
   const counts = new Map<SourceType, number>()
   const dayBuckets = new Array(7).fill(0)
   const now = Date.now()
@@ -75,6 +79,34 @@ async function evidenceSummaryForCluster(clusterId: string): Promise<{
     sparkline: dayBuckets,
     freshnessLabel: mostRecentMs ? freshnessLabelFromMs(mostRecentMs) : 'Unknown',
   }
+}
+
+/** Evidence summaries (source-type counts, 7-day sparkline, freshness) for MANY clusters in
+ * one round trip — was previously one query per cluster in a serial await loop (the actual
+ * cause of Briefing/Trend Radar tab lag: N+1 queries, each paying full Supabase round-trip
+ * latency, executed one at a time instead of batched). `where ci.cluster_id = any(...)` +
+ * grouping in JS replaces N queries with 1. */
+async function evidenceSummariesForClusters(clusterIds: string[]): Promise<Map<string, EvidenceSummary>> {
+  if (clusterIds.length === 0) return new Map()
+  const evidence = await sql<
+    { cluster_id: string; source_type: SourceType; published_at: Date | null; retrieved_at: Date }[]
+  >`
+    select ci.cluster_id, i.source_type, i.published_at, i.retrieved_at
+    from marketing_trend_cluster_items ci
+    join marketing_source_items i on i.id = ci.source_item_id
+    where ci.cluster_id = any(${sql.array(clusterIds)})
+  `
+  const byCluster = new Map<string, typeof evidence[number][]>()
+  for (const row of evidence) {
+    const list = byCluster.get(row.cluster_id) ?? []
+    list.push(row)
+    byCluster.set(row.cluster_id, list)
+  }
+  const result = new Map<string, EvidenceSummary>()
+  for (const clusterId of clusterIds) {
+    result.set(clusterId, summarizeEvidenceRows(byCluster.get(clusterId) ?? []))
+  }
+  return result
 }
 
 /** Up to 5 opportunities, ranked by trend score — live (non-demo) data always outranks
@@ -124,15 +156,21 @@ export async function getBriefingCards(orgId: string, options: { hideDemo?: bool
     .slice(0, 5)
 
   const cards: BriefingCard[] = []
-  for (const row of ranked) {
-    const summary = row.cluster_id
-      ? await evidenceSummaryForCluster(row.cluster_id)
-      : { sourceTypeCounts: [], sparkline: [0, 0, 0, 0, 0, 0, 0], freshnessLabel: 'Unknown' }
+  const clusterIds = ranked.filter((r) => r.cluster_id).map((r) => r.cluster_id!)
+  const evidenceByCluster = await evidenceSummariesForClusters(clusterIds)
 
-    const [practicalAngle] = await sql<{ structure: StoryAngleStructure }[]>`
-      select structure from marketing_story_angles
-      where opportunity_id = ${row.id} and angle_type = 'practical' limit 1
-    `
+  const opportunityIds = ranked.map((r) => r.id)
+  const practicalAngles =
+    opportunityIds.length === 0
+      ? []
+      : await sql<{ opportunity_id: string; structure: StoryAngleStructure }[]>`
+          select opportunity_id, structure from marketing_story_angles
+          where opportunity_id = any(${sql.array(opportunityIds)}) and angle_type = 'practical'
+        `
+  const audienceByOpportunity = new Map(practicalAngles.map((a) => [a.opportunity_id, a.structure.audience]))
+
+  for (const row of ranked) {
+    const summary = row.cluster_id ? (evidenceByCluster.get(row.cluster_id) ?? EMPTY_EVIDENCE_SUMMARY) : EMPTY_EVIDENCE_SUMMARY
 
     cards.push({
       id: row.id,
@@ -153,7 +191,7 @@ export async function getBriefingCards(orgId: string, options: { hideDemo?: bool
               ? 'Medium'
               : 'Low',
       freshnessLabel: summary.freshnessLabel,
-      audience: practicalAngle?.structure.audience ?? null,
+      audience: audienceByOpportunity.get(row.id) ?? null,
       sourceTypeCounts: summary.sourceTypeCounts,
       sparkline: summary.sparkline,
     })
@@ -294,15 +332,27 @@ export async function getTrendRadarRows(orgId: string): Promise<TrendRadarRow[]>
   `
 
   const rows: TrendRadarRow[] = []
+  const clusterIds = clusters.map((c) => c.id)
+  const allEvidence =
+    clusterIds.length === 0
+      ? []
+      : await sql<
+          { cluster_id: string; source_type: SourceType; published_at: Date | null; retrieved_at: Date; dental_relevance: number }[]
+        >`
+          select ci.cluster_id, i.source_type, i.published_at, i.retrieved_at, i.dental_relevance
+          from marketing_trend_cluster_items ci
+          join marketing_source_items i on i.id = ci.source_item_id
+          where ci.cluster_id = any(${sql.array(clusterIds)})
+        `
+  const evidenceByCluster = new Map<string, typeof allEvidence[number][]>()
+  for (const row of allEvidence) {
+    const list = evidenceByCluster.get(row.cluster_id) ?? []
+    list.push(row)
+    evidenceByCluster.set(row.cluster_id, list)
+  }
+
   for (const cluster of clusters) {
-    const evidence = await sql<
-      { source_type: SourceType; published_at: Date | null; retrieved_at: Date; dental_relevance: number }[]
-    >`
-      select i.source_type, i.published_at, i.retrieved_at, i.dental_relevance
-      from marketing_trend_cluster_items ci
-      join marketing_source_items i on i.id = ci.source_item_id
-      where ci.cluster_id = ${cluster.id}
-    `
+    const evidence = evidenceByCluster.get(cluster.id) ?? []
 
     const counts = new Map<SourceType, number>()
     const dayBuckets = new Array(7).fill(0)
