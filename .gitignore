@@ -63,3 +63,4 @@ __pycache__/
 scripts/_*.ts
 .claude/settings.local.json
 .claude/*.local.json
+.impact-graph.json
