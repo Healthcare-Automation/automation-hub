@@ -6,7 +6,8 @@ import CompanyPanel from './CompanyPanel'
 
 type Summary = {
   total: number; contactable: number; needs_review: number
-  contacted: number; replied: number; do_not_contact: number
+  contacted: number; contacted_historical: number; contacted_platform: number
+  replied: number; do_not_contact: number
   last_synced_at: string | null
 } | null
 
@@ -74,11 +75,24 @@ function ReadyBadge({ label, hasDraft, status }: { label: string; hasDraft: bool
   )
 }
 
+const ORIGIN_LABEL: Record<string, string> = {
+  historical: 'Contacted before (old sheet)',
+  platform: 'Reached out via this platform',
+  not_contacted: 'Not yet contacted',
+}
+const ORIGIN_TONE: Record<string, string> = {
+  historical: 'bg-zinc-200/70 ring-zinc-300 text-zinc-500 dark:bg-zinc-700/40 dark:ring-zinc-700/50',
+  platform: 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 ring-cyan-500/30',
+  not_contacted: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 ring-amber-500/30',
+}
+
 export default function OutreachView({
   companies, summary, isAdmin,
 }: { companies: OutreachCompanyRow[]; summary: Summary; isAdmin: boolean }) {
   const [query, setQuery] = useState('')
   const [stageFilter, setStageFilter] = useState<string>('all')
+  const [originFilter, setOriginFilter] = useState<string>('all')
+  const [priorityOnly, setPriorityOnly] = useState(false)
   const [openId, setOpenId] = useState<number | null>(null)
 
   const stages = useMemo(() => {
@@ -90,6 +104,14 @@ export default function OutreachView({
     const q = query.trim().toLowerCase()
     return companies.filter(c => {
       if (stageFilter !== 'all' && c.pipeline_stage !== stageFilter) return false
+      if (originFilter !== 'all' && c.contact_origin !== originFilter) return false
+      // "Priority queue": the clean, ready-to-hit list — never contacted (neither by the
+      // old sheet nor by this platform), not blocked, and has at least one draft waiting.
+      if (priorityOnly) {
+        if (c.contact_origin !== 'not_contacted') return false
+        if (c.do_not_contact) return false
+        if (c.email_draft_count === 0 && c.linkedin_draft_count === 0) return false
+      }
       if (!q) return true
       return (
         c.name.toLowerCase().includes(q) ||
@@ -97,7 +119,7 @@ export default function OutreachView({
         (c.contact_name ?? '').toLowerCase().includes(q)
       )
     })
-  }, [companies, query, stageFilter])
+  }, [companies, query, stageFilter, originFilter, priorityOnly])
 
   return (
     <div className="space-y-5">
@@ -122,17 +144,29 @@ export default function OutreachView({
       </div>
 
       {summary && (
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-7">
           <Tile label="found by Hermes" value={summary.total} tone="text-zinc-800 dark:text-zinc-200" />
           <Tile label="safe to contact" value={summary.contactable} tone="text-cyan-700 dark:text-cyan-300" />
           <Tile label="drafts ready for you" value={summary.needs_review} tone="text-amber-700 dark:text-amber-300" />
-          <Tile label="reached out" value={summary.contacted} tone="text-cyan-700 dark:text-cyan-300" />
+          <Tile label="contacted before (old sheet)" value={summary.contacted_historical} tone="text-zinc-500" />
+          <Tile label="reached out via platform" value={summary.contacted_platform} tone="text-cyan-700 dark:text-cyan-300" />
           <Tile label="replied" value={summary.replied} tone="text-emerald-700 dark:text-emerald-300" />
           <Tile label="do-not-contact" value={summary.do_not_contact} tone="text-red-600 dark:text-red-400" />
         </div>
       )}
 
       <div className="flex flex-wrap items-center gap-2">
+        <button
+          onClick={() => setPriorityOnly(p => !p)}
+          className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-[12px] font-medium ring-1 transition-colors ${
+            priorityOnly
+              ? 'bg-amber-500 text-white ring-amber-500'
+              : 'bg-white text-zinc-700 ring-zinc-200 hover:bg-zinc-50 dark:bg-zinc-900/60 dark:text-zinc-300 dark:ring-zinc-700/60 dark:hover:bg-zinc-800/60'
+          }`}
+          title="Never contacted (old sheet or this platform), not blocked, has a draft waiting — the clean list to start working through."
+        >
+          {priorityOnly ? '✓ ' : ''}Priority queue only
+        </button>
         <input
           value={query}
           onChange={e => setQuery(e.target.value)}
@@ -147,6 +181,16 @@ export default function OutreachView({
           {stages.map(s => (
             <option key={s} value={s}>{s === 'all' ? 'All stages' : STAGE_LABEL[s] ?? s}</option>
           ))}
+        </select>
+        <select
+          value={originFilter}
+          onChange={e => setOriginFilter(e.target.value)}
+          className="rounded-lg border border-zinc-200 bg-white focus:border-zinc-400 dark:border-zinc-700/60 dark:bg-zinc-900/60 dark:focus:border-zinc-600 px-2.5 py-1.5 text-[12px] text-zinc-700 dark:text-zinc-300 focus:outline-none"
+        >
+          <option value="all">Contacted before or not — all</option>
+          <option value="not_contacted">Never contacted</option>
+          <option value="historical">Contacted before (old sheet)</option>
+          <option value="platform">Reached out via this platform</option>
         </select>
         <span className="text-[11px] text-zinc-500 dark:text-zinc-600">{filtered.length} of {companies.length}</span>
       </div>
@@ -185,6 +229,9 @@ export default function OutreachView({
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className={`inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-[10.5px] font-medium ring-1 ${stageTone(c.pipeline_stage)}`}>
                       {STAGE_LABEL[c.pipeline_stage] ?? c.pipeline_stage}
+                    </span>
+                    <span className={`inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-[10.5px] font-medium ring-1 ${ORIGIN_TONE[c.contact_origin]}`}>
+                      {ORIGIN_LABEL[c.contact_origin]}
                     </span>
                     {c.do_not_contact && (
                       <span className="inline-flex whitespace-nowrap rounded-full bg-red-500/10 px-2 py-0.5 text-[10.5px] font-medium text-red-600 dark:text-red-400 ring-1 ring-red-500/25">

@@ -48,11 +48,19 @@ export interface OutreachCompanyRow {
   reply_classification: string | null   // most recent reply classification, if any
   sequence_status: string | null        // draft | active | paused | stopped | completed
   sequence_progress: string | null      // e.g. "1/3" — steps done vs total
+  /** 'historical' = already marked Contacted in Andy's old sheet before this system ever
+   * touched it (no email/LinkedIn ever sent through here). 'platform' = an email was actually
+   * sent or a LinkedIn action marked done through this pipeline. 'not_contacted' = neither —
+   * this is what Andy should actually be working from. Lets the hub separate "already reached
+   * out before we existed" from "reached out using this platform" instead of collapsing both
+   * into one 'contacted' bucket. */
+  contact_origin: 'historical' | 'platform' | 'not_contacted'
 }
 
 export async function getOutreachSummary() {
   const [row] = await sql<{ total: number; contactable: number; needs_review: number;
-    contacted: number; replied: number; do_not_contact: number; last_synced_at: string | null }[]>`
+    contacted: number; contacted_historical: number; contacted_platform: number;
+    replied: number; do_not_contact: number; last_synced_at: string | null }[]>`
     select
       (select count(*)::int from outreach_companies) as total,
       (select count(*)::int from outreach_companies where do_not_contact = 0
@@ -60,6 +68,19 @@ export async function getOutreachSummary() {
       (select count(*)::int from outreach_companies where pipeline_stage = 'ready_for_review') as needs_review,
       (select count(*)::int from outreach_companies where pipeline_stage in
         ('contacted','following_up','replied','qualified_conversation','meeting','opportunity')) as contacted,
+      -- already marked Contacted in Andy's old sheet, never touched by this platform
+      (select count(*)::int from outreach_companies c where c.historical_pipeline_stage = 'Contacted'
+        and not exists (
+          select 1 from outreach_emails where company_id = c.id and status in ('sent','replied','bounced')
+          union all
+          select 1 from outreach_linkedin_actions where company_id = c.id and status = 'done'
+        )) as contacted_historical,
+      -- an email actually sent or a LinkedIn action marked done through this system
+      (select count(*)::int from outreach_companies c where exists (
+          select 1 from outreach_emails where company_id = c.id and status in ('sent','replied','bounced')
+          union all
+          select 1 from outreach_linkedin_actions where company_id = c.id and status = 'done'
+        )) as contacted_platform,
       (select count(*)::int from outreach_companies where pipeline_stage in
         ('replied','qualified_conversation','meeting','opportunity')) as replied,
       (select count(*)::int from outreach_companies where do_not_contact = 1) as do_not_contact,
@@ -85,7 +106,16 @@ export async function getOutreachCompanies(): Promise<OutreachCompanyRow[]> {
       la.status as linkedin_status, la.n as linkedin_draft_count,
       lr.classification as reply_classification,
       seq.status as sequence_status,
-      seq.progress as sequence_progress
+      seq.progress as sequence_progress,
+      -- 'platform' wins whenever ANY email/LinkedIn action actually went out through this
+      -- system, even for a company whose old sheet already said Contacted (a re-touch still
+      -- counts as platform work). Only falls back to 'historical' when the sheet already had
+      -- it as Contacted and nothing has been sent here since. Everything else is genuinely new.
+      case
+        when pa.platform_touched then 'platform'
+        when c.historical_pipeline_stage = 'Contacted' then 'historical'
+        else 'not_contacted'
+      end as contact_origin
     from outreach_companies c
     left join lateral (
       select full_name, title, email, email_status from outreach_contacts
@@ -112,6 +142,13 @@ export async function getOutreachCompanies(): Promise<OutreachCompanyRow[]> {
       from outreach_sequences s where s.company_id = c.id
       order by s.created_at desc limit 1
     ) seq on true
+    left join lateral (
+      select exists (
+        select 1 from outreach_emails where company_id = c.id and status in ('sent', 'replied', 'bounced')
+        union all
+        select 1 from outreach_linkedin_actions where company_id = c.id and status = 'done'
+      ) as platform_touched
+    ) pa on true
     order by (c.lead_score is null), c.lead_score desc, c.name asc
   `
   return rows.map(r => ({ ...r, email_draft_count: r.email_draft_count ?? 0,
