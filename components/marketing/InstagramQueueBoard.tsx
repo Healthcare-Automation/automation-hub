@@ -173,9 +173,30 @@ function InstagramDraftCard({
         expanded && 'ring-2 ring-orange-400/40',
       )}
     >
-      <button type="button" onClick={onToggle} className="block p-3 pb-0 text-left">
+      {/* This wraps CarouselPreview, which renders its own prev/next
+          <button>s when a draft has multiple slides — a <button> cannot
+          contain another <button> per the HTML spec. The browser silently
+          reparents the nested one during parsing, so the DOM the client
+          builds doesn't match what React rendered on the server, which is
+          exactly React error #418 (hydration mismatch): the whole board
+          crashed to "This page couldn't load" the moment any draft had
+          slideCount > 1 and its nav buttons actually rendered. A div with
+          role="button" gives the same click-to-expand behavior and stays
+          valid HTML with real buttons nested inside it. */}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onToggle}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            onToggle()
+          }
+        }}
+        className="block cursor-pointer p-3 pb-0 text-left"
+      >
         <CarouselPreview draftId={draft.id} slideCount={draft.slideCount} legacyImageUrl={draft.imageUrl} />
-      </button>
+      </div>
 
       <div className="flex flex-1 flex-col gap-2.5 p-4">
         <div className="flex flex-wrap items-center gap-1.5">
