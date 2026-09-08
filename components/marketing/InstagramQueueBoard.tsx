@@ -6,6 +6,8 @@ import type { InstagramDraftRow } from '@/lib/marketingQueries'
 import { INSTAGRAM_SENTIMENT_TAGS, type InstagramSentimentTag } from '@/lib/marketing/types'
 import { ComplianceBanner } from './ComplianceBanner'
 import { DemoBadge } from './DemoBadge'
+import { CarouselPreview } from './CarouselPreview'
+import { cn } from '@/lib/utils'
 
 type SortKey = 'impact' | 'created'
 type UsedFilter = 'all' | 'used' | 'unused'
@@ -27,10 +29,15 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-/** Instagram queue review board — sortable/filterable grid over a page's worth of drafts
- * (client-side, same convention as TrendRadarTable: this runs on a 3-posts/week scale, not
- * a firehose). Each card expands inline (no page jump, per Andy's standing UX preference)
- * to show the full caption, hashtags, citations, and notes. */
+const SELECT_CLS =
+  'rounded-lg border border-stone-200 bg-white px-2.5 py-1.5 text-[13px] text-stone-700 shadow-sm transition-colors hover:border-stone-300 focus:border-stone-400 focus:outline-none dark:border-stone-700 dark:bg-stone-900 dark:text-stone-200'
+
+/** Instagram queue review board (2026-09-08 UI redesign, alongside the carousel image
+ * pipeline) — a warm-toned visual card grid with real carousel previews, matching the
+ * editorial design system used for the generated slides themselves rather than a generic
+ * admin-table look. Runs on a 3-posts/week -> ~20-post backlog scale (client-side
+ * sort/filter, same convention as before), each card expands inline for the full caption,
+ * hashtags, citations, and notes (no page jump, per Andy's standing UX preference). */
 export function InstagramQueueBoard({ drafts, isAdmin }: { drafts: InstagramDraftRow[]; isAdmin: boolean }) {
   const [sortKey, setSortKey] = useState<SortKey>('impact')
   const [sentimentFilter, setSentimentFilter] = useState<InstagramSentimentTag | 'all'>('all')
@@ -54,13 +61,9 @@ export function InstagramQueueBoard({ drafts, isAdmin }: { drafts: InstagramDraf
   }, [drafts, sentimentFilter, usedFilter, reviewFilter, sortKey])
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2 text-xs">
-        <select
-          value={sentimentFilter}
-          onChange={(e) => setSentimentFilter(e.target.value as InstagramSentimentTag | 'all')}
-          className="rounded border border-zinc-300 bg-white px-2 py-1 dark:border-zinc-700 dark:bg-zinc-900"
-        >
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center gap-2">
+        <select value={sentimentFilter} onChange={(e) => setSentimentFilter(e.target.value as InstagramSentimentTag | 'all')} className={SELECT_CLS}>
           <option value="all">All sentiment tags</option>
           {INSTAGRAM_SENTIMENT_TAGS.map((tag) => (
             <option key={tag} value={tag}>
@@ -68,40 +71,28 @@ export function InstagramQueueBoard({ drafts, isAdmin }: { drafts: InstagramDraf
             </option>
           ))}
         </select>
-        <select
-          value={usedFilter}
-          onChange={(e) => setUsedFilter(e.target.value as UsedFilter)}
-          className="rounded border border-zinc-300 bg-white px-2 py-1 dark:border-zinc-700 dark:bg-zinc-900"
-        >
+        <select value={usedFilter} onChange={(e) => setUsedFilter(e.target.value as UsedFilter)} className={SELECT_CLS}>
           <option value="all">Used + unused</option>
           <option value="used">Used only</option>
           <option value="unused">Unused only</option>
         </select>
-        <select
-          value={reviewFilter}
-          onChange={(e) => setReviewFilter(e.target.value as ReviewFilter)}
-          className="rounded border border-zinc-300 bg-white px-2 py-1 dark:border-zinc-700 dark:bg-zinc-900"
-        >
+        <select value={reviewFilter} onChange={(e) => setReviewFilter(e.target.value as ReviewFilter)} className={SELECT_CLS}>
           <option value="all">Approved + disapproved + unreviewed</option>
           <option value="approved">Approved</option>
           <option value="disapproved">Disapproved</option>
           <option value="unreviewed">Unreviewed</option>
         </select>
-        <span className="text-zinc-400">Sort by</span>
-        <select
-          value={sortKey}
-          onChange={(e) => setSortKey(e.target.value as SortKey)}
-          className="rounded border border-zinc-300 bg-white px-2 py-1 dark:border-zinc-700 dark:bg-zinc-900"
-        >
+        <span className="text-[13px] text-stone-400">Sort</span>
+        <select value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)} className={SELECT_CLS}>
           <option value="impact">Est. impact</option>
           <option value="created">Newest</option>
         </select>
-        <span className="ml-auto text-zinc-400">
+        <span className="ml-auto rounded-full bg-stone-900/5 px-3 py-1 text-[12px] font-medium text-stone-500 dark:bg-white/5 dark:text-stone-400">
           {filtered.length} of {drafts.length}
         </span>
       </div>
 
-      <ul className="space-y-3">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {filtered.map((draft) => (
           <InstagramDraftCard
             key={draft.id}
@@ -111,8 +102,31 @@ export function InstagramQueueBoard({ drafts, isAdmin }: { drafts: InstagramDraf
             onToggle={() => setExpandedId(expandedId === draft.id ? null : draft.id)}
           />
         ))}
-      </ul>
+      </div>
+
+      {expandedId && (
+        <DraftDetailModal
+          draft={filtered.find((d) => d.id === expandedId) ?? drafts.find((d) => d.id === expandedId)!}
+          isAdmin={isAdmin}
+          onClose={() => setExpandedId(null)}
+        />
+      )}
     </div>
+  )
+}
+
+function ImpactBadge({ score, reasoning }: { score: number | null; reasoning: string | null }) {
+  if (score == null) return null
+  const tone =
+    score >= 70
+      ? 'border-emerald-600/30 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300'
+      : score >= 40
+        ? 'border-amber-600/30 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300'
+        : 'border-stone-300 bg-stone-50 text-stone-600 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-400'
+  return (
+    <span title={reasoning ?? undefined} className={cn('rounded-full border px-2 py-0.5 text-[11px] font-semibold', tone)}>
+      {score}
+    </span>
   )
 }
 
@@ -128,24 +142,7 @@ function InstagramDraftCard({
   onToggle: () => void
 }) {
   const router = useRouter()
-  const [notes, setNotes] = useState(draft.notes ?? '')
   const [isPending, startTransition] = useTransition()
-  const [savedNotes, setSavedNotes] = useState(false)
-
-  function saveNotes() {
-    setSavedNotes(false)
-    startTransition(async () => {
-      const res = await fetch('/api/marketing/instagram/notes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ draftId: draft.id, notes }),
-      })
-      if (res.ok) {
-        setSavedNotes(true)
-        router.refresh()
-      }
-    })
-  }
 
   function toggleUsed() {
     startTransition(async () => {
@@ -170,166 +167,194 @@ function InstagramDraftCard({
   }
 
   return (
-    <li className="rounded-lg border border-zinc-200 dark:border-zinc-700/60">
-      <div className="flex gap-4 p-4">
-        <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-md border border-zinc-200 bg-zinc-50 text-center text-[10px] text-zinc-400 dark:border-zinc-700 dark:bg-zinc-800/60">
-          {draft.imageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={draft.imageUrl} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <span className="px-1.5">Image not generated — prompt only</span>
+    <div
+      className={cn(
+        'group flex flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm ring-1 ring-transparent transition-all hover:shadow-md dark:border-stone-800 dark:bg-stone-900/60',
+        expanded && 'ring-2 ring-orange-400/40',
+      )}
+    >
+      <button type="button" onClick={onToggle} className="block p-3 pb-0 text-left">
+        <CarouselPreview draftId={draft.id} slideCount={draft.slideCount} legacyImageUrl={draft.imageUrl} />
+      </button>
+
+      <div className="flex flex-1 flex-col gap-2.5 p-4">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <ImpactBadge score={draft.impactScore} reasoning={draft.impactScoreReasoning} />
+          {draft.reviewStatus === 'approved' && (
+            <span className="rounded-full border border-emerald-600/30 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
+              Approved
+            </span>
           )}
+          {draft.reviewStatus === 'disapproved' && (
+            <span className="rounded-full border border-red-600/30 bg-red-50 px-2 py-0.5 text-[11px] font-medium text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
+              Disapproved
+            </span>
+          )}
+          {draft.usedAt && (
+            <span className="rounded-full border border-stone-300 bg-stone-100 px-2 py-0.5 text-[11px] font-medium text-stone-600 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300">
+              Used
+            </span>
+          )}
+          {draft.isDemoData && <DemoBadge />}
+          <span className="ml-auto shrink-0 text-[11px] text-stone-400">{formatDate(draft.createdAt)}</span>
         </div>
 
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-1.5">
-            {draft.impactScore != null && (
-              <span
-                title={draft.impactScoreReasoning ?? undefined}
-                className="rounded border border-zinc-300 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600 dark:border-zinc-700 dark:text-zinc-400"
+        <button type="button" onClick={onToggle} className="text-left">
+          <p className="line-clamp-3 font-serif text-[15px] leading-snug text-stone-800 dark:text-stone-100">
+            {draft.hookLine || draft.caption}
+          </p>
+        </button>
+
+        <div className="mt-auto flex items-center gap-2 pt-1">
+          <label className="flex items-center gap-1.5 text-[12px] text-stone-500 dark:text-stone-400">
+            <input type="checkbox" checked={Boolean(draft.usedAt)} disabled={!isAdmin || isPending} onChange={toggleUsed} />
+            Used
+          </label>
+          {isAdmin && (
+            <div className="ml-auto flex items-center gap-1.5">
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={() => review('approved')}
+                className="rounded-full border border-emerald-600/40 px-2.5 py-1 text-[11px] font-medium text-emerald-700 transition-colors hover:bg-emerald-50 disabled:opacity-40 dark:border-emerald-500/40 dark:text-emerald-400 dark:hover:bg-emerald-500/10"
               >
-                Est. impact {draft.impactScore}/100
-              </span>
-            )}
-            {draft.sentimentTags.map((tag) => (
-              <span
-                key={tag}
-                className={
-                  tag === 'uncited_educational'
-                    ? 'rounded border border-amber-500/60 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300'
-                    : 'rounded border border-zinc-300 px-1.5 py-0.5 text-[10px] text-zinc-500 dark:border-zinc-700'
-                }
+                Approve
+              </button>
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={() => review('disapproved')}
+                className="rounded-full border border-red-600/40 px-2.5 py-1 text-[11px] font-medium text-red-700 transition-colors hover:bg-red-50 disabled:opacity-40 dark:border-red-500/40 dark:text-red-400 dark:hover:bg-red-500/10"
               >
-                {SENTIMENT_LABELS[tag as InstagramSentimentTag] ?? tag}
-              </span>
-            ))}
-            {draft.reviewStatus === 'approved' && (
-              <span className="rounded border border-emerald-500/60 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300">
-                Approved
-              </span>
-            )}
-            {draft.reviewStatus === 'disapproved' && (
-              <span className="rounded border border-red-500/60 bg-red-50 px-1.5 py-0.5 text-[10px] font-medium text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-300">
-                Disapproved
-              </span>
-            )}
-            {draft.isDemoData && <DemoBadge />}
-            <span className="ml-auto shrink-0 text-[10px] text-zinc-400">{formatDate(draft.createdAt)}</span>
+                Disapprove
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function DraftDetailModal({ draft, isAdmin, onClose }: { draft: InstagramDraftRow; isAdmin: boolean; onClose: () => void }) {
+  const router = useRouter()
+  const [notes, setNotes] = useState(draft.notes ?? '')
+  const [isPending, startTransition] = useTransition()
+  const [savedNotes, setSavedNotes] = useState(false)
+
+  function saveNotes() {
+    setSavedNotes(false)
+    startTransition(async () => {
+      const res = await fetch('/api/marketing/instagram/notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ draftId: draft.id, notes }),
+      })
+      if (res.ok) {
+        setSavedNotes(true)
+        router.refresh()
+      }
+    })
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/50 p-4 backdrop-blur-sm" onClick={onClose}>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="grid max-h-[90vh] w-full max-w-3xl grid-cols-1 gap-0 overflow-hidden rounded-2xl bg-[#F8F4EC] shadow-2xl sm:grid-cols-[280px_1fr] dark:bg-stone-900"
+      >
+        <div className="bg-stone-100 p-4 dark:bg-stone-950">
+          <CarouselPreview draftId={draft.id} slideCount={draft.slideCount} legacyImageUrl={draft.imageUrl} />
+        </div>
+
+        <div className="max-h-[90vh] overflow-y-auto p-5">
+          <div className="mb-3 flex items-start justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <ImpactBadge score={draft.impactScore} reasoning={draft.impactScoreReasoning} />
+              {draft.sentimentTags.map((tag) => (
+                <span
+                  key={tag}
+                  className={
+                    tag === 'uncited_educational'
+                      ? 'rounded-full border border-amber-600/30 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300'
+                      : 'rounded-full border border-stone-300 px-2 py-0.5 text-[11px] text-stone-500 dark:border-stone-700'
+                  }
+                >
+                  {SENTIMENT_LABELS[tag as InstagramSentimentTag] ?? tag}
+                </span>
+              ))}
+            </div>
+            <button type="button" onClick={onClose} className="shrink-0 rounded-full p-1 text-stone-400 hover:bg-stone-200 hover:text-stone-700 dark:hover:bg-stone-800">
+              ✕
+            </button>
           </div>
 
-          <button type="button" onClick={onToggle} className="mt-1.5 block w-full text-left">
-            <p className="line-clamp-2 text-sm text-zinc-800 dark:text-zinc-200">{draft.hookLine || draft.caption}</p>
-          </button>
+          <ComplianceBanner claims={draft.claimsRequiringReview} />
 
-          <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
-            <label className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400">
-              <input type="checkbox" checked={Boolean(draft.usedAt)} disabled={!isAdmin || isPending} onChange={toggleUsed} />
-              Used
-            </label>
-            {isAdmin && (
-              <>
-                <button
-                  type="button"
-                  disabled={isPending}
-                  onClick={() => review('approved')}
-                  className="rounded border border-emerald-600 px-2 py-0.5 text-[11px] font-medium text-emerald-700 disabled:opacity-40 dark:border-emerald-500 dark:text-emerald-400"
-                >
-                  Approve
-                </button>
-                <button
-                  type="button"
-                  disabled={isPending}
-                  onClick={() => review('disapproved')}
-                  className="rounded border border-red-600 px-2 py-0.5 text-[11px] font-medium text-red-700 disabled:opacity-40 dark:border-red-500 dark:text-red-400"
-                >
-                  Disapprove
-                </button>
-              </>
-            )}
-            <button
-              type="button"
-              onClick={onToggle}
-              className="ml-auto text-[11px] font-medium text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300"
-            >
-              {expanded ? 'Collapse' : 'Expand'}
-            </button>
+          <div className="mt-4 space-y-4 text-sm">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-400">Caption</p>
+              <p className="mt-1 whitespace-pre-wrap rounded-xl border border-stone-200 bg-white p-3 text-[13px] leading-relaxed text-stone-800 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-200">
+                {draft.caption}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-400">Hashtags ({draft.hashtags.length})</p>
+              <p className="mt-1 text-[13px] text-stone-700 dark:text-stone-300">{draft.hashtags.map((h) => `#${h.replace(/^#/, '')}`).join(' ')}</p>
+            </div>
+
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-400">Sources ({draft.sourceUrls.length})</p>
+              {draft.sourceUrls.length === 0 ? (
+                <p className="mt-1 text-[13px] text-stone-500">None cited — treat claims as directional, not verified.</p>
+              ) : (
+                <ul className="mt-1 list-disc space-y-0.5 pl-5">
+                  {draft.sourceUrls.map((url, i) => (
+                    <li key={i}>
+                      <a href={url} target="_blank" rel="noreferrer" className="text-[13px] text-stone-900 hover:underline dark:text-white">
+                        {url}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-400">Audience / objective</p>
+              <p className="mt-1 text-[13px] text-stone-700 dark:text-stone-300">
+                {draft.audience} — {draft.objective}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-400">Notes</p>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                disabled={!isAdmin}
+                placeholder="Freeform notes — why approved/disapproved, edits to make before posting, etc."
+                className="mt-1 w-full rounded-xl border border-stone-200 bg-white p-2.5 text-xs disabled:opacity-60 dark:border-stone-700 dark:bg-stone-900"
+                rows={3}
+              />
+              {isAdmin && (
+                <div className="mt-1.5 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={saveNotes}
+                    disabled={isPending}
+                    className="rounded-full bg-stone-900 px-3 py-1.5 text-[11px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40 dark:bg-white dark:text-stone-900"
+                  >
+                    {isPending ? 'Saving…' : 'Save notes'}
+                  </button>
+                  {savedNotes && !isPending && <span className="text-[11px] text-stone-500">Saved.</span>}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
-
-      {expanded && (
-        <div className="space-y-4 border-t border-zinc-200 p-4 text-sm dark:border-zinc-700/60">
-          <ComplianceBanner claims={draft.claimsRequiringReview} />
-
-          <div>
-            <p className="text-xs font-medium text-zinc-500">Caption</p>
-            <p className="mt-1 whitespace-pre-wrap rounded border border-zinc-200 p-3 text-[13px] leading-relaxed text-zinc-800 dark:border-zinc-700 dark:text-zinc-200">
-              {draft.caption}
-            </p>
-          </div>
-
-          <div>
-            <p className="text-xs font-medium text-zinc-500">Hashtags ({draft.hashtags.length})</p>
-            <p className="mt-1 text-[13px] text-zinc-700 dark:text-zinc-300">{draft.hashtags.map((h) => `#${h.replace(/^#/, '')}`).join(' ')}</p>
-          </div>
-
-          {draft.imagePrompt && (
-            <div>
-              <p className="text-xs font-medium text-zinc-500">Image prompt {!draft.imageUrl && '(no image generated yet — manual follow-up)'}</p>
-              <p className="mt-1 text-[13px] text-zinc-700 dark:text-zinc-300">{draft.imagePrompt}</p>
-            </div>
-          )}
-
-          <div>
-            <p className="text-xs font-medium text-zinc-500">Sources ({draft.sourceUrls.length})</p>
-            {draft.sourceUrls.length === 0 ? (
-              <p className="mt-1 text-[13px] text-zinc-500">None cited — treat claims as directional, not verified.</p>
-            ) : (
-              <ul className="mt-1 list-disc space-y-0.5 pl-5">
-                {draft.sourceUrls.map((url, i) => (
-                  <li key={i}>
-                    <a href={url} target="_blank" rel="noreferrer" className="text-[13px] text-zinc-900 hover:underline dark:text-white">
-                      {url}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          <div>
-            <p className="text-xs font-medium text-zinc-500">Audience / objective</p>
-            <p className="mt-1 text-[13px] text-zinc-700 dark:text-zinc-300">
-              {draft.audience} — {draft.objective}
-            </p>
-          </div>
-
-          <div>
-            <p className="text-xs font-medium text-zinc-500">Notes</p>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              disabled={!isAdmin}
-              placeholder="Freeform notes — why approved/disapproved, edits to make before posting, etc."
-              className="mt-1 w-full rounded border border-zinc-300 p-2 text-xs disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900"
-              rows={3}
-            />
-            {isAdmin && (
-              <div className="mt-1 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={saveNotes}
-                  disabled={isPending}
-                  className="rounded border border-zinc-900 px-2 py-1 text-[11px] text-zinc-900 disabled:opacity-40 dark:border-white dark:text-white"
-                >
-                  {isPending ? 'Saving…' : 'Save notes'}
-                </button>
-                {savedNotes && !isPending && <span className="text-[11px] text-zinc-500">Saved.</span>}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </li>
+    </div>
   )
 }

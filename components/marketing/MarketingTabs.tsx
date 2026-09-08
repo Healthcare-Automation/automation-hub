@@ -12,12 +12,13 @@ const TABS = [
 /** Sub-nav within the Marketing tab. Rebuilt Instagram-only on 2026-09-08
  * (MARKETING_TAB_REBUILD_BRIEF.md) — the old 8-tab Practice Story Engine nav (Briefing,
  * Trend Radar, Story Workspace, Content Library, Voice and Learning, Sources) is gone;
- * the Instagram Queue is now the tab's landing page. Mirrors components/djc/DjcTabs.tsx's
- * pattern (active-tab detection via pathname). */
+ * the Instagram Queue is now the tab's landing page. Restyled the same day (warm
+ * paper/terracotta pill instead of the generic dark-navy hub look) to match the carousel
+ * redesign's editorial identity — active-tab detection via pathname is unchanged. */
 export function MarketingTabs() {
   const pathname = usePathname()
   return (
-    <nav className="flex max-w-full flex-wrap gap-0.5 overflow-x-auto rounded-lg border border-zinc-200 bg-zinc-900/[0.04] p-0.5 dark:border-zinc-700/50 dark:bg-zinc-800/40">
+    <nav className="flex max-w-full flex-wrap gap-0.5 overflow-x-auto rounded-full border border-stone-200 bg-stone-900/[0.04] p-1 dark:border-stone-700/50 dark:bg-stone-800/40">
       {TABS.map((t) => {
         const active = t.href === '/marketing' ? pathname === '/marketing' : pathname?.startsWith(t.href)
         return (
@@ -25,10 +26,10 @@ export function MarketingTabs() {
             key={t.href}
             href={t.href}
             className={cn(
-              'whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
+              'whitespace-nowrap rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors',
               active
-                ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700/70 dark:text-white'
-                : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300',
+                ? 'bg-orange-700 text-white shadow-sm dark:bg-orange-600'
+                : 'text-stone-500 hover:text-stone-800 dark:hover:text-stone-300',
             )}
           >
             {t.label}

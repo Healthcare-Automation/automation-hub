@@ -4,9 +4,10 @@
  *   1. planTopic — picks one angle to research this run, biased away from recently covered
  *      fingerprints and toward/away from what past approve/disapprove feedback favored.
  *   2. synthesizeDraft — turns grounded web-research text + real citations into the actual
- *      Instagram draft. Every citable claim must trace back to researchWithWebSearch's own
- *      citations (never the model's unverified prose) — see the sourceMaterialLinks handling
- *      in lib/marketingInstagramPipeline.ts, which uses the citation list directly rather
+ *      Instagram draft (including a multi-slide carousel plan, see slidePlan below). Every
+ *      citable claim must trace back to researchWithWebSearch's own citations (never the
+ *      model's unverified prose) — see the sourceMaterialLinks handling in
+ *      lib/marketingInstagramPipeline.ts, which uses the citation list directly rather
  *      than trusting the model to restate URLs.
  */
 import { z } from 'zod'
@@ -50,10 +51,12 @@ const TopicPlanSchema = z.object({
 const PLANNING_SYSTEM_PROMPT =
   'You plan Instagram content for UZU Studio, a marketing/ops partner for local practice-type ' +
   'businesses (dental, healthcare-adjacent, and similar service practices). You are choosing ONE ' +
-  'specific angle to research and post about today. Respond with ONLY a JSON object: ' +
-  '{"topic": string (short label), "searchQuery": string (a real, specific web search query ' +
-  'that would surface current, citable data for this angle), "angleSummary": string (1-2 ' +
-  'sentences on the specific take/hook for this post)}. No prose or markdown fences outside the JSON.'
+  'specific angle to research and post about today. Favor familiar, relatable human truths over ' +
+  'novel or surprising data points — something the reader already half-believes and will feel seen ' +
+  'by, not something meant to shock or impress. Nothing "crazy new" for its own sake. Respond with ' +
+  'ONLY a JSON object: {"topic": string (short label), "searchQuery": string (a real, specific web ' +
+  'search query that would surface current, citable data for this angle), "angleSummary": string ' +
+  '(1-2 sentences on the specific take/hook for this post)}. No prose or markdown fences outside the JSON.'
 
 function buildPlanningPrompt(recent: RecentDraftContext[]): string {
   const lines = [
@@ -94,6 +97,48 @@ export async function planTopic(recent: RecentDraftContext[]): Promise<TopicPlan
   }
 }
 
+// ---------- Carousel slide plan ----------
+// Mirrors lib/marketing/slideTemplates.ts's SlideKind/*SlideInput shapes (that module owns
+// the rendered visual form; this schema owns what the LLM is allowed to produce). Kept as a
+// separate, slightly looser shape here (plain strings, no shared import) so this module has
+// zero dependency on the rendering layer — slideRenderer.ts is the only place that couples
+// the two, via a small mapping in marketingInstagramPipeline.ts.
+
+const HookSlidePlanSchema = z.object({
+  kind: z.literal('hook'),
+  kicker: z.string().min(1),
+  headline: z.string().min(1),
+  subhead: z.string().nullable(),
+})
+
+const DataSlidePlanSchema = z.object({
+  kind: z.literal('data'),
+  kicker: z.string().min(1),
+  statValue: z.string().min(1),
+  statContext: z.string().min(1),
+  supportingLine: z.string().nullable(),
+})
+
+const CtaSlidePlanSchema = z.object({
+  kind: z.literal('cta'),
+  kicker: z.string().min(1),
+  headline: z.string().min(1),
+  body: z.string().min(1),
+})
+
+const SlidePlanSchema = z.object({
+  slides: z
+    .array(z.discriminatedUnion('kind', [HookSlidePlanSchema, DataSlidePlanSchema, CtaSlidePlanSchema]))
+    .min(3)
+    .max(4),
+})
+
+export type HookSlidePlan = z.infer<typeof HookSlidePlanSchema>
+export type DataSlidePlan = z.infer<typeof DataSlidePlanSchema>
+export type CtaSlidePlan = z.infer<typeof CtaSlidePlanSchema>
+export type SlidePlanEntry = z.infer<typeof SlidePlanSchema>['slides'][number]
+export type SlidePlan = z.infer<typeof SlidePlanSchema>
+
 export interface InstagramDraftFields {
   mainIdea: string
   audience: string
@@ -106,6 +151,7 @@ export interface InstagramDraftFields {
   impactScore: number
   impactScoreReasoning: string
   imagePrompt: string
+  slidePlan: SlidePlan
   notes: string
   claimsRequiringReview: string[]
 }
@@ -122,46 +168,78 @@ const InstagramDraftSchema = z.object({
   impactScore: z.number().int().min(0).max(100),
   impactScoreReasoning: z.string().min(1),
   imagePrompt: z.string().min(1),
+  slidePlan: SlidePlanSchema,
   notes: z.string(),
   claimsRequiringReview: z.array(z.string()),
 })
 
-const SYNTHESIS_SYSTEM_PROMPT =
-  'You write Instagram content for UZU Studio (a marketing/ops partner for local practice-type ' +
-  'businesses). Every factual claim, stat, or quote you use MUST come from the "Research" text ' +
-  'and citations given to you below — never invent or embellish a number, study, or quote. If the ' +
-  'research is thin or has no real citation, write educational/qualitative content instead of a ' +
-  'stat-driven post, and say so plainly in the notes field (do not present speculation as fact). ' +
-  'Caption style: hook-first (the reader decides in the first line), one clear teaching point, the ' +
-  'cited stat/quote worked in naturally (not academic-sounding), and a soft CTA that positions UZU ' +
-  'credibly — never a hard sell. Hashtags: 15-30, a mix of broad and niche, no spam/irrelevant tags. ' +
-  'NEVER write phrases like "studies show", "research shows", "data reveals", or "experts say" unless ' +
-  'a specific citation from the Research section backs that exact claim — invoking authority you ' +
-  "don't have is its own form of fabrication, even if you also disclose it in notes. If you have no " +
-  'real citation, write in your own observational/experiential voice instead (no invoked authority). ' +
-  'impactScore is YOUR OWN honest 0-100 estimate of viral/engagement potential, not a precise ' +
-  'measurement — impactScoreReasoning must explain the estimate briefly. ' +
-  'coreStat is the SINGLE most concrete, resonant, shareable data point or short verbatim quote from ' +
-  'the research — it must contain an actual number, percentage, dollar figure, or a punchy verbatim ' +
-  'quote (NOT a rephrased question, NOT a generic teaser like "wondering which X works best?"). ' +
-  'Example of a GOOD coreStat: "Referred patients accept treatment plans at 40% higher rates." ' +
-  'Example of a BAD coreStat (reject this style): "Wondering which marketing channels work best in 2023?" ' +
-  'NEVER include a specific calendar year (2023, 2024, 2025, etc.) anywhere in coreStat, hookLine, or ' +
-  'imagePrompt — evergreen phrasing only ("today", "right now", or no time reference at all), since this ' +
-  'graphic must not read as dated the week or month after it is generated. If the research itself is ' +
-  'about a dated event, keep the year out of the rendered stat and mention it only in the caption body ' +
-  'if truly necessary. imagePrompt describes a branded stat/quote graphic card: clean, professional, ' +
-  'high-contrast dark navy background with a single accent color, elite modern-SaaS/consulting aesthetic ' +
-  '(Stripe/Linear-adjacent minimalism), NOT a stock photo with text overlay, and must NOT instruct the ' +
-  'renderer to include any URL, domain name, or citation text anywhere in the image. Respond with ONLY ' +
-  'a JSON object: {"mainIdea": string (short, used to detect duplicate angles across runs), "audience": ' +
-  'string, "objective": string, "caption": string (the full IG caption, hook-first), "hookLine": string ' +
-  '(the caption\'s first line, standalone), "coreStat": string (the concrete number/quote per the rules ' +
-  'above, no calendar year), "hashtags": [string, ...], "sentimentTags": [string, ...] (from: ' +
-  `${INSTAGRAM_SENTIMENT_TAGS.join(', ')}), "impactScore": number, "impactScoreReasoning": string, ` +
-  '"imagePrompt": string, "notes": string (flag speculative/thin-evidence claims here; empty string ' +
-  'if none), "claimsRequiringReview": [string, ...] (any claim that still needs a citation it doesn\'t ' +
-  'have — empty array if none)}. No prose or markdown fences outside the JSON object.'
+const SYNTHESIS_SYSTEM_PROMPT = [
+  'You write Instagram content for UZU Studio (a marketing/ops partner for local practice-type ',
+  'businesses). Every factual claim, stat, or quote you use MUST come from the "Research" text ',
+  'and citations given to you below — never invent or embellish a number, study, or quote. If the ',
+  'research is thin or has no real citation, write educational/qualitative content instead of a ',
+  'stat-driven post, and say so plainly in the notes field (do not present speculation as fact).\n',
+
+  'Tone (Andy, 2026-09-08): write to resonate emotionally, not to impress. Favor content that draws ',
+  'on a genuinely relatable, human truth the reader already half-knows — the goal is recognition ',
+  '("yes, exactly, that\'s so true"), not novelty ("wow, I didn\'t know that"). Prefer familiar, ',
+  'resonant observations about people and relationships (why patients trust who they trust, what ',
+  'actually makes someone feel cared for, why word-of-mouth works) over impressive-sounding or ',
+  'contrarian data points for their own sake — nothing "crazy new" or attention-grabbing just to be ',
+  'surprising.\n',
+
+  'Caption style: hook-first (the reader decides in the first line) and written the way a thoughtful ',
+  'person would actually talk, not the way a brand would talk — warm, plain, a little vulnerable, no ',
+  'jargon. One clear teaching point, the cited stat/quote worked in naturally as supporting evidence ',
+  'for the human point (never the headline itself), and a soft CTA that positions UZU credibly — ',
+  'never a hard sell. Hashtags: 15-30, a mix of broad and niche, no spam/irrelevant tags.\n',
+
+  'NEVER write phrases like "studies show", "research shows", "data reveals", or "experts say" unless ',
+  'a specific citation from the Research section backs that exact claim — invoking authority you ',
+  'don\'t have is its own form of fabrication, even if you also disclose it in notes. If you have no ',
+  'real citation, write in your own observational/experiential voice instead (no invoked authority).\n',
+
+  'impactScore is YOUR OWN honest 0-100 estimate of viral/engagement potential, not a precise ',
+  'measurement — impactScoreReasoning must explain the estimate briefly.\n',
+
+  'coreStat is the SINGLE most concrete, resonant, shareable data point or short verbatim quote from ',
+  'the research — it must contain an actual number, percentage, dollar figure, or a punchy verbatim ',
+  'quote (NOT a rephrased question, NOT a generic teaser like "wondering which X works best?"). ',
+  'Example of a GOOD coreStat: "Referred patients accept treatment plans at 40% higher rates." ',
+  'Example of a BAD coreStat (reject this style): "Wondering which marketing channels work best in 2023?"\n',
+
+  'NEVER include a specific calendar year (2023, 2024, 2025, etc.) anywhere in coreStat, hookLine, ',
+  'slidePlan, or imagePrompt — evergreen phrasing only ("today", "right now", or no time reference at ',
+  'all), since these graphics must not read as dated the week or month after they are generated. If ',
+  'the research itself is about a dated event, keep the year out of the rendered stat and mention it ',
+  'only in the caption body if truly necessary.\n',
+
+  'slidePlan describes a 3-4 slide Instagram carousel that tells ONE coherent story, warm and human ',
+  '(not a sales deck): slide 1 is "hook" (a short, relatable, emotionally resonant line — the thing ',
+  'the reader already half-believes, stated plainly, plus an optional one-line subhead); slide(s) 2 ',
+  '(and optionally 3) are "data" (each folds ONE concrete stat/quote into a plain human SENTENCE, not ',
+  'a giant standalone number — the stat should feel like supporting evidence for a human point, with ',
+  'an optional short supportingLine underneath); the final slide is "cta" (a warm, non-pushy headline ',
+  'plus 1-2 sentences of body positioning UZU credibly). Each slide also needs a short "kicker" label ',
+  '(a soft, lowercase, non-corporate phrase like "something we noticed" or "a gentle nudge" — never ',
+  'ALL CAPS, never a cold category label like "MARKETING DATA").\n',
+
+  'Respond with ONLY a JSON object: {"mainIdea": string (short, used to detect duplicate angles across ',
+  'runs), "audience": string, "objective": string, "caption": string (the full IG caption, hook-first), ',
+  '"hookLine": string (the caption\'s first line, standalone), "coreStat": string (the concrete ',
+  'number/quote per the rules above, no calendar year), "hashtags": [string, ...], "sentimentTags": ',
+  `[string, ...] (from: ${INSTAGRAM_SENTIMENT_TAGS.join(', ')}), "impactScore": number, `,
+  '"impactScoreReasoning": string, "imagePrompt": string (legacy field, kept for backward compat — a ',
+  'one-line visual mood description, not used by the current carousel renderer), "slidePlan": ',
+  '{"slides": [{"kind": "hook", "kicker": string, "headline": string, "subhead": string | null}, ',
+  '{"kind": "data", "kicker": string, "statValue": string (short, e.g. "40%" or "40% higher"), ',
+  '"statContext": string (completes the sentence started by statValue), "supportingLine": string | ',
+  'null}, ..., {"kind": "cta", "kicker": string, "headline": string, "body": string}]} (3-4 slides ',
+  'total: exactly one hook, 1-2 data, exactly one cta, in that order), "notes": string (flag ',
+  'speculative/thin-evidence claims here; empty string if none), "claimsRequiringReview": [string, ...] ',
+  '(any claim that still needs a citation it doesn\'t have — empty array if none)}. No prose or ',
+  'markdown fences outside the JSON object.',
+].join('')
 
 function buildSynthesisPrompt(plan: TopicPlan, researchText: string, citations: WebSearchCitation[], recent: RecentDraftContext[]): string {
   const lines = [

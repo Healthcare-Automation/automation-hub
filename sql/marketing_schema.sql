@@ -305,3 +305,26 @@ alter table marketing_content_drafts add column if not exists content_fingerprin
 
 create index if not exists idx_marketing_content_drafts_platform on marketing_content_drafts(platform);
 create index if not exists idx_marketing_content_drafts_fingerprint on marketing_content_drafts(content_fingerprint);
+
+-- ─── Instagram carousel slides ──────────────────────────────────────────────
+-- Multi-image carousel support (2026-09-08 image/carousel redesign). Replaces the
+-- single image_url/image_data-per-draft model for NEW drafts — old single-image drafts
+-- keep working unchanged (image_url/image_data on the parent row are left in place for
+-- backward compat / cover-image use in the queue list). A carousel's slides live here,
+-- ordered by slide_index, each with its own rendered PNG bytes and the structured content
+-- that produced it (so a slide can be regenerated/audited without re-deriving from caption
+-- text). kind mirrors lib/marketing/slideTemplates.ts's SlideKind ('hook' | 'data' | 'cta').
+create table if not exists marketing_content_draft_images (
+  id            uuid primary key default gen_random_uuid(),
+  draft_id      uuid not null references marketing_content_drafts(id) on delete cascade,
+  slide_index   integer not null,
+  kind          text not null,
+  content       jsonb not null,
+  image_data    bytea not null,
+  created_at    timestamptz not null default now(),
+  unique (draft_id, slide_index)
+);
+
+create index if not exists idx_marketing_content_draft_images_draft
+  on marketing_content_draft_images(draft_id, slide_index);
+

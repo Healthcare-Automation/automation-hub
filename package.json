@@ -11,7 +11,7 @@
     "db:marketing-schema": "tsx --env-file=.env.local scripts/apply-marketing-schema.ts",
     "research:marketing": "tsx --env-file=.env.local scripts/research-marketing.ts",
     "instagram:generate": "tsx --env-file=.env.local scripts/generate-instagram-content.ts",
-    "instagram:backfill-images": "tsx --env-file=.env.local scripts/backfill-instagram-images.ts"
+    "instagram:backfill": "tsx --env-file=.env.local scripts/backfill-instagram-content.ts"
   },
   "dependencies": {
     "@yeger/html-diff": "^1.0.0",
@@ -19,6 +19,7 @@
     "diff": "^9.0.0",
     "dompurify": "^3.4.0",
     "next": "^16.3.1",
+    "playwright-core": "^1.63.0",
     "postgres": "^3.4.8",
     "react": "19.2.4",
     "react-dom": "19.2.4",

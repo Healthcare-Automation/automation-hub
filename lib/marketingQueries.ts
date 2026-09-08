@@ -98,6 +98,7 @@ export interface InstagramDraftRow {
   impactScoreReasoning: string | null
   imageUrl: string | null
   imagePrompt: string | null
+  slideCount: number
   notes: string | null
   usedAt: string | null
   claimsRequiringReview: string[]
@@ -109,7 +110,9 @@ export interface InstagramDraftRow {
 
 /** Full instagram-platform draft list for the review queue — small dataset (3 posts/week),
  * so sort/filter happens client-side (components/marketing/InstagramQueueBoard.tsx),
- * matching TrendRadarTable's convention. */
+ * matching TrendRadarTable's convention. slideCount > 0 means this draft has a rendered
+ * carousel (marketing_content_draft_images) — see getCarouselSlideImage for fetching an
+ * individual slide's bytes. */
 export async function getInstagramDrafts(orgId: string): Promise<InstagramDraftRow[]> {
   const rows = await sql<
     {
@@ -118,19 +121,23 @@ export async function getInstagramDrafts(orgId: string): Promise<InstagramDraftR
       impact_score: number | null; impact_score_reasoning: string | null; image_url: string | null
       image_prompt: string | null; notes: string | null; used_at: Date | null
       claims_requiring_review: string[]; created_at: Date; generated_by: 'template' | 'llm'; is_demo_data: boolean
-      feedback_tags: string[] | null
+      feedback_tags: string[] | null; slide_count: number
     }[]
   >`
     select d.id, d.main_idea, d.audience, d.objective, d.caption, d.hook_options, d.source_material_links,
       d.hashtags, d.sentiment_tags, d.impact_score, d.impact_score_reasoning, d.image_url, d.image_prompt,
       d.notes, d.used_at, d.claims_requiring_review, d.created_at, d.generated_by, d.is_demo_data,
-      fb.tags as feedback_tags
+      fb.tags as feedback_tags,
+      coalesce(si.slide_count, 0)::int as slide_count
     from marketing_content_drafts d
     left join lateral (
       select tags from marketing_feedback_events
       where target_type = 'content_draft' and target_id = d.id and (tags ? 'approved' or tags ? 'disapproved')
       order by created_at desc limit 1
     ) fb on true
+    left join lateral (
+      select count(*) as slide_count from marketing_content_draft_images where draft_id = d.id
+    ) si on true
     where d.org_id = ${orgId} and d.format = 'instagram_post'
     order by d.created_at desc
   `
@@ -148,6 +155,7 @@ export async function getInstagramDrafts(orgId: string): Promise<InstagramDraftR
     impactScoreReasoning: r.impact_score_reasoning,
     imageUrl: r.image_url,
     imagePrompt: r.image_prompt,
+    slideCount: r.slide_count,
     notes: r.notes,
     usedAt: r.used_at ? r.used_at.toISOString() : null,
     claimsRequiringReview: r.claims_requiring_review ?? [],
@@ -158,35 +166,27 @@ export async function getInstagramDrafts(orgId: string): Promise<InstagramDraftR
   }))
 }
 
-export interface InstagramDraftMissingImage {
+export interface InstagramDraftMissingCarousel {
   id: string
-  imagePrompt: string
-  hookLine: string
-  coreStat: string
-  sourceUrls: string[]
+  mainIdea: string
 }
 
-/** Drafts still missing a generated image — backs scripts/backfill-instagram-images.ts
- * (INSTAGRAM_IMAGE_BRIEF.md backfill step). coreStat falls back to hookLine for any draft
- * inserted before the coreStat field existed (hook_options had only one element then). */
-export async function getInstagramDraftsMissingImage(orgId: string): Promise<InstagramDraftMissingImage[]> {
-  const rows = await sql<
-    { id: string; image_prompt: string | null; hook_options: string[]; source_material_links: string[] }[]
-  >`
-    select id, image_prompt, hook_options, source_material_links
-    from marketing_content_drafts
-    where org_id = ${orgId} and format = 'instagram_post' and image_url is null
-    order by created_at asc
+/** Drafts that have no rendered carousel slides at all (createdAt order, oldest first) —
+ * backs scripts/backfill-instagram-carousels.ts. Unlike the old imagePrompt-based image
+ * backfill, there is no persisted slidePlan to re-render from once a draft exists, so
+ * "backfilling" a missing carousel here just means the draft needs to be regenerated
+ * fresh via runInstagramGeneration (this only reports which ids qualify). */
+export async function getInstagramDraftsMissingCarousel(orgId: string): Promise<InstagramDraftMissingCarousel[]> {
+  const rows = await sql<{ id: string; main_idea: string }[]>`
+    select d.id, d.main_idea
+    from marketing_content_drafts d
+    left join lateral (
+      select count(*) as n from marketing_content_draft_images where draft_id = d.id
+    ) si on true
+    where d.org_id = ${orgId} and d.format = 'instagram_post' and coalesce(si.n, 0) = 0
+    order by d.created_at asc
   `
-  return rows
-    .filter((r) => r.image_prompt)
-    .map((r) => ({
-      id: r.id,
-      imagePrompt: r.image_prompt as string,
-      hookLine: r.hook_options?.[0] ?? '',
-      coreStat: r.hook_options?.[1] ?? r.hook_options?.[0] ?? '',
-      sourceUrls: r.source_material_links ?? [],
-    }))
+  return rows.map((r) => ({ id: r.id, mainIdea: r.main_idea }))
 }
 
 /** Stores the generated stat-card image bytes and points image_url at this app's own
@@ -223,6 +223,55 @@ export async function recordInstagramReview(orgId: string, draftId: string, tag:
     insert into marketing_feedback_events (org_id, target_type, target_id, tags)
     values (${orgId}, 'content_draft', ${draftId}, ${sql.json([tag])})
   `
+}
+
+// ---------- Instagram carousel slides ----------
+// See sql/marketing_schema.sql's marketing_content_draft_images table. A draft with
+// carousel slides has slideCount > 0 in getInstagramDrafts' list; drafts created before
+// the carousel redesign (or where rendering failed) fall back to the legacy single
+// image_url/image_data on the parent row (still read as slideCount === 0).
+
+export interface CarouselSlideInsert {
+  slideIndex: number
+  kind: 'hook' | 'data' | 'cta'
+  content: Record<string, string | null>
+  imageData: Buffer
+}
+
+export async function insertCarouselSlides(draftId: string, slides: CarouselSlideInsert[]): Promise<void> {
+  for (const s of slides) {
+    await sql`
+      insert into marketing_content_draft_images (draft_id, slide_index, kind, content, image_data)
+      values (${draftId}, ${s.slideIndex}, ${s.kind}, ${sql.json(s.content as unknown as string[])}, ${s.imageData})
+      on conflict (draft_id, slide_index) do update set kind = excluded.kind, content = excluded.content, image_data = excluded.image_data
+    `
+  }
+}
+
+export async function getCarouselSlideCounts(draftIds: string[]): Promise<Map<string, number>> {
+  if (draftIds.length === 0) return new Map()
+  const rows = await sql<{ draft_id: string; count: number }[]>`
+    select draft_id, count(*)::int as count
+    from marketing_content_draft_images
+    where draft_id = any(${draftIds})
+    group by draft_id
+  `
+  return new Map(rows.map((r) => [r.draft_id, r.count]))
+}
+
+export async function getCarouselSlideImage(draftId: string, slideIndex: number): Promise<Buffer | null> {
+  const [row] = await sql<{ image_data: Buffer }[]>`
+    select image_data from marketing_content_draft_images
+    where draft_id = ${draftId} and slide_index = ${slideIndex}
+  `
+  return row?.image_data ?? null
+}
+
+export async function getCarouselSlideCount(draftId: string): Promise<number> {
+  const [row] = await sql<{ count: number }[]>`
+    select count(*)::int as count from marketing_content_draft_images where draft_id = ${draftId}
+  `
+  return row?.count ?? 0
 }
 
 // ---------- Settings ----------

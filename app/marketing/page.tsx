@@ -20,15 +20,15 @@ export default async function MarketingPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">Instagram Queue</h2>
-        <p className="mt-1 text-sm text-zinc-500">
+        <h2 className="font-serif text-lg font-bold text-stone-800 dark:text-white">Instagram Queue</h2>
+        <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
           UZU&apos;s own brand-account drafts — grounded in cited research, never auto-posted. Review, approve, and check off once posted.
         </p>
       </div>
 
       {drafts.length === 0 ? (
-        <p className="text-sm text-zinc-500">
-          No Instagram drafts yet. Run <code className="rounded bg-zinc-100 px-1 py-0.5 text-xs dark:bg-zinc-800">npm run instagram:generate</code> or wait for the Mon/Wed/Fri cron.
+        <p className="text-sm text-stone-500">
+          No Instagram drafts yet. Run <code className="rounded bg-stone-200 px-1 py-0.5 text-xs dark:bg-stone-800">npm run instagram:generate</code> or wait for the Mon/Wed/Fri cron.
         </p>
       ) : (
         <InstagramQueueBoard drafts={drafts} isAdmin={isAdmin} />

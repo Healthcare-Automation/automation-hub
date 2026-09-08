@@ -19,11 +19,25 @@ import modal
 
 _repo = Path(__file__).resolve().parent.parent
 
-# Node image with only the runtime deps the pipeline touches (postgres, zod, tsx, dotenv).
-# lib/ and scripts/ are added at build time; tsconfig for the @/ alias resolution.
+# Node image with only the runtime deps the pipeline touches (postgres, zod, tsx, dotenv,
+# playwright-core for the carousel slide renderer — see lib/marketing/slideRenderer.ts).
+# lib/, scripts/, and assets/fonts/ are added at build time; tsconfig for the @/ alias
+# resolution. Chromium (not the Node playwright-core package's own bundled download, which
+# npm ci --omit=dev skips) comes from Debian's chromium package — smaller and avoids
+# playwright's separate browser-download step; slideRenderer.ts's MARKETING_CHROME_PATH env
+# var points at it explicitly rather than relying on playwright-core's own resolution.
 image = (
     modal.Image.debian_slim(python_version="3.11")
-    .apt_install("curl", "ca-certificates")
+    .apt_install(
+        "curl", "ca-certificates",
+        # Chromium + the shared libs it needs headless (same set Playwright's own
+        # install-deps script pulls for Debian slim images).
+        "chromium",
+        "fonts-liberation",
+        "libnss3", "libatk1.0-0", "libatk-bridge2.0-0", "libcups2", "libdrm2",
+        "libxkbcommon0", "libxcomposite1", "libxdamage1", "libxfixes3", "libxrandr2",
+        "libgbm1", "libasound2", "libpango-1.0-0", "libpangocairo-1.0-0", "libcairo2",
+    )
     .run_commands(
         "curl -fsSL https://deb.nodesource.com/setup_22.x | bash -",
         "apt-get install -y nodejs",
@@ -35,7 +49,13 @@ image = (
     .add_local_file(_repo / "tsconfig.json", "/app/tsconfig.json")
     .add_local_dir(_repo / "lib", "/app/lib")
     .add_local_dir(_repo / "scripts", "/app/scripts")
+    .add_local_dir(_repo / "assets", "/app/assets")
 )
+
+# Debian's chromium package installs to this path — passed to slideRenderer.ts via
+# MARKETING_CHROME_PATH so it doesn't have to guess (it defaults to /usr/bin/google-chrome,
+# which doesn't exist in this image).
+CHROME_PATH = "/usr/bin/chromium"
 
 app = modal.App("marketing-research")
 
@@ -70,20 +90,26 @@ def run_research(time_budget_ms: int = 20 * 60 * 1000) -> str:
 @app.function(
     image=image,
     secrets=[modal.Secret.from_name("marketing-research")],
-    timeout=10 * 60,
+    timeout=12 * 60,
     schedule=modal.Cron("0 13 * * 1,3,5"),  # Mon/Wed/Fri 13:00 UTC — INSTAGRAM_QUEUE_BRIEF.md cadence
 )
 def run_instagram_content() -> str:
     import os
 
     env = dict(os.environ)
+    # slideRenderer.ts's chromeExecutablePath() default (/usr/bin/google-chrome) doesn't
+    # exist in this image — Debian's chromium package installs to CHROME_PATH instead. A
+    # 3-4 slide carousel render adds real time over the old single gpt-image-1 call, hence
+    # the bumped timeout above (was 10 min for one image call; 12 min covers research +
+    # synthesis + up to 4 local Chromium launches).
+    env["MARKETING_CHROME_PATH"] = CHROME_PATH
     proc = subprocess.run(
         ["npx", "tsx", "scripts/generate-instagram-content.ts"],
         cwd="/app",
         env=env,
         capture_output=True,
         text=True,
-        timeout=9 * 60,
+        timeout=11 * 60,
     )
     out = (proc.stdout or "") + (proc.stderr or "")
     print(out[-6000:])
