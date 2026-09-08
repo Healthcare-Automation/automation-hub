@@ -1,16 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ADMIN_COOKIE_NAME, verifyAdminCookieValue } from '@/lib/adminAuth'
-import { markLinkedinActionSent } from '@/lib/outreachQueries'
+import { markLinkedinActionConnected } from '@/lib/outreachQueries'
 
 /**
- * Andy clicks this AFTER he's already sent the connection request/note himself, manually, in
- * his own logged-in browser. This endpoint never sends anything -- it only records that a human
- * already did, per uzu-account-safety (no automated LinkedIn sending, ever).
- *
- * This only marks the note as sent (status -> 'connection_sent'); it does NOT mark the company
- * as contacted. Sending a connection request is a request, not a completed reach-out -- nobody
- * has actually connected until the other person accepts. Once Andy confirms an accept, use
- * linkedin-mark-connected instead, which is the step that actually advances pipeline_stage.
+ * Andy clicks this after he's checked LinkedIn himself and confirmed the connection request
+ * was actually ACCEPTED by the other person (distinct from linkedin-mark-sent, which only
+ * records the note going out). There's no API-based way to detect an accept, so this is a
+ * manual confirmation step, same as mark-sent. This is the point that genuinely counts as
+ * "reached out" for pipeline_stage purposes -- per Andy, sending the note is a request, not
+ * a completed reach-out.
  */
 export async function POST(request: NextRequest) {
   const isAdmin = await verifyAdminCookieValue(request.cookies.get(ADMIN_COOKIE_NAME)?.value)
@@ -32,10 +30,10 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    await markLinkedinActionSent(numId, numCompanyId)
+    await markLinkedinActionConnected(numId, numCompanyId)
     return NextResponse.json({ ok: true })
   } catch (err) {
-    console.error('Mark-sent write failed:', err)
+    console.error('Mark-connected write failed:', err)
     return NextResponse.json({ ok: false, error: 'write_failed' }, { status: 503 })
   }
 }

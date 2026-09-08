@@ -7,6 +7,7 @@ import CompanyPanel from './CompanyPanel'
 type Summary = {
   total: number; contactable: number; needs_review: number
   contacted: number; contacted_historical: number; contacted_platform: number
+  linkedin_connection_sent: number
   replied: number; do_not_contact: number
   last_synced_at: string | null
 } | null
@@ -62,15 +63,17 @@ function ReadyBadge({ label, hasDraft, status }: { label: string; hasDraft: bool
   if (!hasDraft) {
     return <span className="inline-flex items-center gap-1 text-[10.5px] text-zinc-400 dark:text-zinc-600">{label}: no draft</span>
   }
-  const sent = status === 'sent' || status === 'done'
+  const sent = status === 'sent' || status === 'connected'
+  const noteSent = status === 'connection_sent'
   const approved = status === 'approved'
   return (
     <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-medium ring-1 ${
       sent ? 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 ring-cyan-500/30'
+      : noteSent ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 ring-amber-500/30'
       : approved ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 ring-emerald-500/30'
       : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 ring-amber-500/30'
     }`}>
-      {label}: {sent ? 'sent' : approved ? 'approved' : 'draft ready'}
+      {label}: {sent ? 'sent' : noteSent ? 'note sent, awaiting accept' : approved ? 'approved' : 'draft ready'}
     </span>
   )
 }
@@ -156,11 +159,12 @@ export default function OutreachView({
       </div>
 
       {summary && (
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-7">
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-8">
           <Tile label="found by Hermes" value={summary.total} tone="text-zinc-800 dark:text-zinc-200" />
           <Tile label="safe to contact" value={summary.contactable} tone="text-cyan-700 dark:text-cyan-300" />
           <Tile label="drafts ready for you" value={summary.needs_review} tone="text-amber-700 dark:text-amber-300" />
           <Tile label="contacted before (old sheet)" value={summary.contacted_historical} tone="text-zinc-500" />
+          <Tile label="LinkedIn note sent, awaiting accept" value={summary.linkedin_connection_sent} tone="text-amber-700 dark:text-amber-300" />
           <Tile label="reached out via platform" value={summary.contacted_platform} tone="text-cyan-700 dark:text-cyan-300" />
           <Tile label="replied" value={summary.replied} tone="text-emerald-700 dark:text-emerald-300" />
           <Tile label="do-not-contact" value={summary.do_not_contact} tone="text-red-600 dark:text-red-400" />

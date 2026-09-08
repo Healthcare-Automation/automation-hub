@@ -49,17 +49,21 @@ export interface OutreachCompanyRow {
   sequence_status: string | null        // draft | active | paused | stopped | completed
   sequence_progress: string | null      // e.g. "1/3" — steps done vs total
   /** 'historical' = already marked Contacted in Andy's old sheet before this system ever
-   * touched it (no email/LinkedIn ever sent through here). 'platform' = an email was actually
-   * sent or a LinkedIn action marked done through this pipeline. 'not_contacted' = neither —
-   * this is what Andy should actually be working from. Lets the hub separate "already reached
-   * out before we existed" from "reached out using this platform" instead of collapsing both
-   * into one 'contacted' bucket. */
+   * touched it (no email sent or LinkedIn connection actually accepted through here yet).
+   * 'platform' = an email was actually sent, or a LinkedIn connection was actually accepted
+   * (status = 'connected'), through this pipeline. 'not_contacted' = neither -- this is what
+   * Andy should actually be working from. A LinkedIn connection note being sent
+   * (status = 'connection_sent') does NOT count as contacted: per Andy, sending the note is a
+   * request, not a reach-out -- nobody has actually connected until they accept. Lets the hub
+   * separate "already reached out before we existed" from "reached out using this platform"
+   * instead of collapsing both into one 'contacted' bucket. */
   contact_origin: 'historical' | 'platform' | 'not_contacted'
 }
 
 export async function getOutreachSummary() {
   const [row] = await sql<{ total: number; contactable: number; needs_review: number;
     contacted: number; contacted_historical: number; contacted_platform: number;
+    linkedin_connection_sent: number;
     replied: number; do_not_contact: number; last_synced_at: string | null }[]>`
     select
       (select count(*)::int from outreach_companies) as total,
@@ -73,14 +77,18 @@ export async function getOutreachSummary() {
         and not exists (
           select 1 from outreach_emails where company_id = c.id and status in ('sent','replied','bounced')
           union all
-          select 1 from outreach_linkedin_actions where company_id = c.id and status = 'done'
+          select 1 from outreach_linkedin_actions where company_id = c.id and status = 'connected'
         )) as contacted_historical,
-      -- an email actually sent or a LinkedIn action marked done through this system
+      -- an email actually sent, or a LinkedIn connection actually ACCEPTED (not just note-sent),
+      -- through this system
       (select count(*)::int from outreach_companies c where exists (
           select 1 from outreach_emails where company_id = c.id and status in ('sent','replied','bounced')
           union all
-          select 1 from outreach_linkedin_actions where company_id = c.id and status = 'done'
+          select 1 from outreach_linkedin_actions where company_id = c.id and status = 'connected'
         )) as contacted_platform,
+      -- LinkedIn connection note sent but NOT yet accepted -- a real, distinct in-flight state.
+      -- Not counted as "contacted": per Andy, the note is a request, not a reach-out.
+      (select count(*)::int from outreach_linkedin_actions where status = 'connection_sent') as linkedin_connection_sent,
       (select count(*)::int from outreach_companies where pipeline_stage in
         ('replied','qualified_conversation','meeting','opportunity')) as replied,
       (select count(*)::int from outreach_companies where do_not_contact = 1) as do_not_contact,
@@ -146,7 +154,7 @@ export async function getOutreachCompanies(): Promise<OutreachCompanyRow[]> {
       select exists (
         select 1 from outreach_emails where company_id = c.id and status in ('sent', 'replied', 'bounced')
         union all
-        select 1 from outreach_linkedin_actions where company_id = c.id and status = 'done'
+        select 1 from outreach_linkedin_actions where company_id = c.id and status = 'connected'
       ) as platform_touched
     ) pa on true
     order by (c.lead_score is null), c.lead_score desc, c.name asc
@@ -361,13 +369,30 @@ export async function setLinkedinActionDecision(
 }
 
 /**
- * Marks a LinkedIn action as actually sent by Andy (manual execution in his own
- * browser, per uzu-account-safety -- the hub only stages drafts, it never sends).
- * Also advances the company's pipeline_stage to 'contacted' and logs an event,
- * so "reached out" is visible everywhere at once instead of just on this row.
+ * Marks a LinkedIn connection note as actually sent by Andy (manual send in his own browser,
+ * per uzu-account-safety -- the hub only stages drafts, it never sends). This does NOT advance
+ * the company's pipeline_stage: sending the note is a request, not a completed reach-out --
+ * nobody has actually connected until the other person accepts. Andy explicitly flagged the
+ * previous version of this (which jumped straight to pipeline_stage='contacted' and status='done'
+ * on send) as wrong, since every LinkedIn touch so far was a note sent, not an accepted
+ * connection. Use markLinkedinActionConnected once the request is actually accepted.
  */
 export async function markLinkedinActionSent(id: number, companyId: number) {
-  await sql`update outreach_linkedin_actions set status = 'done' where id = ${id}`
+  await sql`update outreach_linkedin_actions set status = 'connection_sent' where id = ${id}`
+  await sql`
+    insert into outreach_events (company_id, event_type, detail, created_at)
+    values (${companyId}, 'linkedin_connection_sent', 'LinkedIn connection note sent by Andy manually -- awaiting accept', now())
+  `
+}
+
+/**
+ * Marks a LinkedIn connection as actually ACCEPTED by the other person. This is the real
+ * "reached out" moment -- advances pipeline_stage to 'contacted' and logs the event, same as
+ * the old markLinkedinActionSent used to do prematurely on send. Andy checks LinkedIn himself
+ * and reports back which requests were accepted; there's no API-based way to detect this.
+ */
+export async function markLinkedinActionConnected(id: number, companyId: number) {
+  await sql`update outreach_linkedin_actions set status = 'connected' where id = ${id}`
   await sql`
     update outreach_companies set pipeline_stage = 'contacted'
     where id = ${companyId} and pipeline_stage not in ('contacted', 'following_up', 'replied',
@@ -375,7 +400,7 @@ export async function markLinkedinActionSent(id: number, companyId: number) {
   `
   await sql`
     insert into outreach_events (company_id, event_type, detail, created_at)
-    values (${companyId}, 'contacted', 'LinkedIn connection request sent by Andy manually', now())
+    values (${companyId}, 'contacted', 'LinkedIn connection request accepted', now())
   `
 }
 

@@ -35,20 +35,25 @@ const CONFIDENCE_TONE: Record<string, string> = {
 }
 
 function LinkedinCard({
-  action, isAdmin, companyId, onDecision, onMarkSent,
+  action, isAdmin, companyId, onDecision, onMarkSent, onMarkConnected,
 }: {
   action: CompanyDetail['linkedinActions'][number]
   isAdmin: boolean
   companyId: number
   onDecision: (id: number, decision: 'approved' | 'rejected', note: string | null) => Promise<boolean>
   onMarkSent: (id: number, companyId: number) => Promise<boolean>
+  onMarkConnected: (id: number, companyId: number) => Promise<boolean>
 }) {
   const [rejecting, setRejecting] = useState(false)
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const decided = action.status === 'approved' || action.status === 'rejected'
-  const sent = action.status === 'done'
+  // Two distinct completion states: the note went out (a request), vs the other person actually
+  // accepted (a real connection). Per Andy, only the latter counts as "reached out" -- sending
+  // the note is not the same as being connected.
+  const noteSent = action.status === 'connection_sent'
+  const connected = action.status === 'connected'
 
   return (
     <div className="rounded-lg bg-zinc-50 ring-zinc-200 dark:bg-zinc-800/30 dark:ring-zinc-800/60 p-3 ring-1">
@@ -99,15 +104,19 @@ function LinkedinCard({
 
       <div className="mt-3 flex items-center justify-between gap-2">
         <span className={`text-[11px] font-medium ${
-          action.status === 'done' ? 'text-cyan-700 dark:text-cyan-300'
+          action.status === 'connected' ? 'text-emerald-700 dark:text-emerald-300'
+          : action.status === 'connection_sent' ? 'text-cyan-700 dark:text-cyan-300'
           : action.status === 'approved' ? 'text-emerald-700 dark:text-emerald-300'
           : action.status === 'rejected' ? 'text-red-600 dark:text-red-400' : 'text-amber-700 dark:text-amber-300'
         }`}>
-          {action.status === 'queued' ? 'Awaiting your review' : action.status === 'done' ? 'Reached out' : action.status}
+          {action.status === 'queued' ? 'Awaiting your review'
+            : action.status === 'connection_sent' ? 'Connection request sent — awaiting accept'
+            : action.status === 'connected' ? 'Connected'
+            : action.status}
           {action.verification_note && ` — ${action.verification_note}`}
         </span>
 
-        {isAdmin && !decided && !sent && !rejecting && (
+        {isAdmin && !decided && !noteSent && !connected && !rejecting && (
           <div className="flex gap-1.5">
             <button
               disabled={busy}
@@ -130,7 +139,7 @@ function LinkedinCard({
             </button>
           </div>
         )}
-        {isAdmin && action.status === 'approved' && !sent && (
+        {isAdmin && action.status === 'approved' && !noteSent && !connected && (
           <button
             disabled={busy}
             onClick={async () => {
@@ -141,7 +150,22 @@ function LinkedinCard({
             }}
             className="rounded-md bg-cyan-600/80 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-cyan-600 disabled:opacity-50"
           >
-            Mark as reached out
+            Mark connection note as sent
+          </button>
+        )}
+        {isAdmin && noteSent && (
+          <button
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true); setError(null)
+              const ok = await onMarkConnected(action.id, companyId)
+              setBusy(false)
+              if (!ok) setError('Could not save — try again.')
+            }}
+            className="rounded-md bg-emerald-600/80 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-emerald-600 disabled:opacity-50"
+            title="Click once you've checked LinkedIn yourself and confirmed they accepted the request."
+          >
+            Mark as connected
           </button>
         )}
         {isAdmin && rejecting && (
@@ -650,6 +674,19 @@ export default function CompanyPanel({
     return false
   }
 
+  async function handleMarkConnected(actionId: number, companyId: number): Promise<boolean> {
+    const res = await fetch('/api/outreach/linkedin-mark-connected', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: actionId, companyId }),
+    })
+    if (res.ok) {
+      refetch()
+      return true
+    }
+    return false
+  }
+
   async function handleEmailDecision(emailId: number, decision: 'approved' | 'qa_failed', note: string | null): Promise<boolean> {
     const res = await fetch('/api/outreach/email-decision', {
       method: 'POST',
@@ -870,8 +907,9 @@ export default function CompanyPanel({
                   <p className="rounded-lg bg-cyan-500/5 ring-1 ring-cyan-500/20 px-3 py-2 text-[11px] leading-relaxed text-zinc-600 dark:text-zinc-400">
                     LinkedIn has no send API here on purpose — sending automatically is what gets accounts
                     flagged. This tab stages a connection note (and DM once connected) for Andy to copy and
-                    send manually from his own LinkedIn. Approve the profile match first, send it yourself,
-                    then mark it reached out so the pipeline stays accurate.
+                    send manually from his own LinkedIn. Approve the profile match, send the note yourself
+                    and mark it sent, then check back on LinkedIn later and mark it connected once they
+                    actually accept — sending the note isn't the same as being reached out to.
                   </p>
                   {data.linkedinActions.length === 0 && (
                     <GenerateDraftButton
@@ -881,7 +919,8 @@ export default function CompanyPanel({
                     />
                   )}
                   {data.linkedinActions.map(a => (
-                    <LinkedinCard key={a.id} action={a} isAdmin={isAdmin} companyId={id} onDecision={handleDecision} onMarkSent={handleMarkSent} />
+                    <LinkedinCard key={a.id} action={a} isAdmin={isAdmin} companyId={id}
+                      onDecision={handleDecision} onMarkSent={handleMarkSent} onMarkConnected={handleMarkConnected} />
                   ))}
                 </div>
               )}
