@@ -328,3 +328,30 @@ create table if not exists marketing_content_draft_images (
 create index if not exists idx_marketing_content_draft_images_draft
   on marketing_content_draft_images(draft_id, slide_index);
 
+-- ─── Reddit engagement evidence (2026-09-09) ──────────────────────────────
+-- Sean's feedback: bias content toward what people are ALREADY reacting to, not just
+-- net-new guesses. Cached weekly pulls of real (upvotes, comments) from a curated list of
+-- relevant subreddits' top-of-month posts via Apify (harshmaur/reddit-scraper, startUrls
+-- mode — plain keyword search on this actor returns near-zero-engagement noise, verified
+-- live; pointing it at a specific subreddit's /top/ URL returns genuinely high-engagement,
+-- on-topic posts). Cached rather than fetched per research run: this is real money
+-- (Apify usage, free-tier capped at $5/mo) and the top-of-month list barely moves day to
+-- day, so a weekly refresh is both cheaper and sufficient.
+create table if not exists marketing_reddit_engagement (
+  id                uuid primary key default gen_random_uuid(),
+  subreddit         text not null,
+  post_title        text not null,
+  post_url          text not null,
+  upvotes           integer not null,
+  comments_count    integer not null,
+  posted_at         timestamptz,
+  fetched_at        timestamptz not null default now(),
+  unique (post_url)
+);
+
+create index if not exists idx_marketing_reddit_engagement_fetched
+  on marketing_reddit_engagement(fetched_at desc);
+create index if not exists idx_marketing_reddit_engagement_upvotes
+  on marketing_reddit_engagement(upvotes desc);
+
+

@@ -14,6 +14,7 @@ import { renderSlideToPng } from './marketing/slideRenderer'
 import { pickAccent, type SlideInput } from './marketing/slideTemplates'
 import {
   getRecentInstagramDraftsContext,
+  getTopRedditEngagement,
   insertInstagramDraft,
   insertCarouselSlides,
   type CarouselSlideInsert,
@@ -43,7 +44,17 @@ function toSlideInput(entry: SlidePlanEntry): SlideInput {
 
 export async function runInstagramGeneration(orgId: string): Promise<InstagramGenerationResult> {
   const recent = await getRecentInstagramDraftsContext(orgId)
-  const generated = await generateInstagramPost(recent)
+  // Real engagement evidence (Sean's feedback, 2026-09-09) — cached weekly, org-agnostic.
+  // getTopRedditEngagement never throws; an empty result (cache not yet populated) is a
+  // normal state and generateInstagramPost degrades gracefully to the seed themes alone.
+  const evidenceRows = await getTopRedditEngagement()
+  const evidence = evidenceRows.map((r) => ({
+    subreddit: r.subreddit,
+    postTitle: r.postTitle,
+    upvotes: r.upvotes,
+    commentsCount: r.commentsCount,
+  }))
+  const generated = await generateInstagramPost(recent, evidence)
   if (!generated) {
     return {
       draftId: null,
@@ -66,7 +77,13 @@ export async function runInstagramGeneration(orgId: string): Promise<InstagramGe
     impactScore: generated.fields.impactScore,
     impactScoreReasoning: generated.fields.impactScoreReasoning,
     imagePrompt: generated.fields.imagePrompt,
-    notes: generated.fields.notes,
+    // Fold the real-engagement provenance into notes rather than a new DB column — mirrors
+    // how coreStat was folded into hook_options; keeps this a code-only change. Prepended so
+    // it's the first thing visible in the review queue's notes field, not buried after any
+    // model-written notes.
+    notes: generated.inspiredByPost
+      ? `Grounded in real engagement evidence: "${generated.inspiredByPost}"${generated.fields.notes ? ` — ${generated.fields.notes}` : ''}`
+      : generated.fields.notes,
     claimsRequiringReview: generated.fields.claimsRequiringReview,
     fingerprint: generated.fingerprint,
   })

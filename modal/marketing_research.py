@@ -118,6 +118,37 @@ def run_instagram_content() -> str:
     return out[-2000:]
 
 
+@app.function(
+    image=image,
+    secrets=[modal.Secret.from_name("marketing-research")],
+    timeout=8 * 60,
+    schedule=modal.Cron("0 6 * * 1"),  # Mondays 06:00 UTC — well ahead of the Mon 13:00 Instagram run
+)
+def run_refresh_reddit_engagement() -> str:
+    """Weekly refresh of marketing_reddit_engagement (Sean's feedback, 2026-09-09): real
+    upvote/comment counts from a curated list of subreddits, via Apify. Deliberately weekly,
+    not per Instagram run — the underlying data barely moves day to day and this is real
+    Apify usage cost (see lib/marketing/redditEngagement.ts for the cost breakdown, well
+    under Apify's $5/mo free-tier cap at this cadence). Requires the marketing-research
+    Modal secret to also carry APIFY_TOKEN — see .env.local for the format.
+    """
+    import os
+
+    proc = subprocess.run(
+        ["npx", "tsx", "scripts/refresh-reddit-engagement.ts"],
+        cwd="/app",
+        env=dict(os.environ),
+        capture_output=True,
+        text=True,
+        timeout=7 * 60,
+    )
+    out = (proc.stdout or "") + (proc.stderr or "")
+    print(out[-4000:])
+    if proc.returncode != 0:
+        raise RuntimeError(f"refresh-reddit-engagement exited {proc.returncode}")
+    return out[-2000:]
+
+
 @app.local_entrypoint()
 def main():
     print(run_research.remote())

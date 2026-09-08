@@ -283,3 +283,70 @@ export async function getMarketingOrgAndUser(orgId: string, userId: string) {
   ])
   return { org: org ?? null, user: user ?? null }
 }
+
+// ---------- Reddit engagement evidence (2026-09-09, Sean's feedback) ----------
+// See lib/marketing/redditEngagement.ts for the fetch side and sql/marketing_schema.sql's
+// marketing_reddit_engagement table for the caching rationale. Org-agnostic (Reddit content
+// isn't per-org) — no orgId filter needed, unlike the rest of this file.
+
+export interface RedditEngagementRow {
+  subreddit: string
+  postTitle: string
+  postUrl: string
+  upvotes: number
+  commentsCount: number
+}
+
+/** Replaces the whole cache — the weekly refresh script is the only writer, so there's no
+ * concurrent-write race to worry about. Loops one insert per row rather than a multi-row
+ * VALUES list (postgres.js's tuple-array typing doesn't play well with a mixed string/number/
+ * null row shape here); this runs weekly on ~100 rows, so the per-row round trip is a
+ * non-issue. Caller (scripts/refresh-reddit-engagement.ts) is responsible for not calling
+ * this with an empty array — an empty fetch (e.g. transient Apify outage) should leave the
+ * existing cache in place, not wipe it. */
+export async function replaceRedditEngagementCache(
+  posts: { subreddit: string; title: string; url: string; upvotes: number; commentsCount: number; postedAt: string | null }[],
+): Promise<void> {
+  if (posts.length === 0) return
+  await sql`delete from marketing_reddit_engagement`
+  for (const p of posts) {
+    await sql`
+      insert into marketing_reddit_engagement (subreddit, post_title, post_url, upvotes, comments_count, posted_at)
+      values (${p.subreddit}, ${p.title}, ${p.url}, ${p.upvotes}, ${p.commentsCount}, ${p.postedAt})
+      on conflict (post_url) do nothing
+    `
+  }
+}
+
+/** Top N cached posts by upvotes, across all curated subreddits — used by the generator's
+ * topic-planning step to surface real, already-resonant angles instead of guessing. */
+export async function getTopRedditEngagement(limit = 15): Promise<RedditEngagementRow[]> {
+  try {
+    const rows = await sql<
+      { subreddit: string; post_title: string; post_url: string; upvotes: number; comments_count: number }[]
+    >`
+      select subreddit, post_title, post_url, upvotes, comments_count
+      from marketing_reddit_engagement
+      order by upvotes desc
+      limit ${limit}
+    `
+    return rows.map((r) => ({
+      subreddit: r.subreddit,
+      postTitle: r.post_title,
+      postUrl: r.post_url,
+      upvotes: r.upvotes,
+      commentsCount: r.comments_count,
+    }))
+  } catch (err) {
+    // Never let a missing table (schema not yet migrated on some environment) or a
+    // transient DB error break Instagram generation — engagement evidence is a nice-to-have
+    // bias signal, not a hard dependency of the pipeline.
+    console.error('getTopRedditEngagement failed, continuing without engagement evidence:', err instanceof Error ? err.message : err)
+    return []
+  }
+}
+
+export async function getRedditEngagementCacheAge(): Promise<Date | null> {
+  const [row] = await sql<{ fetched_at: Date }[]>`select max(fetched_at) as fetched_at from marketing_reddit_engagement`
+  return row?.fetched_at ?? null
+}

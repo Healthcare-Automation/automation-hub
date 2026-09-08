@@ -36,16 +36,34 @@ export interface RecentDraftContext {
   notes: string | null
 }
 
+/** Real Reddit engagement evidence (Sean's feedback, 2026-09-09) — passed in by the caller
+ * (lib/marketingInstagramPipeline.ts, which owns DB access) rather than fetched here, to
+ * keep this module's "no DB access" boundary intact. See lib/marketing/redditEngagement.ts
+ * for how this data is sourced/cached. Optional/empty is a normal, expected state (cache not
+ * yet populated, or APIFY_TOKEN unset) — planning must degrade gracefully, never fail. */
+export interface EngagementEvidenceItem {
+  subreddit: string
+  postTitle: string
+  upvotes: number
+  commentsCount: number
+}
+
 export interface TopicPlan {
   topic: string
   searchQuery: string
   angleSummary: string
+  /** Which cached engagement-evidence post (if any) this angle was inspired by — a real
+   * Reddit thread's title, not a fabricated one. Null when no evidence was available or the
+   * angle wasn't tied to a specific post. Surfaced in the draft's notes so the review queue
+   * can see WHY an angle was picked, not just that it was. */
+  inspiredByPost: string | null
 }
 
 const TopicPlanSchema = z.object({
   topic: z.string().min(1),
   searchQuery: z.string().min(1),
   angleSummary: z.string().min(1),
+  inspiredByPost: z.string().nullable(),
 })
 
 const PLANNING_SYSTEM_PROMPT =
@@ -53,17 +71,30 @@ const PLANNING_SYSTEM_PROMPT =
   'businesses (dental, healthcare-adjacent, and similar service practices). You are choosing ONE ' +
   'specific angle to research and post about today. Favor familiar, relatable human truths over ' +
   'novel or surprising data points — something the reader already half-believes and will feel seen ' +
-  'by, not something meant to shock or impress. Nothing "crazy new" for its own sake. Respond with ' +
-  'ONLY a JSON object: {"topic": string (short label), "searchQuery": string (a real, specific web ' +
-  'search query that would surface current, citable data for this angle), "angleSummary": string ' +
-  '(1-2 sentences on the specific take/hook for this post)}. No prose or markdown fences outside the JSON.'
+  'by, not something meant to shock or impress. Nothing "crazy new" for its own sake. When real ' +
+  'engagement evidence is provided below, PREFER an angle grounded in one of those already-resonant ' +
+  'threads over inventing a net-new angle from the seed themes alone — real proof people already ' +
+  'care about a topic beats a guess. Set inspiredByPost to that exact post title if you used one, ' +
+  'or null if you did not. Respond with ONLY a JSON object: {"topic": string (short label), ' +
+  '"searchQuery": string (a real, specific web search query that would surface current, citable ' +
+  'data for this angle), "angleSummary": string (1-2 sentences on the specific take/hook for this ' +
+  'post), "inspiredByPost": string | null}. No prose or markdown fences outside the JSON.'
 
-function buildPlanningPrompt(recent: RecentDraftContext[]): string {
+function buildPlanningPrompt(recent: RecentDraftContext[], evidence: EngagementEvidenceItem[]): string {
   const lines = [
     'Seed themes to draw from (find a fresh angle within one of these, or an adjacent angle you discover):',
     ...INSTAGRAM_SEED_THEMES.map((t, i) => `${i + 1}. ${t}`),
     '',
   ]
+  if (evidence.length > 0) {
+    lines.push(
+      'Real engagement evidence — actual posts with real upvote/comment counts from relevant communities (r/smallbusiness, r/Dentistry, r/marketing, r/Entrepreneur). This is proof of what people already react to, not a guess:',
+    )
+    for (const e of evidence.slice(0, 15)) {
+      lines.push(`- [${e.upvotes} upvotes, ${e.commentsCount} comments, r/${e.subreddit}] "${e.postTitle}"`)
+    }
+    lines.push('')
+  }
   if (recent.length > 0) {
     lines.push('Angles already covered recently (pick something meaningfully different from all of these):')
     for (const r of recent.slice(0, 20)) {
@@ -87,10 +118,10 @@ function buildPlanningPrompt(recent: RecentDraftContext[]): string {
 
 /** Never throws — returns null on any failure so the caller can skip this run cleanly
  * rather than inserting a low-quality or fabricated draft. */
-export async function planTopic(recent: RecentDraftContext[]): Promise<TopicPlan | null> {
+export async function planTopic(recent: RecentDraftContext[], evidence: EngagementEvidenceItem[] = []): Promise<TopicPlan | null> {
   if (!hasLLMProvider()) return null
   try {
-    return await completeJSON({ system: PLANNING_SYSTEM_PROMPT, prompt: buildPlanningPrompt(recent) }, TopicPlanSchema)
+    return await completeJSON({ system: PLANNING_SYSTEM_PROMPT, prompt: buildPlanningPrompt(recent, evidence) }, TopicPlanSchema)
   } catch (err) {
     console.error('Instagram topic planning failed:', err instanceof Error ? err.message : err)
     return null
@@ -245,6 +276,9 @@ function buildSynthesisPrompt(plan: TopicPlan, researchText: string, citations: 
   const lines = [
     `Topic: ${plan.topic}`,
     `Angle: ${plan.angleSummary}`,
+    ...(plan.inspiredByPost
+      ? [`This angle is grounded in real engagement evidence — a real, already-resonant post: "${plan.inspiredByPost}". Mention in notes that this angle is backed by real audience reaction, not a guess.`]
+      : []),
     '',
     'Research (grounded web search results — the only source of facts you may use):',
     researchText,
@@ -296,6 +330,7 @@ export interface GeneratedInstagramPost {
   fields: InstagramDraftFields
   sourceUrls: string[]
   fingerprint: string
+  inspiredByPost: string | null
 }
 
 // Belt-and-suspenders against the model inventing an authority it doesn't have — the system
@@ -305,9 +340,14 @@ const UNEARNED_AUTHORITY_PATTERN = /\b(studies|research|data|reports?|surveys?|e
 
 /** Full generation pass: plan a topic, research it, synthesize the draft. Returns null
  * (never throws) if any stage fails or produces nothing usable — the caller must not insert
- * a partial/fabricated row. */
-export async function generateInstagramPost(recent: RecentDraftContext[]): Promise<GeneratedInstagramPost | null> {
-  const plan = await planTopic(recent)
+ * a partial/fabricated row. `evidence` is optional real engagement data (Sean's feedback,
+ * 2026-09-09) — an empty array is a normal state (cache not populated / APIFY_TOKEN unset),
+ * not an error; planning simply falls back to the seed themes alone. */
+export async function generateInstagramPost(
+  recent: RecentDraftContext[],
+  evidence: EngagementEvidenceItem[] = [],
+): Promise<GeneratedInstagramPost | null> {
+  const plan = await planTopic(recent, evidence)
   if (!plan) return null
 
   const research = await researchWithWebSearch(plan.searchQuery)
@@ -333,5 +373,6 @@ export async function generateInstagramPost(recent: RecentDraftContext[]): Promi
     fields: { ...fields, sentimentTags },
     sourceUrls: research.citations.map((c) => c.url),
     fingerprint: contentFingerprint(fields.mainIdea),
+    inspiredByPost: plan.inspiredByPost,
   }
 }
