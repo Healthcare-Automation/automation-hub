@@ -1546,7 +1546,14 @@ export async function getValidationData(runId: number, filters: ValidationFilter
 
 /** Rolling 7-day window (`NOW() - 7 days`) — must match WeeklySummaryCards copy. */
 export async function getWeeklySummary(): Promise<WeeklySummary> {
-  const runAggSql = sql`
+  // A FUNCTION, not a single reused `const sql\`...\`` result: postgres.js tagged-template
+  // calls are eagerly-executing thenables, not inert fragments — reusing the same one twice
+  // (as this used to) works by accident under a long-lived session connection but hangs
+  // under the transaction pooler's per-statement connection handoff (found 2026-09-09 while
+  // migrating DATABASE_URL from Supabase's session pooler, port 5432/EMAXCONNSESSION-capped
+  // at 15, to the transaction pooler, port 6543 — this function is what made the production
+  // build hang indefinitely on the home page). emailOkSql just below already gets this right.
+  const runAggSql = () => sql`
     WITH ${sql.unsafe(PAIRED_CTE)}
     SELECT
       count(*)  AS total,
@@ -1581,11 +1588,11 @@ export async function getWeeklySummary(): Promise<WeeklySummary> {
     sql`SELECT count(*) AS c FROM email_scrapes WHERE created_at > NOW() - INTERVAL '7 days'`,
     sql`SELECT count(*) AS c FROM job_content   WHERE created_at > NOW() - INTERVAL '7 days'`,
     sql`SELECT count(*) AS c FROM job_event_log WHERE event_type = 'sf_scrape_fields_patched' AND created_at > NOW() - INTERVAL '7 days'`,
-    sql`${runAggSql} WHERE started_at > NOW() - INTERVAL '7 days'`,
+    sql`${runAggSql()} WHERE started_at > NOW() - INTERVAL '7 days'`,
     sql`SELECT count(*) AS c FROM email_scrapes`,
     sql`SELECT count(*) AS c FROM job_content`,
     sql`SELECT count(*) AS c FROM job_event_log WHERE event_type = 'sf_scrape_fields_patched'`,
-    sql`${runAggSql}`,
+    sql`${runAggSql()}`,
   ])
 
   const totalRuns = Number(runRes[0]?.total ?? 0)
