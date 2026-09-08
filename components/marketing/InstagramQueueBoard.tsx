@@ -25,8 +25,20 @@ const SENTIMENT_LABELS: Record<InstagramSentimentTag, string> = {
   uncited_educational: 'No hard stat (uncited)',
 }
 
+// Andy (2026-09-08, two screenshots): "shits breaking" — a second, distinct hydration
+// crash (React error #418, args[]=text) after the button-nesting fix above. Root cause:
+// toLocaleDateString() with no explicit timeZone renders in the LOCAL timezone of whichever
+// machine calls it. Vercel's server runs in UTC; a viewer's browser runs in their own zone
+// (Andy is in Asia/Seoul, UTC+9) — for any draft created in the ~9-hour window where UTC and
+// KST disagree on the calendar date, the server-rendered "Sep 8" and the client's hydration
+// pass computing "Sep 9" are a genuine text mismatch, and React discards the whole tree.
+// Reproduced directly: confirmed prod crashes every time from a KST browser but a same-
+// timezone local dev server (also KST on this VPS) never reproduces it, which is exactly
+// this bug's signature. Pinned to UTC, matching the codebase's existing convention for any
+// server-rendered date (see lib/utils.ts formatShortDate, lib/clientReportEmail.ts) — the
+// server and every client now always agree, regardless of the viewer's own timezone.
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
 }
 
 const SELECT_CLS =
