@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { OutreachCompanyRow } from '@/lib/outreachQueries'
 import CompanyPanel from './CompanyPanel'
 
@@ -92,8 +92,20 @@ export default function OutreachView({
   const [query, setQuery] = useState('')
   const [stageFilter, setStageFilter] = useState<string>('all')
   const [originFilter, setOriginFilter] = useState<string>('all')
-  const [priorityOnly, setPriorityOnly] = useState(false)
+  // Defaults ON: this is the clean "start here" list Andy asked for. Persisted in localStorage
+  // so it stays off if he deliberately turns it off, instead of reverting to "off" on every page
+  // load. Falls back to on (the actual default) whenever there's no stored preference yet.
+  const [priorityOnly, setPriorityOnly] = useState(true)
   const [openId, setOpenId] = useState<number | null>(null)
+
+  useEffect(() => {
+    const stored = window.localStorage.getItem('outreach.priorityOnly')
+    if (stored !== null) setPriorityOnly(stored === 'true')
+  }, [])
+
+  useEffect(() => {
+    window.localStorage.setItem('outreach.priorityOnly', String(priorityOnly))
+  }, [priorityOnly])
 
   const stages = useMemo(() => {
     const set = new Set(companies.map(c => c.pipeline_stage))
