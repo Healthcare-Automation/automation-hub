@@ -135,10 +135,37 @@ function ImpactBadge({ score, reasoning }: { score: number | null; reasoning: st
       : score >= 40
         ? 'border-amber-600/30 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300'
         : 'border-stone-300 bg-stone-50 text-stone-600 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-400'
+  const icon = score >= 70 ? '🔥' : score >= 40 ? '⚡' : '💤'
   return (
-    <span title={reasoning ?? undefined} className={cn('rounded-full border px-2 py-0.5 text-[11px] font-semibold', tone)}>
+    <span title={reasoning ?? undefined} className={cn('flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold', tone)}>
+      <span aria-hidden>{icon}</span>
       {score}
     </span>
+  )
+}
+
+/** Andy (2026-09-09, screenshot): show the estimated-impact reasoning directly on the card,
+ * not buried in a hover-only tooltip — but as a short fragment, not the model's full
+ * sentence. Strips the trailing period (reads as a label/fragment, not prose) and truncates
+ * at a word boundary so it stays scannable at card-grid density. */
+function briefReasoning(reasoning: string | null): string | null {
+  if (!reasoning) return null
+  let text = reasoning.trim().replace(/\.+$/, '')
+  const MAX = 64
+  if (text.length > MAX) {
+    text = text.slice(0, MAX).replace(/\s+\S*$/, '') + '…'
+  }
+  return text
+}
+
+function ImpactReasoningLine({ reasoning }: { reasoning: string | null }) {
+  const brief = briefReasoning(reasoning)
+  if (!brief) return null
+  return (
+    <div title={reasoning ?? undefined} className="flex items-center gap-1 text-[11px] text-stone-400 dark:text-stone-500">
+      <span aria-hidden>💡</span>
+      <span className="truncate">{brief}</span>
+    </div>
   )
 }
 
@@ -232,6 +259,8 @@ function InstagramDraftCard({
           <span className="ml-auto shrink-0 text-[11px] text-stone-400">{formatDate(draft.createdAt)}</span>
         </div>
 
+        <ImpactReasoningLine reasoning={draft.impactScoreReasoning} />
+
         <button type="button" onClick={onToggle} className="text-left">
           <p className="line-clamp-3 font-serif text-[15px] leading-snug text-stone-800 dark:text-stone-100">
             {draft.hookLine || draft.caption}
@@ -322,7 +351,11 @@ function DraftDetailModal({ draft, isAdmin, onClose }: { draft: InstagramDraftRo
             </button>
           </div>
 
-          <ComplianceBanner claims={draft.claimsRequiringReview} />
+          <ImpactReasoningLine reasoning={draft.impactScoreReasoning} />
+
+          <div className="mt-3">
+            <ComplianceBanner claims={draft.claimsRequiringReview} />
+          </div>
 
           <div className="mt-4 space-y-4 text-sm">
             <div>
