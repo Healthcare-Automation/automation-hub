@@ -8,18 +8,78 @@ import { cn } from '@/lib/utils'
  * (slideCount === 0, pre-redesign drafts) — same 4:5 aspect box either way so the grid
  * layout doesn't jump between cards.
  *
- * 2026-09-09 fix: this used to eagerly prefetch EVERY slide for EVERY draft the instant its
- * card mounted (`for (let i = 0; i < total; i++) new Image()...`). That was fine at the
+ * 2026-09-09 fix #1: this used to eagerly prefetch EVERY slide for EVERY draft the instant
+ * its card mounted (`for (let i = 0; i < total; i++) new Image()...`). That was fine at the
  * original ~3-draft queue size, but at 23 drafts x 3-4 slides it fires ~85 simultaneous
  * DB-backed image requests on a single page load — each hitting Postgres through the
  * session-mode Supabase pooler, which is capped at 15 connections (EMAXCONNSESSION), so a
  * meaningful fraction of those requests failed/timed out and rendered as broken/blank
- * images (Andy's 2026-09-08 screenshot: slide 3/3 blank while sibling cards looked fine —
- * the exact partial-failure signature of pool exhaustion, not corrupted data; the underlying
- * bytes were verified intact in Postgres). Fixed by only prefetching the ONE adjacent slide
- * a user is actually about to see (next when moving forward, both neighbors on mount) rather
- * than the whole carousel — bounds concurrent image requests per card to ~2 regardless of
- * how many slides or drafts are on screen. */
+ * images. Fixed by only prefetching the ONE adjacent slide a user is actually about to see
+ * (both neighbors on mount/swipe) rather than the whole carousel — bounds concurrent image
+ * requests per card to ~2 regardless of how many slides or drafts are on screen.
+ *
+ * 2026-09-09 fix #2 (same day, recurred): a plain <img src=...> with no error handling means
+ * ANY transient failure (a fresh pool-exhaustion spike, a cold Vercel function, a genuine
+ * blip) renders as the browser's permanently-broken-image icon with zero recovery path —
+ * the user has to hard-refresh and hope the transient condition has cleared by then. Combined
+ * with the image route's Cache-Control: immutable header applying even to non-2xx responses
+ * (fixed separately in app/api/marketing/instagram-image/[id]/route.ts), a single bad load
+ * could get stuck in the browser's cache for 24h. Fixed here with a real retry: onError
+ * bumps a cache-busting query param and retries automatically (bounded, with backoff) before
+ * ever giving up and showing an explicit "failed to load — tap to retry" state instead of a
+ * silent broken-image icon. This is the actual fix for "make sure this never happens
+ * again" — not just narrowing the odds, but making a transient failure self-heal instead of
+ * requiring a manual page reload. */
+const MAX_AUTO_RETRIES = 3
+const RETRY_DELAY_MS = 1500
+
+function SlideImage({ src, onLoaded }: { src: string; onLoaded?: () => void }) {
+  const [attempt, setAttempt] = useState(0)
+  const [failed, setFailed] = useState(false)
+
+  // Reset retry state whenever the underlying src changes (new slide, new draft) — a stale
+  // failed/retrying state from a previous image must never bleed into the next one.
+  useEffect(() => {
+    setAttempt(0)
+    setFailed(false)
+  }, [src])
+
+  function handleError() {
+    if (attempt < MAX_AUTO_RETRIES) {
+      const next = attempt + 1
+      setTimeout(() => setAttempt(next), RETRY_DELAY_MS * next)
+    } else {
+      setFailed(true)
+    }
+  }
+
+  if (failed) {
+    return (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          setAttempt(0)
+          setFailed(false)
+        }}
+        className="flex h-full w-full flex-col items-center justify-center gap-1 bg-stone-100 text-[11px] text-stone-400 hover:text-stone-600 dark:bg-stone-900 dark:hover:text-stone-300"
+      >
+        <span>Image failed to load</span>
+        <span className="underline">Tap to retry</span>
+      </button>
+    )
+  }
+
+  // Cache-busting only on a real retry (attempt > 0) — the first load still benefits from
+  // the route's normal immutable caching on success.
+  const finalSrc = attempt === 0 ? src : `${src}${src.includes('?') ? '&' : '?'}retry=${attempt}`
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img key={finalSrc} src={finalSrc} alt="" className="h-full w-full object-cover" onError={handleError} onLoad={onLoaded} />
+  )
+}
+
 export function CarouselPreview({
   draftId,
   slideCount,
@@ -66,8 +126,7 @@ export function CarouselPreview({
 
   return (
     <div className={cn('group relative aspect-[4/5] w-full overflow-hidden rounded-xl bg-stone-100 dark:bg-stone-900', className)}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={src} alt="" className="h-full w-full object-cover" />
+      <SlideImage src={src} />
 
       {total > 1 && (
         <>
