@@ -135,37 +135,43 @@ function ImpactBadge({ score, reasoning }: { score: number | null; reasoning: st
       : score >= 40
         ? 'border-amber-600/30 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300'
         : 'border-stone-300 bg-stone-50 text-stone-600 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-400'
-  const icon = score >= 70 ? '🔥' : score >= 40 ? '⚡' : '💤'
   return (
-    <span title={reasoning ?? undefined} className={cn('flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold', tone)}>
-      <span aria-hidden>{icon}</span>
+    <span title={reasoning ?? undefined} className={cn('rounded-full border px-2 py-0.5 text-[11px] font-semibold', tone)}>
       {score}
     </span>
   )
 }
 
-/** Andy (2026-09-09, screenshot): show the estimated-impact reasoning directly on the card,
- * not buried in a hover-only tooltip — but as a short fragment, not the model's full
- * sentence. Strips the trailing period (reads as a label/fragment, not prose) and truncates
- * at a word boundary so it stays scannable at card-grid density. */
-function briefReasoning(reasoning: string | null): string | null {
+/** Andy (2026-09-09): wants to see WHY the score is high — the reasoning and the real
+ * engagement numbers behind it, not decoration. Full impactScoreReasoning text, no
+ * truncation, no emoji. */
+function ImpactReasoningLine({ reasoning }: { reasoning: string | null }) {
   if (!reasoning) return null
-  let text = reasoning.trim().replace(/\.+$/, '')
-  const MAX = 64
-  if (text.length > MAX) {
-    text = text.slice(0, MAX).replace(/\s+\S*$/, '') + '…'
-  }
-  return text
+  return <p className="text-[12px] leading-snug text-stone-500 dark:text-stone-400">{reasoning}</p>
 }
 
-function ImpactReasoningLine({ reasoning }: { reasoning: string | null }) {
-  const brief = briefReasoning(reasoning)
-  if (!brief) return null
+// lib/marketingInstagramPipeline.ts's buildProvenanceNotes prefixes real r/subreddit
+// upvote/comment counts (when the angle was grounded in actual evidence, not invented) onto
+// the front of the notes field at generation time, separated by "\n\n" from any model-
+// written notes. Split it back out here so it renders as its own fixed, read-only line —
+// never mixed into the freeform Notes textarea, which is Andy's own editable
+// approve/disapprove reasoning and shouldn't silently carry system-generated provenance
+// text he might overwrite or delete without realizing what it was.
+function splitEngagementProvenance(notes: string | null): { provenance: string | null; rest: string } {
+  if (!notes) return { provenance: null, rest: '' }
+  if (!notes.startsWith('Grounded in real engagement')) return { provenance: null, rest: notes }
+  const idx = notes.indexOf('\n\n')
+  if (idx === -1) return { provenance: notes, rest: '' }
+  return { provenance: notes.slice(0, idx), rest: notes.slice(idx + 2) }
+}
+
+function EngagementProvenanceLine({ notes }: { notes: string | null }) {
+  const { provenance } = splitEngagementProvenance(notes)
+  if (!provenance) return null
   return (
-    <div title={reasoning ?? undefined} className="flex items-center gap-1 text-[11px] text-stone-400 dark:text-stone-500">
-      <span aria-hidden>💡</span>
-      <span className="truncate">{brief}</span>
-    </div>
+    <p className="rounded-lg bg-emerald-50 px-2.5 py-1.5 text-[12px] leading-snug text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300">
+      {provenance}
+    </p>
   )
 }
 
@@ -260,6 +266,7 @@ function InstagramDraftCard({
         </div>
 
         <ImpactReasoningLine reasoning={draft.impactScoreReasoning} />
+        <EngagementProvenanceLine notes={draft.notes} />
 
         <button type="button" onClick={onToggle} className="text-left">
           <p className="line-clamp-3 font-serif text-[15px] leading-snug text-stone-800 dark:text-stone-100">
@@ -300,17 +307,22 @@ function InstagramDraftCard({
 
 function DraftDetailModal({ draft, isAdmin, onClose }: { draft: InstagramDraftRow; isAdmin: boolean; onClose: () => void }) {
   const router = useRouter()
-  const [notes, setNotes] = useState(draft.notes ?? '')
+  const { provenance, rest } = splitEngagementProvenance(draft.notes)
+  const [notes, setNotes] = useState(rest)
   const [isPending, startTransition] = useTransition()
   const [savedNotes, setSavedNotes] = useState(false)
 
   function saveNotes() {
     setSavedNotes(false)
+    // Re-prepend the system-generated provenance line on save so editing/saving the
+    // freeform notes below it never silently drops the real engagement data it recorded —
+    // the textarea only ever shows/edits `rest`, per splitEngagementProvenance above.
+    const combined = provenance ? (notes ? `${provenance}\n\n${notes}` : provenance) : notes
     startTransition(async () => {
       const res = await fetch('/api/marketing/instagram/notes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ draftId: draft.id, notes }),
+        body: JSON.stringify({ draftId: draft.id, notes: combined }),
       })
       if (res.ok) {
         setSavedNotes(true)
@@ -352,6 +364,7 @@ function DraftDetailModal({ draft, isAdmin, onClose }: { draft: InstagramDraftRo
           </div>
 
           <ImpactReasoningLine reasoning={draft.impactScoreReasoning} />
+          <EngagementProvenanceLine notes={draft.notes} />
 
           <div className="mt-3">
             <ComplianceBanner claims={draft.claimsRequiringReview} />

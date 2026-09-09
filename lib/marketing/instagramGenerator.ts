@@ -331,6 +331,11 @@ export interface GeneratedInstagramPost {
   sourceUrls: string[]
   fingerprint: string
   inspiredByPost: string | null
+  /** The real evidence row (with actual upvote/comment counts) matching inspiredByPost, if
+   * the model's title matched one of the rows we actually gave it. Null when inspiredByPost
+   * is null, or (defensively) if the model returned a title that doesn't match anything we
+   * passed in — never fabricate numbers to fill this in. */
+  inspiredByEvidence: EngagementEvidenceItem | null
 }
 
 // Belt-and-suspenders against the model inventing an authority it doesn't have — the system
@@ -374,5 +379,6 @@ export async function generateInstagramPost(
     sourceUrls: research.citations.map((c) => c.url),
     fingerprint: contentFingerprint(fields.mainIdea),
     inspiredByPost: plan.inspiredByPost,
+    inspiredByEvidence: plan.inspiredByPost ? evidence.find((e) => e.postTitle === plan.inspiredByPost) ?? null : null,
   }
 }
