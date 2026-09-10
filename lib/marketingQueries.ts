@@ -350,3 +350,57 @@ export async function getRedditEngagementCacheAge(): Promise<Date | null> {
   const [row] = await sql<{ fetched_at: Date }[]>`select max(fetched_at) as fetched_at from marketing_reddit_engagement`
   return row?.fetched_at ?? null
 }
+
+// ---------- Instagram engagement evidence (2026-09-10) ----------
+// Same shape/contract as the Reddit block above. See lib/marketing/instagramEngagement.ts.
+
+export interface InstagramEngagementRow {
+  account: string
+  postUrl: string
+  postType: string | null
+  caption: string
+  likes: number
+  comments: number
+  videoViews: number | null
+}
+
+/** Same contract as replaceRedditEngagementCache: caller must not pass an empty array. */
+export async function replaceInstagramEngagementCache(
+  posts: { account: string; url: string; type: string | null; caption: string; likes: number; comments: number; videoViews: number | null; postedAt: string | null }[],
+): Promise<void> {
+  if (posts.length === 0) return
+  await sql`delete from marketing_instagram_engagement`
+  for (const p of posts) {
+    await sql`
+      insert into marketing_instagram_engagement (account, post_url, post_type, caption, likes_count, comments_count, video_view_count, posted_at)
+      values (${p.account}, ${p.url}, ${p.type}, ${p.caption}, ${p.likes}, ${p.comments}, ${p.videoViews}, ${p.postedAt})
+      on conflict (post_url) do nothing
+    `
+  }
+}
+
+/** Top N cached Instagram posts by likes+comments. Never throws — [] on any error. */
+export async function getTopInstagramEngagement(limit = 20): Promise<InstagramEngagementRow[]> {
+  try {
+    const rows = await sql<
+      { account: string; post_url: string; post_type: string | null; caption: string; likes_count: number; comments_count: number; video_view_count: number | null }[]
+    >`
+      select account, post_url, post_type, caption, likes_count, comments_count, video_view_count
+      from marketing_instagram_engagement
+      order by (likes_count + comments_count) desc
+      limit ${limit}
+    `
+    return rows.map((r) => ({
+      account: r.account,
+      postUrl: r.post_url,
+      postType: r.post_type,
+      caption: r.caption,
+      likes: r.likes_count,
+      comments: r.comments_count,
+      videoViews: r.video_view_count,
+    }))
+  } catch (err) {
+    console.error('getTopInstagramEngagement failed, continuing without Instagram evidence:', err instanceof Error ? err.message : err)
+    return []
+  }
+}

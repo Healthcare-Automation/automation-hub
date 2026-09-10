@@ -4,14 +4,14 @@ import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { InstagramDraftRow } from '@/lib/marketingQueries'
 import { INSTAGRAM_SENTIMENT_TAGS, type InstagramSentimentTag } from '@/lib/marketing/types'
-import { formatEngagement, type EngagementSignal } from '@/lib/marketing/engagementSignal'
+import { formatEngagement, type EngagementSignal, type InstagramSignal } from '@/lib/marketing/engagementSignal'
 import { ComplianceBanner } from './ComplianceBanner'
 import { DemoBadge } from './DemoBadge'
 import { CarouselPreview } from './CarouselPreview'
 import { cn } from '@/lib/utils'
 
-/** InstagramDraftRow plus the server-computed engagement signal (app/marketing/page.tsx). */
-export type QueueDraft = InstagramDraftRow & { engagement: EngagementSignal }
+/** InstagramDraftRow plus the server-computed engagement signals (app/marketing/page.tsx). */
+export type QueueDraft = InstagramDraftRow & { engagement: EngagementSignal; instagram: InstagramSignal }
 
 type SortKey = 'impact' | 'created'
 type UsedFilter = 'all' | 'used' | 'unused'
@@ -151,17 +151,64 @@ function ImpactBadge({ score, reasoning }: { score: number | null; reasoning: st
  * lib/marketing/engagementSignal.ts — deliberately loose; a stricter match zeroed out
  * nearly every draft). Labeled "related" so it isn't read as this exact topic. Every counted
  * thread is linked in the detail modal (RedditDiscussionList) so the number is verifiable. */
-function EngagementLine({ signal }: { signal: EngagementSignal }) {
-  if (signal.matches === 0) {
-    return <p className="text-[12px] text-stone-400 dark:text-stone-500">Reddit · no related discussion found</p>
-  }
+function EngagementLine({ signal, instagram }: { signal: EngagementSignal; instagram: InstagramSignal }) {
   return (
-    <p className="text-[12px] font-medium text-stone-600 dark:text-stone-300">
-      Reddit · <span className="tabular-nums">{formatEngagement(signal.total)}</span> engagements
-      <span className="font-normal text-stone-400 dark:text-stone-500">
-        {' '}· {signal.matches} related thread{signal.matches === 1 ? '' : 's'}
-      </span>
-    </p>
+    <div className="space-y-0.5 text-[12px]">
+      {instagram.matches === 0 ? (
+        <p className="text-stone-400 dark:text-stone-500">Instagram · no similar post found</p>
+      ) : (
+        <p className="font-medium text-stone-600 dark:text-stone-300">
+          Instagram · <span className="tabular-nums">{formatEngagement(instagram.total)}</span> likes+comments
+          <span className="font-normal text-stone-400 dark:text-stone-500">
+            {' '}· {instagram.matches} similar post{instagram.matches === 1 ? '' : 's'}
+          </span>
+        </p>
+      )}
+      {signal.matches === 0 ? (
+        <p className="text-stone-400 dark:text-stone-500">Reddit · no related discussion found</p>
+      ) : (
+        <p className="font-medium text-stone-600 dark:text-stone-300">
+          Reddit · <span className="tabular-nums">{formatEngagement(signal.total)}</span> engagements
+          <span className="font-normal text-stone-400 dark:text-stone-500">
+            {' '}· {signal.matches} related thread{signal.matches === 1 ? '' : 's'}
+          </span>
+        </p>
+      )}
+    </div>
+  )
+}
+
+/** Instagram receipts (2026-09-10): each similar post from a dental/practice-growth account
+ * as a real link with real likes/comments — "when digging through instagram, also mention
+ * how many likes and comments." Highest first, capped at 6. */
+function InstagramSimilarList({ signal }: { signal: InstagramSignal }) {
+  if (signal.matches === 0) return null
+  const shown = signal.posts.slice(0, 6)
+  return (
+    <div>
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-400">
+        Similar Instagram posts ({signal.matches} · {formatEngagement(signal.total)} likes+comments)
+      </p>
+      <ul className="mt-1 space-y-1">
+        {shown.map((p) => (
+          <li key={p.url} className="flex items-baseline gap-2 text-[13px]">
+            <span className="shrink-0 tabular-nums text-stone-500 dark:text-stone-400">
+              {formatEngagement(p.likes)} likes · {formatEngagement(p.comments)} comments
+            </span>
+            <a href={p.url} target="_blank" rel="noreferrer" className="min-w-0 truncate text-stone-900 hover:underline dark:text-white">
+              <span className="text-stone-400">@{p.account} · </span>
+              {p.caption.replace(/#\w+/g, '').replace(/\s+/g, ' ').trim()}
+            </a>
+          </li>
+        ))}
+      </ul>
+      {signal.matches > shown.length && (
+        <p className="mt-1 text-[11px] text-stone-400">+{signal.matches - shown.length} more counted in the total</p>
+      )}
+      <p className="mt-1.5 text-[11px] text-stone-400">
+        Keyword match on captions from dental practice-growth accounts. Click to verify.
+      </p>
+    </div>
   )
 }
 
@@ -290,7 +337,7 @@ function InstagramDraftCard({
           <span className="ml-auto shrink-0 text-[11px] text-stone-400">{formatDate(draft.createdAt)}</span>
         </div>
 
-        <EngagementLine signal={draft.engagement} />
+        <EngagementLine signal={draft.engagement} instagram={draft.instagram} />
 
         <button type="button" onClick={onToggle} className="text-left">
           <p className="line-clamp-3 font-serif text-[15px] leading-snug text-stone-800 dark:text-stone-100">
@@ -382,7 +429,7 @@ function DraftDetailModal({ draft, isAdmin, onClose }: { draft: QueueDraft; isAd
             </button>
           </div>
 
-          <EngagementLine signal={draft.engagement} />
+          <EngagementLine signal={draft.engagement} instagram={draft.instagram} />
 
           <div className="mt-3">
             <ComplianceBanner claims={draft.claimsRequiringReview} />
@@ -417,6 +464,8 @@ function DraftDetailModal({ draft, isAdmin, onClose }: { draft: QueueDraft; isAd
                 </ul>
               )}
             </div>
+
+            <InstagramSimilarList signal={draft.instagram} />
 
             <RedditDiscussionList signal={draft.engagement} />
 

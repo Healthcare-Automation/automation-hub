@@ -12,7 +12,8 @@
     "research:marketing": "tsx --env-file=.env.local scripts/research-marketing.ts",
     "instagram:generate": "tsx --env-file=.env.local scripts/generate-instagram-content.ts",
     "instagram:backfill": "tsx --env-file=.env.local scripts/backfill-instagram-content.ts",
-    "reddit-engagement:refresh": "tsx --env-file=.env.local scripts/refresh-reddit-engagement.ts"
+    "reddit-engagement:refresh": "tsx --env-file=.env.local scripts/refresh-reddit-engagement.ts",
+    "instagram-engagement:refresh": "tsx --env-file=.env.local scripts/refresh-instagram-engagement.ts"
   },
   "dependencies": {
     "@yeger/html-diff": "^1.0.0",

@@ -1,8 +1,8 @@
 import { cookies } from 'next/headers'
 import { ADMIN_COOKIE_NAME, verifyAdminCookieValue } from '@/lib/adminAuth'
 import { getDemoOrgAndUser } from '@/lib/marketingDemoActor'
-import { getInstagramDrafts, getTopRedditEngagement } from '@/lib/marketingQueries'
-import { computeEngagementSignal } from '@/lib/marketing/engagementSignal'
+import { getInstagramDrafts, getTopRedditEngagement, getTopInstagramEngagement } from '@/lib/marketingQueries'
+import { computeEngagementSignal, computeInstagramSignal } from '@/lib/marketing/engagementSignal'
 import { InstagramQueueBoard } from '@/components/marketing/InstagramQueueBoard'
 
 export const dynamic = 'force-dynamic'
@@ -19,10 +19,15 @@ export default async function MarketingPage() {
   // Engagement cache is org-agnostic and small (~100 rows) — one query for the whole page,
   // then a pure in-memory keyword match per draft. Not an N+1. getTopRedditEngagement never
   // throws (returns [] on any DB error), so a cache problem can't take the queue page down.
-  const [drafts, cached] = await Promise.all([getInstagramDrafts(orgId), getTopRedditEngagement(200)])
+  const [drafts, cached, igCached] = await Promise.all([
+    getInstagramDrafts(orgId),
+    getTopRedditEngagement(200),
+    getTopInstagramEngagement(300),
+  ])
   const draftsWithSignal = drafts.map((d) => ({
     ...d,
     engagement: computeEngagementSignal(`${d.mainIdea} ${d.hookLine}`, cached),
+    instagram: computeInstagramSignal(`${d.mainIdea} ${d.hookLine} ${d.caption}`, igCached),
   }))
 
   return (

@@ -15,6 +15,7 @@ import { pickAccent, type SlideInput } from './marketing/slideTemplates'
 import {
   getRecentInstagramDraftsContext,
   getTopRedditEngagement,
+  getTopInstagramEngagement,
   insertInstagramDraft,
   insertCarouselSlides,
   type CarouselSlideInsert,
@@ -47,14 +48,17 @@ export async function runInstagramGeneration(orgId: string): Promise<InstagramGe
   // Real engagement evidence (Sean's feedback, 2026-09-09) — cached weekly, org-agnostic.
   // getTopRedditEngagement never throws; an empty result (cache not yet populated) is a
   // normal state and generateInstagramPost degrades gracefully to the seed themes alone.
-  const evidenceRows = await getTopRedditEngagement()
+  const [evidenceRows, igRows] = await Promise.all([getTopRedditEngagement(), getTopInstagramEngagement(20)])
   const evidence = evidenceRows.map((r) => ({
     subreddit: r.subreddit,
     postTitle: r.postTitle,
     upvotes: r.upvotes,
     commentsCount: r.commentsCount,
   }))
-  const generated = await generateInstagramPost(recent, evidence)
+  // Instagram evidence is the primary signal now (Andy, 2026-09-10) — posts that actually
+  // blew up with this exact audience. Same never-throws / []-is-fine contract.
+  const igEvidence = igRows.map((r) => ({ account: r.account, caption: r.caption, likes: r.likes, comments: r.comments }))
+  const generated = await generateInstagramPost(recent, evidence, igEvidence)
   if (!generated) {
     return {
       draftId: null,

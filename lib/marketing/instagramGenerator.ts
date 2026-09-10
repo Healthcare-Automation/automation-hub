@@ -48,6 +48,16 @@ export interface EngagementEvidenceItem {
   commentsCount: number
 }
 
+/** Real Instagram posts from dental / practice-growth accounts that actually blew up (Andy,
+ * 2026-09-10). Same "passed in, never fetched here" boundary as EngagementEvidenceItem. See
+ * lib/marketing/instagramEngagement.ts. */
+export interface InstagramEvidenceItem {
+  account: string
+  caption: string
+  likes: number
+  comments: number
+}
+
 export interface TopicPlan {
   topic: string
   searchQuery: string
@@ -66,37 +76,67 @@ const TopicPlanSchema = z.object({
   inspiredByPost: z.string().nullable(),
 })
 
+// Rewritten 2026-09-10. The prior prompt said "favor familiar, relatable human truths ...
+// nothing crazy new" — Andy's verdict on the output: "2-dimensional and obvious ... not
+// meaty enough." The live Instagram sweep the same day shows what actually earns 1.4k-11.7k
+// likes in this niche, and it is the opposite of gentle reminders: a pointed question with a
+// specific number that makes an owner uncomfortable ("Are you taking on all the risk for a
+// 2% margin?", "a job with overhead that collapses the moment you can't show up?", "$6M vs
+// 1.5 a block away"), a leadership truth that reassigns blame to the owner (2.5k likes, 228
+// comments), or a hard fact drop that provokes argument (insurance stats, 11.7k / 335). The
+// pattern is: SPECIFIC + UNCOMFORTABLE + OWNER-DIRECTED. Replicating those angles is
+// explicitly fine — Andy: "if we need to replicate a lot of their content that hit, that's
+// absolutely fine too."
 const PLANNING_SYSTEM_PROMPT =
   'You plan Instagram content for UZU Studio, a marketing/ops partner for local practice-type ' +
-  'businesses (dental, healthcare-adjacent, and similar service practices). You are choosing ONE ' +
-  'specific angle to research and post about today. Favor familiar, relatable human truths over ' +
-  'novel or surprising data points — something the reader already half-believes and will feel seen ' +
-  'by, not something meant to shock or impress. Nothing "crazy new" for its own sake. When real ' +
-  'engagement evidence is provided below, PREFER an angle grounded in one of those already-resonant ' +
-  'threads over inventing a net-new angle from the seed themes alone — real proof people already ' +
-  'care about a topic beats a guess. Set inspiredByPost to that exact post title if you used one, ' +
-  'or null if you did not. Respond with ONLY a JSON object: {"topic": string (short label), ' +
-  '"searchQuery": string (a real, specific web search query that would surface current, citable ' +
-  'data for this angle), "angleSummary": string (1-2 sentences on the specific take/hook for this ' +
-  'post), "inspiredByPost": string | null}. No prose or markdown fences outside the JSON.'
+  'businesses (dental first, then healthcare-adjacent service practices). Choose ONE angle to research ' +
+  'and post about today. The bar is MEATY, not a reminder of what matters. Posts that actually blow up ' +
+  'in this niche do one of three things: (1) ask a pointed, uncomfortable question aimed straight at ' +
+  'the owner, built around a specific number ("Is your practice actually profitable after you pay ' +
+  'yourself, or are you carrying all the risk for a 2% margin?"); (2) state a leadership/ops truth that ' +
+  'puts responsibility back on the owner, not the team ("If your team keeps asking what the right way ' +
+  'is, that is a leadership problem, not a skill problem"); (3) drop a hard, specific fact that people ' +
+  'will argue with in the comments. Generic encouragement, "X is the heartbeat of Y", and "remember ' +
+  'that relationships matter" are FAILURES — do not produce them. ' +
+  'When real Instagram evidence is provided below (actual posts from dental practice-growth accounts ' +
+  'with real like/comment counts), STUDY the highest-engagement ones and replicate the mechanism: the ' +
+  'same kind of question, the same directness, the same specificity — adapted, not copied verbatim. ' +
+  'Replicating a winning angle is explicitly preferred over inventing a safe new one. Reddit evidence, ' +
+  'when present, is secondary color. Set inspiredByPost to the exact caption (first 80 chars) or Reddit ' +
+  'title you drew from, or null. Respond with ONLY a JSON object: {"topic": string (short label), ' +
+  '"searchQuery": string (a real, specific web search query that would surface a current, citable ' +
+  'number for this angle), "angleSummary": string (the exact pointed question or claim this post will ' +
+  'make — write it as the post would say it, not a description of it), "inspiredByPost": string | ' +
+  'null}. No prose or markdown fences outside the JSON.'
 
-function buildPlanningPrompt(recent: RecentDraftContext[], evidence: EngagementEvidenceItem[]): string {
+function buildPlanningPrompt(recent: RecentDraftContext[], evidence: EngagementEvidenceItem[], igEvidence: InstagramEvidenceItem[] = []): string {
   const lines = [
     'Seed themes to draw from (find a fresh angle within one of these, or an adjacent angle you discover):',
     ...INSTAGRAM_SEED_THEMES.map((t, i) => `${i + 1}. ${t}`),
     '',
   ]
+  if (igEvidence.length > 0) {
+    lines.push(
+      'REAL INSTAGRAM EVIDENCE — actual posts from dental / practice-growth accounts with real like and comment counts, highest engagement first. This is what this exact audience already rewards. Study the top ones and replicate the mechanism:',
+    )
+    for (const e of igEvidence.slice(0, 15)) {
+      const cap = e.caption.replace(/\s+/g, ' ').replace(/#\w+/g, '').trim().slice(0, 200)
+      if (cap.length < 20) continue // hashtag-only captions carry no angle
+      lines.push(`- [${e.likes} likes, ${e.comments} comments, @${e.account}] "${cap}"`)
+    }
+    lines.push('')
+  }
   if (evidence.length > 0) {
     lines.push(
-      'Real engagement evidence — actual posts with real upvote/comment counts from relevant communities (r/smallbusiness, r/Dentistry, r/marketing, r/Entrepreneur). This is proof of what people already react to, not a guess:',
+      'Reddit evidence (secondary) — real threads with real upvote/comment counts from r/smallbusiness, r/Dentistry, r/marketing, r/Entrepreneur:',
     )
-    for (const e of evidence.slice(0, 15)) {
+    for (const e of evidence.slice(0, 10)) {
       lines.push(`- [${e.upvotes} upvotes, ${e.commentsCount} comments, r/${e.subreddit}] "${e.postTitle}"`)
     }
     lines.push('')
   }
   if (recent.length > 0) {
-    lines.push('Angles already covered recently (pick something meaningfully different from all of these):')
+    lines.push('Angles already covered recently (pick something meaningfully different from all of these — different TOPIC and, where possible, a different one of the three mechanisms above):')
     for (const r of recent.slice(0, 20)) {
       const feedback = r.reviewTag ? ` [${r.reviewTag}${r.freeText ? `: ${r.freeText}` : ''}]` : ''
       lines.push(`- ${r.mainIdea}${feedback}`)
@@ -118,10 +158,14 @@ function buildPlanningPrompt(recent: RecentDraftContext[], evidence: EngagementE
 
 /** Never throws — returns null on any failure so the caller can skip this run cleanly
  * rather than inserting a low-quality or fabricated draft. */
-export async function planTopic(recent: RecentDraftContext[], evidence: EngagementEvidenceItem[] = []): Promise<TopicPlan | null> {
+export async function planTopic(
+  recent: RecentDraftContext[],
+  evidence: EngagementEvidenceItem[] = [],
+  igEvidence: InstagramEvidenceItem[] = [],
+): Promise<TopicPlan | null> {
   if (!hasLLMProvider()) return null
   try {
-    return await completeJSON({ system: PLANNING_SYSTEM_PROMPT, prompt: buildPlanningPrompt(recent, evidence) }, TopicPlanSchema)
+    return await completeJSON({ system: PLANNING_SYSTEM_PROMPT, prompt: buildPlanningPrompt(recent, evidence, igEvidence) }, TopicPlanSchema)
   } catch (err) {
     console.error('Instagram topic planning failed:', err instanceof Error ? err.message : err)
     return null
@@ -211,19 +255,24 @@ const SYNTHESIS_SYSTEM_PROMPT = [
   'research is thin or has no real citation, write educational/qualitative content instead of a ',
   'stat-driven post, and say so plainly in the notes field (do not present speculation as fact).\n',
 
-  'Tone (Andy, 2026-09-08): write to resonate emotionally, not to impress. Favor content that draws ',
-  'on a genuinely relatable, human truth the reader already half-knows — the goal is recognition ',
-  '("yes, exactly, that\'s so true"), not novelty ("wow, I didn\'t know that"). Prefer familiar, ',
-  'resonant observations about people and relationships (why patients trust who they trust, what ',
-  'actually makes someone feel cared for, why word-of-mouth works) over impressive-sounding or ',
-  'contrarian data points for their own sake — nothing "crazy new" or attention-grabbing just to be ',
-  'surprising.\n',
+  // Tone rewritten 2026-09-10. The earlier version ("warm, a little vulnerable ... recognition
+  // not novelty ... nothing crazy new ... soft CTA ... gentle nudge") produced captions Andy
+  // called "2-dimensional and obvious ... not meaty." Live Instagram data from dental practice-
+  // growth accounts (1.4k-11.7k likes) rewards the opposite: direct, specific, uncomfortable,
+  // owner-directed. The planner now hands over a pointed angle; this prompt must not sand it
+  // back down into encouragement.
+  'Tone: direct and specific, written by an operator who has seen inside a lot of practices — not ',
+  'a brand, not a cheerleader. Lead with the pointed question or claim from the plan, as-is. Use ',
+  'the concrete number early and let it do the work. It is fine — preferred — for the reader to ',
+  'feel a little called out. Do NOT soften with "you might be missing out", "just imagine", ',
+  '"let\'s explore", "feeling stuck?", hearts, sparkles, or reassurance. No "X is the heartbeat of ',
+  'Y". No "remember that relationships matter". One sharp idea, stated plainly, backed by the ',
+  'cited number, then a short, confident close that names what UZU actually does about it.\n',
 
-  'Caption style: hook-first (the reader decides in the first line) and written the way a thoughtful ',
-  'person would actually talk, not the way a brand would talk — warm, plain, a little vulnerable, no ',
-  'jargon. One clear teaching point, the cited stat/quote worked in naturally as supporting evidence ',
-  'for the human point (never the headline itself), and a soft CTA that positions UZU credibly — ',
-  'never a hard sell. Hashtags: 15-30, a mix of broad and niche, no spam/irrelevant tags.\n',
+  'Caption style: hook-first — the first line is the pointed question or claim itself, not a warm-up. ',
+  'Plain sentences, short paragraphs, no jargon, no emoji. The cited stat is the spine of the post, ',
+  'not decoration. Close with one direct line about what UZU does, not a soft invitation. Hashtags: ',
+  '15-30, a mix of broad and niche, no spam/irrelevant tags.\n',
 
   'NEVER write phrases like "studies show", "research shows", "data reveals", or "experts say" unless ',
   'a specific citation from the Research section backs that exact claim — invoking authority you ',
@@ -245,15 +294,16 @@ const SYNTHESIS_SYSTEM_PROMPT = [
   'the research itself is about a dated event, keep the year out of the rendered stat and mention it ',
   'only in the caption body if truly necessary.\n',
 
-  'slidePlan describes a 3-4 slide Instagram carousel that tells ONE coherent story, warm and human ',
-  '(not a sales deck): slide 1 is "hook" (a short, relatable, emotionally resonant line — the thing ',
-  'the reader already half-believes, stated plainly, plus an optional one-line subhead); slide(s) 2 ',
-  '(and optionally 3) are "data" (each folds ONE concrete stat/quote into a plain human SENTENCE, not ',
-  'a giant standalone number — the stat should feel like supporting evidence for a human point, with ',
-  'an optional short supportingLine underneath); the final slide is "cta" (a warm, non-pushy headline ',
-  'plus 1-2 sentences of body positioning UZU credibly). Each slide also needs a short "kicker" label ',
-  '(a soft, lowercase, non-corporate phrase like "something we noticed" or "a gentle nudge" — never ',
-  'ALL CAPS, never a cold category label like "MARKETING DATA").\n',
+  'slidePlan describes a 3-4 slide Instagram carousel that makes ONE sharp argument: slide 1 is ',
+  '"hook" (the pointed question or claim itself, stated flat — the thing that makes an owner stop ',
+  'scrolling; optional one-line subhead that raises the stakes); slide(s) 2 (and optionally 3) are ',
+  '"data" (each folds ONE concrete stat/quote into a direct sentence that proves the hook — the ',
+  'number is the point, with an optional short supportingLine that says what it means for them); ',
+  'the final slide is "cta" (a confident headline plus 1-2 plain sentences on what UZU does about ',
+  'exactly this — not a warm invitation). Each slide also needs a short "kicker" label: lowercase, ',
+  'specific, a little pointed ("the 2% problem", "what the numbers say", "the part nobody says out ',
+  'loud") — never ALL CAPS, never soft filler like "a gentle nudge", never a cold category label ',
+  'like "MARKETING DATA").\n',
 
   'Respond with ONLY a JSON object: {"mainIdea": string (short, used to detect duplicate angles across ',
   'runs), "audience": string, "objective": string, "caption": string (the full IG caption, hook-first), ',
@@ -351,8 +401,9 @@ const UNEARNED_AUTHORITY_PATTERN = /\b(studies|research|data|reports?|surveys?|e
 export async function generateInstagramPost(
   recent: RecentDraftContext[],
   evidence: EngagementEvidenceItem[] = [],
+  igEvidence: InstagramEvidenceItem[] = [],
 ): Promise<GeneratedInstagramPost | null> {
-  const plan = await planTopic(recent, evidence)
+  const plan = await planTopic(recent, evidence, igEvidence)
   if (!plan) return null
 
   const research = await researchWithWebSearch(plan.searchQuery)

@@ -354,4 +354,27 @@ create index if not exists idx_marketing_reddit_engagement_fetched
 create index if not exists idx_marketing_reddit_engagement_upvotes
   on marketing_reddit_engagement(upvotes desc);
 
+-- ─── Instagram engagement evidence (2026-09-10) ──────────────────────────────────────────
+-- Andy: the Reddit-grounded drafts read "2-dimensional and obvious". Fix: study what
+-- actually blew up on dental/practice-growth Instagram accounts and replicate those angles.
+-- Same weekly-cache shape as marketing_reddit_engagement (Apify apify/instagram-post-scraper,
+-- lib/marketing/instagramEngagement.ts). Real likes/comments per post, verified live
+-- 2026-09-10: @dentalnachos 11.7k likes on an insurance-stats post, @drmarkcostes median
+-- 1.4k on "profit from efficiency" — vs. 7-29 likes on accounts that looked authoritative
+-- on paper. The number decides what we study, not the bio.
+create table if not exists marketing_instagram_engagement (
+  id uuid primary key default gen_random_uuid(),
+  account text not null,
+  post_url text not null unique,
+  post_type text,                       -- Image | Video | Sidecar (carousel)
+  caption text not null,
+  likes_count int not null,
+  comments_count int not null,
+  video_view_count int,
+  posted_at timestamptz,
+  fetched_at timestamptz not null default now()
+);
+create index if not exists idx_marketing_instagram_engagement_score
+  on marketing_instagram_engagement((likes_count + comments_count) desc);
+
 

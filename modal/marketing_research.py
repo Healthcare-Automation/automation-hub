@@ -149,6 +149,33 @@ def run_refresh_reddit_engagement() -> str:
     return out[-2000:]
 
 
+@app.function(
+    image=image,
+    secrets=[modal.Secret.from_name("marketing-research")],
+    timeout=8 * 60,
+    schedule=modal.Cron("15 6 * * 1"),  # Mondays 06:15 UTC, right after the Reddit refresh
+)
+def run_refresh_instagram_engagement() -> str:
+    """Weekly refresh of marketing_instagram_engagement (Andy, 2026-09-10): real like/comment
+    counts from a curated list of dental / practice-growth Instagram accounts, via Apify.
+    See lib/marketing/instagramEngagement.ts. ~$0.65/week."""
+    import os
+
+    proc = subprocess.run(
+        ["npx", "tsx", "scripts/refresh-instagram-engagement.ts"],
+        cwd="/app",
+        env=dict(os.environ),
+        capture_output=True,
+        text=True,
+        timeout=7 * 60,
+    )
+    out = (proc.stdout or "") + (proc.stderr or "")
+    print(out[-4000:])
+    if proc.returncode != 0:
+        raise RuntimeError(f"refresh-instagram-engagement exited {proc.returncode}")
+    return out[-2000:]
+
+
 @app.local_entrypoint()
 def main():
     print(run_research.remote())

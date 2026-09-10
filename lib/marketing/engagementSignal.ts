@@ -76,3 +76,32 @@ export function computeEngagementSignal(
   const total = posts.reduce((n, p) => n + p.upvotes + p.commentsCount, 0)
   return { total, matches: posts.length, posts }
 }
+
+// ---------- Instagram (2026-09-10) ----------
+// Same keyword-overlap idea against cached Instagram captions from dental/practice-growth
+// accounts (lib/marketing/instagramEngagement.ts). Captions are longer than Reddit titles,
+// so 2 shared keywords is viable here and cuts the false matches that 1 would produce.
+
+export interface InstagramSignal {
+  total: number
+  matches: number
+  posts: { account: string; caption: string; url: string; likes: number; comments: number }[]
+}
+
+export function computeInstagramSignal(
+  draftText: string,
+  cached: { account: string; caption: string; postUrl: string; likes: number; comments: number }[],
+): InstagramSignal {
+  const draftKw = keywords(draftText)
+  if (draftKw.size === 0) return { total: 0, matches: 0, posts: [] }
+  const posts: InstagramSignal['posts'] = []
+  for (const p of cached) {
+    const capKw = keywords(p.caption.replace(/#\w+/g, ''))
+    let overlap = 0
+    for (const k of capKw) if (draftKw.has(k)) overlap++
+    if (overlap < 2) continue
+    posts.push({ account: p.account, caption: p.caption, url: p.postUrl, likes: p.likes, comments: p.comments })
+  }
+  posts.sort((a, b) => b.likes + b.comments - (a.likes + a.comments))
+  return { total: posts.reduce((n, p) => n + p.likes + p.comments, 0), matches: posts.length, posts }
+}
