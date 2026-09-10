@@ -18,8 +18,10 @@ export interface EngagementSignal {
   total: number
   /** How many cached posts matched — 0 means no signal, render nothing. */
   matches: number
-  /** The single highest-engagement matching post, for the hover title. */
-  top: { title: string; subreddit: string; upvotes: number; commentsCount: number } | null
+  /** Every matching post, highest engagement first, with its real Reddit URL so the number
+   * is verifiable — Andy (2026-09-10): "Are these accurate tho? Maybe source link?" Each
+   * link is the actual thread; anyone can click through and see the count themselves. */
+  posts: { title: string; subreddit: string; url: string; upvotes: number; commentsCount: number }[]
 }
 
 // Words that carry no topical meaning and would create false matches across every draft.
@@ -51,27 +53,26 @@ export function formatEngagement(n: number): string {
 
 export function computeEngagementSignal(
   draftText: string,
-  cached: { postTitle: string; subreddit: string; upvotes: number; commentsCount: number }[],
+  cached: { postTitle: string; postUrl: string; subreddit: string; upvotes: number; commentsCount: number }[],
 ): EngagementSignal {
   const draftKw = keywords(draftText)
-  if (draftKw.size === 0) return { total: 0, matches: 0, top: null }
+  if (draftKw.size === 0) return { total: 0, matches: 0, posts: [] }
 
-  let total = 0
-  let matches = 0
-  let top: EngagementSignal['top'] = null
+  const posts: EngagementSignal['posts'] = []
   for (const post of cached) {
     const postKw = keywords(post.postTitle)
     let overlap = 0
     for (const k of postKw) if (draftKw.has(k)) overlap++
-    // Require at least one meaningful shared keyword. One is enough because the stopword list
-    // already strips the generic filler that would otherwise match everything.
-    if (overlap === 0) continue
-    const engagement = post.upvotes + post.commentsCount
-    total += engagement
-    matches++
-    if (!top || engagement > top.upvotes + top.commentsCount) {
-      top = { title: post.postTitle, subreddit: post.subreddit, upvotes: post.upvotes, commentsCount: post.commentsCount }
-    }
+    // 1 shared meaningful keyword. Tested 2 on 2026-09-10 against real data: 26/27 drafts
+    // dropped to zero and the lone survivor was a false match — our post titles and Reddit
+    // titles are both ~5 words and rarely share two meaningful ones. So this stays loose by
+    // necessity, and the honest framing is "related discussion", not "this exact topic".
+    // Accountability comes from the UI instead: every counted thread is listed with a real
+    // Reddit link so the match can be eyeballed and the count verified by anyone.
+    if (overlap < 1) continue
+    posts.push({ title: post.postTitle, subreddit: post.subreddit, url: post.postUrl, upvotes: post.upvotes, commentsCount: post.commentsCount })
   }
-  return { total, matches, top }
+  posts.sort((a, b) => b.upvotes + b.commentsCount - (a.upvotes + a.commentsCount))
+  const total = posts.reduce((n, p) => n + p.upvotes + p.commentsCount, 0)
+  return { total, matches: posts.length, posts }
 }

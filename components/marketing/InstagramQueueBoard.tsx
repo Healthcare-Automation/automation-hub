@@ -147,21 +147,56 @@ function ImpactBadge({ score, reasoning }: { score: number | null; reasoning: st
 }
 
 /** Andy (2026-09-10): ONE concise line per post — "Reddit · 1.2k engagements" — not a
- * paragraph. Shows how much people are already talking about this topic, from real cached
- * Reddit upvotes+comments (lib/marketing/engagementSignal.ts). Full breakdown on hover. The
- * model's prose reasoning for the score stays available on the score badge's hover only. */
+ * paragraph. Real cached Reddit upvotes+comments on RELATED threads (keyword match, see
+ * lib/marketing/engagementSignal.ts — deliberately loose; a stricter match zeroed out
+ * nearly every draft). Labeled "related" so it isn't read as this exact topic. Every counted
+ * thread is linked in the detail modal (RedditDiscussionList) so the number is verifiable. */
 function EngagementLine({ signal }: { signal: EngagementSignal }) {
   if (signal.matches === 0) {
-    return <p className="text-[12px] text-stone-400 dark:text-stone-500">Reddit · no matching discussion</p>
+    return <p className="text-[12px] text-stone-400 dark:text-stone-500">Reddit · no related discussion found</p>
   }
-  const title = signal.top
-    ? `${signal.matches} matching Reddit post${signal.matches === 1 ? '' : 's'} · top: r/${signal.top.subreddit} "${signal.top.title}" (${signal.top.upvotes} upvotes, ${signal.top.commentsCount} comments)`
-    : undefined
   return (
-    <p title={title} className="text-[12px] font-medium text-stone-600 dark:text-stone-300">
+    <p className="text-[12px] font-medium text-stone-600 dark:text-stone-300">
       Reddit · <span className="tabular-nums">{formatEngagement(signal.total)}</span> engagements
-      <span className="font-normal text-stone-400 dark:text-stone-500"> · {signal.matches} post{signal.matches === 1 ? '' : 's'}</span>
+      <span className="font-normal text-stone-400 dark:text-stone-500">
+        {' '}· {signal.matches} related thread{signal.matches === 1 ? '' : 's'}
+      </span>
     </p>
+  )
+}
+
+/** The receipts for EngagementLine: each counted Reddit thread as a real link with its real
+ * counts, highest first. Andy (2026-09-10): "Are these accurate tho? Maybe source link?" —
+ * the answer is "click and see". Sorted by engagement so the biggest contributors are on
+ * top; capped at 8 to keep the modal scannable (the total still counts all of them). */
+function RedditDiscussionList({ signal }: { signal: EngagementSignal }) {
+  if (signal.matches === 0) return null
+  const shown = signal.posts.slice(0, 8)
+  return (
+    <div>
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-400">
+        Reddit discussion ({signal.matches} related thread{signal.matches === 1 ? '' : 's'} · {formatEngagement(signal.total)} engagements)
+      </p>
+      <ul className="mt-1 space-y-1">
+        {shown.map((p) => (
+          <li key={p.url} className="flex items-baseline gap-2 text-[13px]">
+            <span className="shrink-0 tabular-nums text-stone-500 dark:text-stone-400">
+              {formatEngagement(p.upvotes)} up · {formatEngagement(p.commentsCount)} comments
+            </span>
+            <a href={p.url} target="_blank" rel="noreferrer" className="min-w-0 truncate text-stone-900 hover:underline dark:text-white">
+              <span className="text-stone-400">r/{p.subreddit} · </span>
+              {p.title}
+            </a>
+          </li>
+        ))}
+      </ul>
+      {signal.matches > shown.length && (
+        <p className="mt-1 text-[11px] text-stone-400">+{signal.matches - shown.length} more counted in the total</p>
+      )}
+      <p className="mt-1.5 text-[11px] text-stone-400">
+        Keyword match on thread titles — related discussion, not this exact post. Click any thread to verify.
+      </p>
+    </div>
   )
 }
 
@@ -382,6 +417,8 @@ function DraftDetailModal({ draft, isAdmin, onClose }: { draft: QueueDraft; isAd
                 </ul>
               )}
             </div>
+
+            <RedditDiscussionList signal={draft.engagement} />
 
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-400">Audience / objective</p>
