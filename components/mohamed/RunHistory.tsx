@@ -172,43 +172,7 @@ function StatusPanel({
   // "a roll up of a cycle. Not the most recent run"). Falls back to the
   // latest run only while there is no submission run at all.
   if (cycle) {
-    const tone = TONES[cycle.tone]
-    const title = `${formatPeriod(cycle.periodStart, cycle.periodEnd)} · Billing status`
-    return (
-      <section data-section="status" className="relative mt-6 overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm">
-        <span className={`absolute inset-y-0 left-0 w-1 ${tone.accent}`} aria-hidden />
-        <div className="p-4 pl-5">
-          <div className="flex flex-wrap items-center gap-2">
-            <OutcomeIcon tone={cycle.tone} className={`h-5 w-5 ${tone.icon}`} />
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Billing status · all submissions</span>
-            <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
-              {formatPeriod(cycle.periodStart, cycle.periodEnd)}
-              {cycle.lastFinishedAt && ` · last run ${timeAgo(cycle.lastFinishedAt, nowIso)}`}
-            </span>
-            <span className="ml-auto"><ReportActions runId="cycle" title={title} /></span>
-          </div>
-          <p className={`mt-1.5 text-[15px] font-semibold leading-snug ${tone.headline}`}>{cycle.headline}</p>
-          {cycle.subline && <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">{cycle.subline}</p>}
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Stat value={cycle.submitted} label="submitted" className="bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" />
-            {cycle.paid > 0 && <Stat value={cycle.paid} label="paid" className="bg-emerald-100 text-emerald-900 dark:bg-emerald-500/15 dark:text-emerald-200" />}
-            {cycle.denied > 0 && <Stat value={cycle.denied} label="denied" className="bg-red-100 text-red-900 dark:bg-red-500/15 dark:text-red-200" />}
-            {cycle.awaiting > 0 && <Stat value={cycle.awaiting} label="awaiting HCPF" className="bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300" />}
-            {cycle.flagged > 0 && <Stat value={cycle.flagged} label="need a look" className="bg-amber-100 text-amber-900 dark:bg-amber-500/15 dark:text-amber-200" />}
-            <Stat
-              value={cycle.paidCents !== null ? `${money(cycle.paidCents)} / ${money(cycle.chargedCents)}` : money(cycle.chargedCents)}
-              label={cycle.paidCents !== null ? 'paid / claimed' : 'claimed'}
-              className="bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 ring-1 ring-zinc-200 dark:ring-zinc-700"
-            />
-          </div>
-          {latestOutcome && latest && (
-            <p className="mt-3 border-t border-zinc-100 dark:border-zinc-800 pt-2.5 text-[11px] text-zinc-500">
-              Latest run · {formatPeriod(latest.period_start, latest.period_end)} · {timeAgo(latest.finished_at ?? latest.started_at, nowIso)} · {latestOutcome.headline}
-            </p>
-          )}
-        </div>
-      </section>
-    )
+    return <CycleStatusCard cycle={cycle} latest={latest} latestOutcome={latestOutcome} nowIso={nowIso} />
   }
 
   if (!latest || !latestOutcome) {
@@ -587,4 +551,87 @@ function isRecent(iso: string, nowIso: string): boolean {
   if (Number.isNaN(then) || Number.isNaN(now)) return false
   const delta = now - then
   return delta >= 0 && delta < 15 * 60_000
+}
+
+function CycleStatusCard({
+  cycle,
+  latest,
+  latestOutcome,
+  nowIso,
+}: {
+  cycle: CycleSummary
+  latest: RunLedgerSnapshot | null
+  latestOutcome: RunOutcome | null
+  nowIso: string
+}) {
+  const tone = TONES[cycle.tone]
+  // Date range for the export (Andy, 2026-09-10: "choose date range... every
+  // run that falls under that range"). Both buttons honour it; empty = the
+  // whole cycle.
+  const [from, setFrom] = useState('')
+  const [to, setTo] = useState('')
+  const invalid = Boolean(from && to && from > to)
+  const range = from || to ? { from, to } : undefined
+  const rangeLabel = formatPeriod(from || cycle.periodStart, to || cycle.periodEnd)
+  const title = `${rangeLabel} · Billing status`
+  const dateCls = 'rounded-md bg-zinc-100 px-1.5 py-0.5 text-[11px] text-zinc-800 ring-1 ring-zinc-200 dark:bg-zinc-800/60 dark:text-zinc-200 dark:ring-zinc-700/70 outline-none focus:ring-emerald-500/50'
+  return (
+    <section data-section="status" className="relative mt-6 overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm">
+      <span className={`absolute inset-y-0 left-0 w-1 ${tone.accent}`} aria-hidden />
+      <div className="p-4 pl-5">
+        <div className="flex flex-wrap items-center gap-2">
+          <OutcomeIcon tone={cycle.tone} className={`h-5 w-5 ${tone.icon}`} />
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Billing status · all submissions</span>
+          <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
+            {formatPeriod(cycle.periodStart, cycle.periodEnd)}
+            {cycle.lastFinishedAt && ` · last run ${timeAgo(cycle.lastFinishedAt, nowIso)}`}
+          </span>
+          <span className="ml-auto flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-1 text-[11px] text-zinc-500">
+              <span>From</span>
+              <input type="date" value={from} max={to || undefined} onChange={e => setFrom(e.target.value)} className={dateCls} aria-label="Report from date" />
+            </label>
+            <label className="flex items-center gap-1 text-[11px] text-zinc-500">
+              <span>To</span>
+              <input type="date" value={to} min={from || undefined} onChange={e => setTo(e.target.value)} className={dateCls} aria-label="Report to date" />
+            </label>
+            {range && (
+              <button type="button" onClick={() => { setFrom(''); setTo('') }} className="text-[11px] text-zinc-500 underline-offset-2 hover:underline">
+                Whole cycle
+              </button>
+            )}
+            {invalid ? (
+              <span className="text-[11px] text-red-700 dark:text-red-400">From is after To.</span>
+            ) : (
+              <ReportActions runId="cycle" title={title} range={range} />
+            )}
+          </span>
+        </div>
+        {range && !invalid && (
+          <p className="mt-1 text-[11px] text-zinc-500">
+            Export covers every submission run whose billing period overlaps {rangeLabel}.
+          </p>
+        )}
+        <p className={`mt-1.5 text-[15px] font-semibold leading-snug ${tone.headline}`}>{cycle.headline}</p>
+        {cycle.subline && <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">{cycle.subline}</p>}
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Stat value={cycle.submitted} label="submitted" className="bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" />
+          {cycle.paid > 0 && <Stat value={cycle.paid} label="paid" className="bg-emerald-100 text-emerald-900 dark:bg-emerald-500/15 dark:text-emerald-200" />}
+          {cycle.denied > 0 && <Stat value={cycle.denied} label="denied" className="bg-red-100 text-red-900 dark:bg-red-500/15 dark:text-red-200" />}
+          {cycle.awaiting > 0 && <Stat value={cycle.awaiting} label="awaiting HCPF" className="bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300" />}
+          {cycle.flagged > 0 && <Stat value={cycle.flagged} label="need a look" className="bg-amber-100 text-amber-900 dark:bg-amber-500/15 dark:text-amber-200" />}
+          <Stat
+            value={cycle.paidCents !== null ? `${money(cycle.paidCents)} / ${money(cycle.chargedCents)}` : money(cycle.chargedCents)}
+            label={cycle.paidCents !== null ? 'paid / claimed' : 'claimed'}
+            className="bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 ring-1 ring-zinc-200 dark:ring-zinc-700"
+          />
+        </div>
+        {latestOutcome && latest && (
+          <p className="mt-3 border-t border-zinc-100 dark:border-zinc-800 pt-2.5 text-[11px] text-zinc-500">
+            Latest run · {formatPeriod(latest.period_start, latest.period_end)} · {timeAgo(latest.finished_at ?? latest.started_at, nowIso)} · {latestOutcome.headline}
+          </p>
+        )}
+      </div>
+    </section>
+  )
 }

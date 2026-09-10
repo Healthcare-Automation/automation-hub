@@ -17,7 +17,19 @@ type Status = 'idle' | 'sending' | 'done' | 'error'
  * recipient picker is the same chip input as SendReportButton (the
  * Kimedics/DJC impact-report email on the admin dashboard).
  */
-export function ReportActions({ runId, title }: { runId: string; title: string }) {
+export function ReportActions({
+  runId,
+  title,
+  range,
+}: {
+  runId: string
+  title: string
+  /** Cycle only: limit the roll-up to runs whose billing period overlaps
+   *  this range (Andy, 2026-09-10: "choose date range... every run that
+   *  falls under that range will be emailed as a report. This should apply
+   *  the same for the download button"). YYYY-MM-DD, either side optional. */
+  range?: { from: string; to: string }
+}) {
   const [downloading, setDownloading] = useState(false)
   const [downloadError, setDownloadError] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
@@ -86,8 +98,13 @@ export function ReportActions({ runId, title }: { runId: string; title: string }
     setDownloadError(null)
     try {
       const { token, uploadUrl } = await getReviewToken()
-      const res = await fetch(`${uploadUrl}/report/${runId}.pdf`, { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' })
+      const qs = new URLSearchParams()
+      if (range?.from) qs.set('from', range.from)
+      if (range?.to) qs.set('to', range.to)
+      const q = qs.toString()
+      const res = await fetch(`${uploadUrl}/report/${runId}.pdf${q ? `?${q}` : ''}`, { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' })
       if (res.status === 401 || res.status === 403) invalidateReviewToken()
+      if (res.status === 404) throw new Error('no_runs_in_range')
       if (!res.ok) throw new Error('report_unavailable')
       const blob = await res.blob()
       const disposition = res.headers.get('Content-Disposition') ?? ''
@@ -100,8 +117,8 @@ export function ReportActions({ runId, title }: { runId: string; title: string }
       a.click()
       a.remove()
       setTimeout(() => URL.revokeObjectURL(url), 10_000)
-    } catch {
-      setDownloadError('Could not build the PDF. Try again.')
+    } catch (e) {
+      setDownloadError(e instanceof Error && e.message === 'no_runs_in_range' ? 'No submission runs in that date range.' : 'Could not build the PDF. Try again.')
     } finally {
       setDownloading(false)
     }
@@ -130,14 +147,16 @@ export function ReportActions({ runId, title }: { runId: string; title: string }
       const res = await fetch(`${uploadUrl}/report/${runId}/send`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recipients: all }),
+        body: JSON.stringify({ recipients: all, ...(range?.from ? { from: range.from } : {}), ...(range?.to ? { to: range.to } : {}) }),
       })
       if (res.status === 401 || res.status === 403) invalidateReviewToken()
       const j = await res.json().catch(() => ({}))
       if (!res.ok || !j.ok) {
         setStatus('error')
         setMsg(
-          j.error === 'email_not_configured'
+          j.error === 'run_not_found'
+            ? 'No submission runs in that date range.'
+            : j.error === 'email_not_configured'
             ? 'Email is not set up on the server yet (GMAIL_APP_PASSWORD).'
             : j.error === 'smtp_failed'
               ? 'The mail server rejected the message. Try again in a minute.'
@@ -186,7 +205,7 @@ export function ReportActions({ runId, title }: { runId: string; title: string }
             <div className="relative p-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="text-[15px] font-semibold text-zinc-900 dark:text-white">Email this run&apos;s report</h3>
+                  <h3 className="text-[15px] font-semibold text-zinc-900 dark:text-white">{runId === 'cycle' ? 'Email billing status' : 'Email this run\u2019s report'}</h3>
                   <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">{title} · PDF attached</p>
                 </div>
                 <button type="button" onClick={close} disabled={sending} className="rounded-md p-1 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 dark:hover:bg-zinc-800 disabled:opacity-40" aria-label="Close">
