@@ -9,7 +9,7 @@
  * best-effort per slide: any single slide's render failure is caught and logged, never
  * allowed to fail the run or block the other slides — the draft is already saved with a
  * real id by that point, so a partial carousel is far better than losing the draft. */
-import { generateInstagramPost, type SlidePlanEntry, type GeneratedInstagramPost } from './marketing/instagramGenerator'
+import { generateInstagramPost, type SlidePlanEntry } from './marketing/instagramGenerator'
 import { renderSlideToPng } from './marketing/slideRenderer'
 import { pickAccent, type SlideInput } from './marketing/slideTemplates'
 import {
@@ -24,28 +24,6 @@ export interface InstagramGenerationResult {
   draftId: string | null
   skippedReason: string | null
   slidesRendered: number
-}
-
-/** Builds the notes field's engagement-provenance prefix — real numbers when we have a
- * resolved evidence match (Andy, 2026-09-09: wants the actual engagement data and the
- * reasoning behind the score, not just a title reference), falling back to the bare title
- * if the model cited a post that didn't resolve against what we actually gave it (should be
- * rare — evidence.find() in generateInstagramPost only fails on a title mismatch), and to
- * nothing at all when the angle wasn't evidence-grounded. Separated from the model's own
- * notes by "\n\n" (not a sentence join) so the UI can reliably split system-generated
- * provenance back out from Andy's freeform editable notes — see
- * components/marketing/InstagramQueueBoard.tsx's splitEngagementProvenance. */
-function buildProvenanceNotes(generated: GeneratedInstagramPost): string {
-  const modelNotes = generated.fields.notes
-  let prefix: string | null = null
-  if (generated.inspiredByEvidence) {
-    const e = generated.inspiredByEvidence
-    prefix = `Grounded in real engagement: r/${e.subreddit} post "${e.postTitle}" — ${e.upvotes} upvotes, ${e.commentsCount} comments.`
-  } else if (generated.inspiredByPost) {
-    prefix = `Grounded in real engagement evidence: "${generated.inspiredByPost}"`
-  }
-  if (!prefix) return modelNotes
-  return modelNotes ? `${prefix}\n\n${modelNotes}` : prefix
 }
 
 function toSlideInput(entry: SlidePlanEntry): SlideInput {
@@ -99,13 +77,11 @@ export async function runInstagramGeneration(orgId: string): Promise<InstagramGe
     impactScore: generated.fields.impactScore,
     impactScoreReasoning: generated.fields.impactScoreReasoning,
     imagePrompt: generated.fields.imagePrompt,
-    // Fold the real-engagement provenance into notes rather than a new DB column — mirrors
-    // how coreStat was folded into hook_options; keeps this a code-only change. Prepended so
-    // it's the first thing visible in the review queue's notes field, not buried after any
-    // model-written notes. Includes the actual upvote/comment counts (not just the post
-    // title) when we have a resolved match — Andy (2026-09-09): wants to see the real
-    // engagement numbers and the logic behind the score, not decoration.
-    notes: buildProvenanceNotes(generated),
+    // Notes stay the model's own notes only. (An earlier 2026-09-09 pass prepended a prose
+    // "Grounded in real engagement: ..." sentence here; Andy rejected the paragraph format
+    // the next day. Engagement is now a concise computed metric in the UI instead — see
+    // lib/marketing/engagementSignal.ts — so nothing is written into notes for it.)
+    notes: generated.fields.notes,
     claimsRequiringReview: generated.fields.claimsRequiringReview,
     fingerprint: generated.fingerprint,
   })

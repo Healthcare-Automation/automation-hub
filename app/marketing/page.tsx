@@ -1,7 +1,8 @@
 import { cookies } from 'next/headers'
 import { ADMIN_COOKIE_NAME, verifyAdminCookieValue } from '@/lib/adminAuth'
 import { getDemoOrgAndUser } from '@/lib/marketingDemoActor'
-import { getInstagramDrafts } from '@/lib/marketingQueries'
+import { getInstagramDrafts, getTopRedditEngagement } from '@/lib/marketingQueries'
+import { computeEngagementSignal } from '@/lib/marketing/engagementSignal'
 import { InstagramQueueBoard } from '@/components/marketing/InstagramQueueBoard'
 
 export const dynamic = 'force-dynamic'
@@ -15,7 +16,14 @@ export default async function MarketingPage() {
   const { orgId } = await getDemoOrgAndUser()
   const cookieStore = await cookies()
   const isAdmin = await verifyAdminCookieValue(cookieStore.get(ADMIN_COOKIE_NAME)?.value)
-  const drafts = await getInstagramDrafts(orgId)
+  // Engagement cache is org-agnostic and small (~100 rows) — one query for the whole page,
+  // then a pure in-memory keyword match per draft. Not an N+1. getTopRedditEngagement never
+  // throws (returns [] on any DB error), so a cache problem can't take the queue page down.
+  const [drafts, cached] = await Promise.all([getInstagramDrafts(orgId), getTopRedditEngagement(200)])
+  const draftsWithSignal = drafts.map((d) => ({
+    ...d,
+    engagement: computeEngagementSignal(`${d.mainIdea} ${d.hookLine}`, cached),
+  }))
 
   return (
     <div className="space-y-6">
@@ -31,7 +39,7 @@ export default async function MarketingPage() {
           No Instagram drafts yet. Run <code className="rounded bg-stone-200 px-1 py-0.5 text-xs dark:bg-stone-800">npm run instagram:generate</code> or wait for the Mon/Wed/Fri cron.
         </p>
       ) : (
-        <InstagramQueueBoard drafts={drafts} isAdmin={isAdmin} />
+        <InstagramQueueBoard drafts={draftsWithSignal} isAdmin={isAdmin} />
       )}
     </div>
   )

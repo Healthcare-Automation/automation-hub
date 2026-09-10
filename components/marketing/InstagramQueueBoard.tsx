@@ -4,10 +4,14 @@ import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { InstagramDraftRow } from '@/lib/marketingQueries'
 import { INSTAGRAM_SENTIMENT_TAGS, type InstagramSentimentTag } from '@/lib/marketing/types'
+import { formatEngagement, type EngagementSignal } from '@/lib/marketing/engagementSignal'
 import { ComplianceBanner } from './ComplianceBanner'
 import { DemoBadge } from './DemoBadge'
 import { CarouselPreview } from './CarouselPreview'
 import { cn } from '@/lib/utils'
+
+/** InstagramDraftRow plus the server-computed engagement signal (app/marketing/page.tsx). */
+export type QueueDraft = InstagramDraftRow & { engagement: EngagementSignal }
 
 type SortKey = 'impact' | 'created'
 type UsedFilter = 'all' | 'used' | 'unused'
@@ -50,7 +54,7 @@ const SELECT_CLS =
  * admin-table look. Runs on a 3-posts/week -> ~20-post backlog scale (client-side
  * sort/filter, same convention as before), each card expands inline for the full caption,
  * hashtags, citations, and notes (no page jump, per Andy's standing UX preference). */
-export function InstagramQueueBoard({ drafts, isAdmin }: { drafts: InstagramDraftRow[]; isAdmin: boolean }) {
+export function InstagramQueueBoard({ drafts, isAdmin }: { drafts: QueueDraft[]; isAdmin: boolean }) {
   const [sortKey, setSortKey] = useState<SortKey>('impact')
   const [sentimentFilter, setSentimentFilter] = useState<InstagramSentimentTag | 'all'>('all')
   const [usedFilter, setUsedFilter] = useState<UsedFilter>('all')
@@ -142,35 +146,21 @@ function ImpactBadge({ score, reasoning }: { score: number | null; reasoning: st
   )
 }
 
-/** Andy (2026-09-09): wants to see WHY the score is high — the reasoning and the real
- * engagement numbers behind it, not decoration. Full impactScoreReasoning text, no
- * truncation, no emoji. */
-function ImpactReasoningLine({ reasoning }: { reasoning: string | null }) {
-  if (!reasoning) return null
-  return <p className="text-[12px] leading-snug text-stone-500 dark:text-stone-400">{reasoning}</p>
-}
-
-// lib/marketingInstagramPipeline.ts's buildProvenanceNotes prefixes real r/subreddit
-// upvote/comment counts (when the angle was grounded in actual evidence, not invented) onto
-// the front of the notes field at generation time, separated by "\n\n" from any model-
-// written notes. Split it back out here so it renders as its own fixed, read-only line —
-// never mixed into the freeform Notes textarea, which is Andy's own editable
-// approve/disapprove reasoning and shouldn't silently carry system-generated provenance
-// text he might overwrite or delete without realizing what it was.
-function splitEngagementProvenance(notes: string | null): { provenance: string | null; rest: string } {
-  if (!notes) return { provenance: null, rest: '' }
-  if (!notes.startsWith('Grounded in real engagement')) return { provenance: null, rest: notes }
-  const idx = notes.indexOf('\n\n')
-  if (idx === -1) return { provenance: notes, rest: '' }
-  return { provenance: notes.slice(0, idx), rest: notes.slice(idx + 2) }
-}
-
-function EngagementProvenanceLine({ notes }: { notes: string | null }) {
-  const { provenance } = splitEngagementProvenance(notes)
-  if (!provenance) return null
+/** Andy (2026-09-10): ONE concise line per post — "Reddit · 1.2k engagements" — not a
+ * paragraph. Shows how much people are already talking about this topic, from real cached
+ * Reddit upvotes+comments (lib/marketing/engagementSignal.ts). Full breakdown on hover. The
+ * model's prose reasoning for the score stays available on the score badge's hover only. */
+function EngagementLine({ signal }: { signal: EngagementSignal }) {
+  if (signal.matches === 0) {
+    return <p className="text-[12px] text-stone-400 dark:text-stone-500">Reddit · no matching discussion</p>
+  }
+  const title = signal.top
+    ? `${signal.matches} matching Reddit post${signal.matches === 1 ? '' : 's'} · top: r/${signal.top.subreddit} "${signal.top.title}" (${signal.top.upvotes} upvotes, ${signal.top.commentsCount} comments)`
+    : undefined
   return (
-    <p className="rounded-lg bg-emerald-50 px-2.5 py-1.5 text-[12px] leading-snug text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300">
-      {provenance}
+    <p title={title} className="text-[12px] font-medium text-stone-600 dark:text-stone-300">
+      Reddit · <span className="tabular-nums">{formatEngagement(signal.total)}</span> engagements
+      <span className="font-normal text-stone-400 dark:text-stone-500"> · {signal.matches} post{signal.matches === 1 ? '' : 's'}</span>
     </p>
   )
 }
@@ -181,7 +171,7 @@ function InstagramDraftCard({
   expanded,
   onToggle,
 }: {
-  draft: InstagramDraftRow
+  draft: QueueDraft
   isAdmin: boolean
   expanded: boolean
   onToggle: () => void
@@ -265,8 +255,7 @@ function InstagramDraftCard({
           <span className="ml-auto shrink-0 text-[11px] text-stone-400">{formatDate(draft.createdAt)}</span>
         </div>
 
-        <ImpactReasoningLine reasoning={draft.impactScoreReasoning} />
-        <EngagementProvenanceLine notes={draft.notes} />
+        <EngagementLine signal={draft.engagement} />
 
         <button type="button" onClick={onToggle} className="text-left">
           <p className="line-clamp-3 font-serif text-[15px] leading-snug text-stone-800 dark:text-stone-100">
@@ -305,24 +294,19 @@ function InstagramDraftCard({
   )
 }
 
-function DraftDetailModal({ draft, isAdmin, onClose }: { draft: InstagramDraftRow; isAdmin: boolean; onClose: () => void }) {
+function DraftDetailModal({ draft, isAdmin, onClose }: { draft: QueueDraft; isAdmin: boolean; onClose: () => void }) {
   const router = useRouter()
-  const { provenance, rest } = splitEngagementProvenance(draft.notes)
-  const [notes, setNotes] = useState(rest)
+  const [notes, setNotes] = useState(draft.notes ?? '')
   const [isPending, startTransition] = useTransition()
   const [savedNotes, setSavedNotes] = useState(false)
 
   function saveNotes() {
     setSavedNotes(false)
-    // Re-prepend the system-generated provenance line on save so editing/saving the
-    // freeform notes below it never silently drops the real engagement data it recorded —
-    // the textarea only ever shows/edits `rest`, per splitEngagementProvenance above.
-    const combined = provenance ? (notes ? `${provenance}\n\n${notes}` : provenance) : notes
     startTransition(async () => {
       const res = await fetch('/api/marketing/instagram/notes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ draftId: draft.id, notes: combined }),
+        body: JSON.stringify({ draftId: draft.id, notes }),
       })
       if (res.ok) {
         setSavedNotes(true)
@@ -363,8 +347,7 @@ function DraftDetailModal({ draft, isAdmin, onClose }: { draft: InstagramDraftRo
             </button>
           </div>
 
-          <ImpactReasoningLine reasoning={draft.impactScoreReasoning} />
-          <EngagementProvenanceLine notes={draft.notes} />
+          <EngagementLine signal={draft.engagement} />
 
           <div className="mt-3">
             <ComplianceBanner claims={draft.claimsRequiringReview} />
