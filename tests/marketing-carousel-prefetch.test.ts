@@ -29,7 +29,7 @@ const src = readFileSync(new URL('../components/marketing/CarouselPreview.tsx', 
 test('only the neighboring slides are prefetched via new Image(), not the whole carousel', () => {
   assert.match(
     src,
-    /useEffect\(\(\) => \{[\s\S]*?const neighbors = \[[\s\S]*?for \(const i of neighbors\) \{[\s\S]*?new Image\(\)[\s\S]*?\}, \[draftId, hasCarousel, total, index\]\)/,
+    /useEffect\(\(\) => \{[\s\S]*?const neighbors = \[[\s\S]*?for \(const i of neighbors\) \{[\s\S]*?new Image\(\)[\s\S]*?\}, \[draftId, hasCarousel, total, index, interacted\]\)/,
   )
   assert.match(src, /img\.src = `\/api\/marketing\/instagram-image\/\$\{draftId\}\?slide=\$\{i\}`/)
 })
@@ -41,7 +41,21 @@ test('the prefetch effect re-runs on index change (bounded, just-in-time — not
 })
 
 test('the prefetch effect never loops over every slide (that was the pool-exhaustion regression)', () => {
-  const effectBody = src.match(/const neighbors[\s\S]*?\}, \[draftId, hasCarousel, total, index\]\)/)
+  const effectBody = src.match(/const neighbors[\s\S]*?\}, \[draftId, hasCarousel, total, index, interacted\]\)/)
   assert.ok(effectBody, 'expected to find the prefetch effect body')
   assert.doesNotMatch(effectBody![0], /for \(let i = 0; i < total; i\+\+\)/)
+})
+
+// 2026-09-10 (third pass): even neighbor-prefetch on mount was 3 x 27 = 81 requests per page
+// load against a 15-connection pool. Nothing prefetches until the user hovers/touches the
+// card, and the visible slide itself is loading="lazy" so off-screen cards fetch nothing.
+test('nothing is prefetched until the user interacts with the card', () => {
+  assert.match(src, /if \(!interacted \|\| !hasCarousel \|\| total <= 1\) return/)
+  assert.match(src, /onMouseEnter=\{\(\) => setInteracted\(true\)\}/)
+  assert.match(src, /onTouchStart=\{\(\) => setInteracted\(true\)\}/)
+})
+
+test('the visible slide is lazy-loaded and hidden until it has actually loaded (no broken glyph mid-retry)', () => {
+  assert.match(src, /loading="lazy"/)
+  assert.match(src, /loaded \? 'opacity-100' : 'opacity-0'/)
 })
