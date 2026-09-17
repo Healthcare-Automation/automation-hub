@@ -56,24 +56,45 @@ function scoreColor(score: number | null) {
   return 'text-zinc-500'
 }
 
-/** Single glance at what's actually ready to send, per channel, on the main table --
- * replaces two separate ambiguous "Email"/"LinkedIn" status-string columns that didn't
- * say whether a draft existed at all. */
+/** Single glance at what's actually ready to send, per channel, on the main table.
+ * Color answers one question: whose turn is it?
+ *   amber   = Andy's turn (draft waiting for review)
+ *   emerald = Andy's turn, review done (approved, go send it)
+ *   zinc + clock = their turn (note sent, waiting on the other person)
+ *   cyan    = done (sent / connected)
+ * Labels are kept short and the pill is nowrap so every row reads as one line per channel
+ * instead of a wrapped blob that looks identical to its neighbour.
+ */
+const CHANNEL_STATE = {
+  review:  { text: 'review',   dot: '●', tone: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 ring-amber-500/30' },
+  send:    { text: 'approved', dot: '●', tone: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 ring-emerald-500/30' },
+  waiting: { text: 'waiting',  dot: '◷', tone: 'bg-zinc-500/10 text-zinc-500 dark:text-zinc-400 ring-zinc-400/30' },
+  done:    { text: 'sent',     dot: '✓', tone: 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 ring-cyan-500/30' },
+} as const
+
 function ReadyBadge({ label, hasDraft, status }: { label: string; hasDraft: boolean; status: string | null }) {
+  const short = label === 'LinkedIn' ? 'LI' : label
   if (!hasDraft) {
-    return <span className="inline-flex items-center gap-1 text-[10.5px] text-zinc-400 dark:text-zinc-600">{label}: no draft</span>
+    return (
+      <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-[10.5px] text-zinc-400 dark:text-zinc-600">
+        <span className="w-4 text-right font-medium">{short}</span>
+        <span>—</span>
+      </span>
+    )
   }
-  const sent = status === 'sent' || status === 'connected'
-  const noteSent = status === 'connection_sent'
-  const approved = status === 'approved'
+  const state =
+    status === 'sent' || status === 'connected' ? CHANNEL_STATE.done
+    : status === 'connection_sent' ? CHANNEL_STATE.waiting
+    : status === 'approved' ? CHANNEL_STATE.send
+    : CHANNEL_STATE.review
+  const text = state === CHANNEL_STATE.done && status === 'connected' ? 'connected' : state.text
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-medium ring-1 ${
-      sent ? 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 ring-cyan-500/30'
-      : noteSent ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 ring-amber-500/30'
-      : approved ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 ring-emerald-500/30'
-      : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 ring-amber-500/30'
-    }`}>
-      {label}: {sent ? 'sent' : noteSent ? 'note sent, awaiting accept' : approved ? 'approved' : 'draft ready'}
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-[10.5px]">
+      <span className="w-4 text-right font-medium text-zinc-500">{short}</span>
+      <span className={`inline-flex items-center gap-1 rounded-full px-1.5 py-px font-medium ring-1 ${state.tone}`}
+            title={status === 'connection_sent' ? 'Connection note sent — waiting for them to accept' : undefined}>
+        <span className="text-[9px] leading-none">{state.dot}</span>{text}
+      </span>
     </span>
   )
 }
