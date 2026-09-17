@@ -60,41 +60,30 @@ function scoreColor(score: number | null) {
  * Color answers one question: whose turn is it?
  *   amber   = Andy's turn (draft waiting for review)
  *   emerald = Andy's turn, review done (approved, go send it)
- *   zinc + clock = their turn (note sent, waiting on the other person)
+ *   zinc    = their turn (note sent, waiting on the other person)
  *   cyan    = done (sent / connected)
- * Labels are kept short and the pill is nowrap so every row reads as one line per channel
- * instead of a wrapped blob that looks identical to its neighbour.
+ * Plain words, no glyphs, one line per channel, label column wide enough for "LinkedIn".
  */
 const CHANNEL_STATE = {
-  review:  { text: 'review',   dot: '●', tone: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 ring-amber-500/30' },
-  send:    { text: 'approved', dot: '●', tone: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 ring-emerald-500/30' },
-  waiting: { text: 'waiting',  dot: '◷', tone: 'bg-zinc-500/10 text-zinc-500 dark:text-zinc-400 ring-zinc-400/30' },
-  done:    { text: 'sent',     dot: '✓', tone: 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 ring-cyan-500/30' },
+  review:  { text: 'Review draft', tone: 'bg-amber-100 text-amber-800 ring-amber-300 dark:bg-amber-500/15 dark:text-amber-300 dark:ring-amber-500/30' },
+  send:    { text: 'Approved',     tone: 'bg-emerald-100 text-emerald-800 ring-emerald-300 dark:bg-emerald-500/15 dark:text-emerald-300 dark:ring-emerald-500/30' },
+  waiting: { text: 'Awaiting accept', tone: 'bg-zinc-100 text-zinc-600 ring-zinc-300 dark:bg-zinc-500/10 dark:text-zinc-400 dark:ring-zinc-500/30' },
+  done:    { text: 'Sent',         tone: 'bg-cyan-100 text-cyan-800 ring-cyan-300 dark:bg-cyan-500/15 dark:text-cyan-300 dark:ring-cyan-500/30' },
 } as const
 
 function ReadyBadge({ label, hasDraft, status }: { label: string; hasDraft: boolean; status: string | null }) {
-  const short = label === 'LinkedIn' ? 'LI' : label
-  if (!hasDraft) {
-    return (
-      <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-[10.5px] text-zinc-400 dark:text-zinc-600">
-        <span className="w-4 text-right font-medium">{short}</span>
-        <span>—</span>
-      </span>
-    )
-  }
-  const state =
-    status === 'sent' || status === 'connected' ? CHANNEL_STATE.done
+  const state = !hasDraft ? null
+    : status === 'sent' || status === 'connected' ? CHANNEL_STATE.done
     : status === 'connection_sent' ? CHANNEL_STATE.waiting
     : status === 'approved' ? CHANNEL_STATE.send
     : CHANNEL_STATE.review
-  const text = state === CHANNEL_STATE.done && status === 'connected' ? 'connected' : state.text
+  const text = !state ? 'No draft' : status === 'connected' ? 'Connected' : state.text
   return (
-    <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-[10.5px]">
-      <span className="w-4 text-right font-medium text-zinc-500">{short}</span>
-      <span className={`inline-flex items-center gap-1 rounded-full px-1.5 py-px font-medium ring-1 ${state.tone}`}
-            title={status === 'connection_sent' ? 'Connection note sent — waiting for them to accept' : undefined}>
-        <span className="text-[9px] leading-none">{state.dot}</span>{text}
-      </span>
+    <span className="inline-flex items-center gap-2 whitespace-nowrap text-[11.5px]">
+      <span className={`w-[52px] shrink-0 ${state ? 'text-zinc-600 dark:text-zinc-400' : 'text-zinc-400 dark:text-zinc-600'}`}>{label}</span>
+      {state
+        ? <span className={`rounded-md px-2 py-0.5 font-medium ring-1 ${state.tone}`}>{text}</span>
+        : <span className="text-zinc-400 dark:text-zinc-600">{text}</span>}
     </span>
   )
 }
