@@ -1,4 +1,5 @@
 import djcSql from './djcDb'
+import { normalizeDjcProfileViewsSnapshot } from './djcViewBudget'
 import type {
   DjcDayStatus,
   DjcDayStatusKind,
@@ -499,9 +500,7 @@ export async function getDjcProfileViews(): Promise<DjcProfileViews | null> {
     limit 1
   `
   if (!rows.length || !rows[0].payload) return null
-  const p = rows[0].payload
-  // An add-on pack pushes `used` past the base allowance (DJC shows 760/750 rather than raising
-  // the total), so "0 left" is wrong whenever a pack is carrying the account.
+  const p = normalizeDjcProfileViewsSnapshot(rows[0].payload, rows[0].created_at)
   return {
     used: p.used, total: p.total, remaining: p.remaining,
     addonActive: p.addon_active ?? p.used > p.total,
