@@ -45,11 +45,17 @@ export default function MetricStrip({ periods }: { periods: { sevenDay: Metric[]
       </div>
       <div className="grid grid-cols-4 divide-x divide-zinc-200 overflow-hidden rounded-lg bg-white ring-1 ring-zinc-200 shadow-sm dark:divide-zinc-700/40 dark:bg-zinc-800/40 dark:ring-zinc-700/40 dark:shadow-none">
         {items.map(m => (
-          <div key={m.label} className="px-2 py-2.5 text-center">
-            <div className={cn('text-[17px] font-semibold leading-none tabular-nums', m.accent ? ACCENT[m.accent] : 'text-zinc-900 dark:text-zinc-100')}>
+          <div key={m.label} className="min-w-0 px-1.5 py-2.5 text-center sm:px-2">
+            <div
+              className={cn(
+                'truncate text-[15px] font-semibold leading-none tabular-nums sm:text-[17px]',
+                m.accent ? ACCENT[m.accent] : 'text-zinc-900 dark:text-zinc-100',
+              )}
+              title={m.value}
+            >
               {m.value}
             </div>
-            <div className="mt-1 text-[10px] uppercase tracking-wide text-zinc-500">{m.label}</div>
+            <div className="mt-1 truncate text-[9px] uppercase tracking-wide text-zinc-500 sm:text-[10px]">{m.label}</div>
           </div>
         ))}
       </div>
