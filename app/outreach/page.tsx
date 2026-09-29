@@ -43,7 +43,7 @@ export default async function OutreachPage() {
   return (
     <main className="min-h-screen" style={{ background: 'var(--background)' }}>
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-8">
-        <header className="mb-6 flex items-start justify-between gap-4">
+        <header className="mb-6 flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-white">
               UZU Outbound Engine — Pipeline

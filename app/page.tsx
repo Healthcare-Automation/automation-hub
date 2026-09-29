@@ -203,7 +203,7 @@ export default async function Page() {
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-12 space-y-10">
 
         {/* Top nav */}
-        <header className="flex items-center justify-between gap-4">
+        <header className="flex flex-wrap items-center justify-between gap-3">
           <ProxiLogo />
           <HubNav active="proxi" />
         </header>

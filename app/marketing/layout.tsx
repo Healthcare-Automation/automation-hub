@@ -17,7 +17,7 @@ export default async function MarketingLayout({ children }: { children: React.Re
   return (
     <main className="min-h-screen bg-[#F8F4EC] dark:bg-stone-950">
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-8">
-        <header className="mb-6 flex items-start justify-between gap-4">
+        <header className="mb-6 flex flex-wrap items-start justify-between gap-3">
           <div>
             <Link href="/" className="text-xs text-stone-500 transition-colors hover:text-stone-800 dark:hover:text-stone-300">
               ← Automation Hub
