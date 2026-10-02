@@ -128,6 +128,10 @@ export default function OutreachView({
     return ['all', ...Array.from(set).sort()]
   }, [companies])
 
+  const reviewQueue = useMemo(() => companies.filter(c =>
+    c.email_draft_count > 0 && (c.email_status_current === 'qa_pending' || c.email_status_current === 'draft')
+  ), [companies])
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     return companies.filter(c => {
@@ -151,24 +155,33 @@ export default function OutreachView({
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="rounded-xl bg-white ring-zinc-200 shadow-sm dark:bg-zinc-900/40 dark:ring-zinc-800/60 p-4 ring-1">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-cyan-700 dark:text-cyan-300">Email</p>
-          <p className="mt-1 text-[12px] leading-relaxed text-zinc-600 dark:text-zinc-400">
-            Hermes finds the company, researches it, and drafts a plain-text email addressed to a real
-            contact. Every draft needs your approval on the Drafts tab of a prospect. Once approved, click
-            <span className="font-medium text-zinc-800 dark:text-zinc-200"> Open in mail app</span> to send it
-            yourself, recipient and subject pre-filled — nothing sends automatically.
-          </p>
-        </div>
-        <div className="rounded-xl bg-white ring-zinc-200 shadow-sm dark:bg-zinc-900/40 dark:ring-zinc-800/60 p-4 ring-1">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-cyan-700 dark:text-cyan-300">LinkedIn</p>
-          <p className="mt-1 text-[12px] leading-relaxed text-zinc-600 dark:text-zinc-400">
-            Hermes matches the decision-maker's LinkedIn profile to the company and drafts a connection
-            note. You approve the profile match on the LinkedIn tab, send the request yourself from your own
-            LinkedIn (there's no auto-send — that's what gets accounts flagged), then mark it reached out.
-          </p>
-        </div>
+      {/* The one thing Andy needs from this page: which emails are waiting on him. Pinned first,
+          driven by the same "most actionable draft" status as the badge, so it can't drift. */}
+      <div className="rounded-xl bg-amber-50 p-4 ring-1 ring-amber-300 dark:bg-amber-500/10 dark:ring-amber-500/30">
+        <p className="text-[13px] font-semibold text-amber-900 dark:text-amber-200">
+          {reviewQueue.length === 0 ? 'No emails waiting for your review'
+            : `${reviewQueue.length} email${reviewQueue.length === 1 ? '' : 's'} waiting for your review`}
+        </p>
+        <p className="mt-0.5 text-[11.5px] text-amber-800/80 dark:text-amber-300/70">
+          Open one, then Approve, Edit, or Reject. Approved emails go out automatically from andy@meetuzu.studio,
+          max 5 a day, Tue to Thu mornings in their time zone. Everything else on this page is history.
+        </p>
+        {reviewQueue.length > 0 && (
+          <ul className="mt-3 divide-y divide-amber-200 overflow-hidden rounded-lg bg-white ring-1 ring-amber-200 dark:divide-amber-500/20 dark:bg-zinc-900/60 dark:ring-amber-500/20">
+            {reviewQueue.map(c => (
+              <li key={c.id}>
+                <button onClick={() => setOpenId(c.id)}
+                  className="flex w-full items-center justify-between gap-3 px-3.5 py-2.5 text-left hover:bg-amber-50 dark:hover:bg-amber-500/10">
+                  <span className="min-w-0">
+                    <span className="block truncate text-[13px] font-medium text-zinc-900 dark:text-zinc-100">{c.contact_name ?? c.name} · {c.name}</span>
+                    <span className="block truncate text-[12px] text-zinc-500">Subject: {c.email_subject_current}</span>
+                  </span>
+                  <span className="shrink-0 rounded-md bg-amber-500 px-2.5 py-1 text-[11.5px] font-medium text-white">Review</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       {summary && (

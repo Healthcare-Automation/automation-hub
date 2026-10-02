@@ -41,7 +41,8 @@ export interface OutreachCompanyRow {
   contact_title: string | null
   contact_email: string | null
   contact_email_status: string | null
-  email_status_current: string | null   // status of most recent email row, if any
+  email_status_current: string | null   // status of the most actionable email row, if any
+  email_subject_current: string | null  // subject of that same row
   email_draft_count: number             // total email drafts on file (0 = no email draft yet)
   linkedin_status: string | null        // status of most recent linkedin_action row, if any
   linkedin_draft_count: number          // total LinkedIn actions on file (0 = no LinkedIn draft yet)
@@ -110,7 +111,7 @@ export async function getOutreachCompanies(): Promise<OutreachCompanyRow[]> {
       c.referral_note, c.referral_strength,
       pc.full_name as contact_name, pc.title as contact_title,
       pc.email as contact_email, pc.email_status as contact_email_status,
-      le.status as email_status_current, le.n as email_draft_count,
+      le.status as email_status_current, le.subject as email_subject_current, le.n as email_draft_count,
       la.status as linkedin_status, la.n as linkedin_draft_count,
       lr.classification as reply_classification,
       seq.status as sequence_status,
@@ -135,7 +136,7 @@ export async function getOutreachCompanies(): Promise<OutreachCompanyRow[]> {
       -- comes from its most actionable email, not its newest: a rejected (qa_failed) draft
       -- written after a pending one must not hide it, and must never itself read as pending.
       -- n counts only live drafts, so a company whose drafts were all rejected shows "Rejected".
-      select status, (count(*) filter (where status <> 'qa_failed') over ())::int as n
+      select status, subject, (count(*) filter (where status <> 'qa_failed') over ())::int as n
       from outreach_emails where company_id = c.id
       order by case status
         when 'qa_pending' then 0 when 'draft' then 0 when 'approved' then 1
@@ -215,7 +216,7 @@ export async function getCompanyDetail(id: number): Promise<CompanyDetail | null
       c.referral_note, c.referral_strength,
       pc.full_name as contact_name, pc.title as contact_title,
       pc.email as contact_email, pc.email_status as contact_email_status,
-      null as email_status_current, 0 as email_draft_count,
+      null as email_status_current, null as email_subject_current, 0 as email_draft_count,
       null as linkedin_status, 0 as linkedin_draft_count, null as reply_classification
     from outreach_companies c
     left join lateral (
