@@ -70,7 +70,7 @@ export async function getOutreachSummary() {
       (select count(*)::int from outreach_companies) as total,
       (select count(*)::int from outreach_companies where do_not_contact = 0
         and pipeline_stage not in ('contacted','suppressed','not_fit','closed_won','closed_lost')) as contactable,
-      (select count(*)::int from outreach_companies where pipeline_stage = 'ready_for_review') as needs_review,
+      (select count(distinct company_id)::int from outreach_emails where status in ('qa_pending','draft')) as needs_review,
       (select count(*)::int from outreach_companies where pipeline_stage in
         ('contacted','following_up','replied','qualified_conversation','meeting','opportunity')) as contacted,
       -- already marked Contacted in Andy's old sheet, never touched by this platform

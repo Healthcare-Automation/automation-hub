@@ -188,7 +188,7 @@ export default function OutreachView({
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-8">
           <Tile label="found by Hermes" value={summary.total} tone="text-zinc-800 dark:text-zinc-200" />
           <Tile label="safe to contact" value={summary.contactable} tone="text-cyan-700 dark:text-cyan-300" />
-          <Tile label="drafts ready for you" value={summary.needs_review} tone="text-amber-700 dark:text-amber-300" />
+          <Tile label="emails to review" value={summary.needs_review} tone="text-amber-700 dark:text-amber-300" />
           <Tile label="contacted before (old sheet)" value={summary.contacted_historical} tone="text-zinc-500" />
           <Tile label="LinkedIn note sent, awaiting accept" value={summary.linkedin_connection_sent} tone="text-amber-700 dark:text-amber-300" />
           <Tile label="reached out via platform" value={summary.contacted_platform} tone="text-cyan-700 dark:text-cyan-300" />
