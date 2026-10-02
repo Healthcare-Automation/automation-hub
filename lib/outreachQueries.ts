@@ -131,8 +131,17 @@ export async function getOutreachCompanies(): Promise<OutreachCompanyRow[]> {
       order by id desc limit 1
     ) pc on true
     left join lateral (
-      select status, count(*) over ()::int as n from outreach_emails where company_id = c.id
-      order by created_at desc limit 1
+      -- The badge must answer "is there something for me to do here?", so a company's state
+      -- comes from its most actionable email, not its newest: a rejected (qa_failed) draft
+      -- written after a pending one must not hide it, and must never itself read as pending.
+      -- n counts only live drafts, so a company whose drafts were all rejected shows "Rejected".
+      select status, (count(*) filter (where status <> 'qa_failed') over ())::int as n
+      from outreach_emails where company_id = c.id
+      order by case status
+        when 'qa_pending' then 0 when 'draft' then 0 when 'approved' then 1
+        when 'replied' then 2 when 'sent' then 3 when 'bounced' then 4 else 5 end,
+        created_at desc
+      limit 1
     ) le on true
     left join lateral (
       select status, count(*) over ()::int as n from outreach_linkedin_actions where company_id = c.id
@@ -242,7 +251,9 @@ export async function getCompanyDetail(id: number): Promise<CompanyDetail | null
       where company_id = e.company_id and is_primary_decision_maker = 1
       order by id desc limit 1
     ) pc on true
-    where e.company_id = ${id} order by coalesce(ss.step_number, 0) asc, e.created_at desc
+    where e.company_id = ${id}
+    -- rejected drafts sink to the bottom so the one awaiting review is always first
+    order by (e.status = 'qa_failed') asc, coalesce(ss.step_number, 0) asc, e.created_at desc
   `
   const linkedinActions = await sql<CompanyDetail['linkedinActions']>`
     select la.id, la.recommended_action, la.connection_note, la.dm_draft, la.urgency,

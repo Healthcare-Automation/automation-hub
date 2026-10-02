@@ -204,7 +204,7 @@ function LinkedinCard({
 
 const EMAIL_STATUS_LABEL: Record<string, string> = {
   draft: 'Draft', qa_pending: 'Awaiting your review', approved: 'Approved — ready to send',
-  qa_failed: 'Needs rewrite', sent: 'Sent',
+  qa_failed: 'Rejected', sent: 'Sent', replied: 'Replied', bounced: 'Bounced',
 }
 
 function EmailCard({
@@ -256,7 +256,7 @@ function EmailCard({
             <tbody>
               <tr className="border-b border-zinc-100 dark:border-zinc-800">
                 <td className="w-16 px-3 py-1.5 align-top text-zinc-400 dark:text-zinc-600">From</td>
-                <td className="px-3 py-1.5 text-zinc-800 dark:text-zinc-200">Andy Lee &lt;andy@uzu.studio&gt;</td>
+                <td className="px-3 py-1.5 text-zinc-800 dark:text-zinc-200">Andy Lee &lt;andy@meetuzu.studio&gt;</td>
               </tr>
               <tr className="border-b border-zinc-100 dark:border-zinc-800">
                 <td className="px-3 py-1.5 align-top text-zinc-400 dark:text-zinc-600">To</td>

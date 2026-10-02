@@ -69,10 +69,13 @@ const CHANNEL_STATE = {
   send:    { text: 'Approved',     tone: 'bg-emerald-100 text-emerald-800 ring-emerald-300 dark:bg-emerald-500/15 dark:text-emerald-300 dark:ring-emerald-500/30' },
   waiting: { text: 'Awaiting accept', tone: 'bg-zinc-100 text-zinc-600 ring-zinc-300 dark:bg-zinc-500/10 dark:text-zinc-400 dark:ring-zinc-500/30' },
   done:    { text: 'Sent',         tone: 'bg-cyan-100 text-cyan-800 ring-cyan-300 dark:bg-cyan-500/15 dark:text-cyan-300 dark:ring-cyan-500/30' },
+  // nothing to do: every draft was rejected. Grey so it never reads as Andy's turn.
+  rejected: { text: 'Rejected',    tone: 'bg-zinc-100 text-zinc-500 ring-zinc-200 dark:bg-zinc-500/10 dark:text-zinc-500 dark:ring-zinc-600/30' },
 } as const
 
 function ReadyBadge({ label, hasDraft, status }: { label: string; hasDraft: boolean; status: string | null }) {
-  const state = !hasDraft ? null
+  const state = !hasDraft && status !== 'qa_failed' && status !== 'rejected' ? null
+    : status === 'qa_failed' || status === 'rejected' ? CHANNEL_STATE.rejected
     : status === 'sent' || status === 'connected' ? CHANNEL_STATE.done
     : status === 'connection_sent' ? CHANNEL_STATE.waiting
     : status === 'approved' ? CHANNEL_STATE.send
